@@ -5,6 +5,10 @@
 This is a web service to print labels on Brother QL label printers.
 """
 
+import cups
+
+import textwrap
+
 import sys, logging, random, json, argparse
 from io import BytesIO
 
@@ -16,11 +20,16 @@ from brother_ql.devicedependent import ENDLESS_LABEL, DIE_CUT_LABEL, ROUND_DIE_C
 from brother_ql import BrotherQLRaster, create_label
 from brother_ql.backends import backend_factory, guess_backend
 
+#uncomment the printer-specific implementation you wish to use
+#from implementation_brother import implementation
+from implementation_cups import implementation
+
 from font_helpers import get_fonts
 
 logger = logging.getLogger(__name__)
+instance = implementation()
 
-LABEL_SIZES = [ (name, label_type_specs[name]['name']) for name in label_sizes]
+LABEL_SIZES = instance.get_label_sizes()
 
 try:
     with open('config.json', encoding='utf-8') as fh:
@@ -57,11 +66,11 @@ def get_label_context(request):
     font_style  = d.get('font_family').rpartition('(')[2].rstrip(')')
     context = {
       'text':          d.get('text', None),
-      'font_size': int(d.get('font_size', 100)),
+      'font_size': int(d.get('font_size', 40)),
       'font_family':   font_family,
       'font_style':    font_style,
-      'label_size':    d.get('label_size', "62"),
-      'kind':          label_type_specs[d.get('label_size', "62")]['kind'],
+      'label_size':    d.get('label_size', implementation.get_default_label_size()),
+      'kind':          instance.get_label_kind(d.get('label_size', implementation.get_default_label_size())),
       'margin':    int(d.get('margin', 10)),
       'threshold': int(d.get('threshold', 70)),
       'align':         d.get('align', 'center'),
@@ -72,7 +81,7 @@ def get_label_context(request):
       'margin_right':  float(d.get('margin_right',  35))/100.,
       'grocycode': d.get('grocycode', None),
       'product': d.get('product', None),
-      'duedate': d.get('duedate', None)
+      'duedate': d.get('due_date', d.get('duedate', None))
     }
     context['margin_top']    = int(context['font_size']*context['margin_top'])
     context['margin_bottom'] = int(context['font_size']*context['margin_bottom'])
@@ -93,14 +102,8 @@ def get_label_context(request):
 
     context['font_path'] = get_font_path(context['font_family'], context['font_style'])
 
-    def get_label_dimensions(label_size):
-        try:
-            ls = label_type_specs[context['label_size']]
-        except KeyError:
-            raise LookupError("Unknown label_size")
-        return ls['dots_printable']
-
-    width, height = get_label_dimensions(context['label_size'])
+    width, height = instance.get_label_dimensions(context['label_size'])
+    #print(width, ' ', height)
     if height > width: width, height = height, width
     if context['orientation'] == 'rotated': height, width = width, height
     context['width'], context['height'] = width, height
@@ -108,7 +111,6 @@ def get_label_context(request):
     return context
 
 def create_label_im(text, **kwargs):
-    label_type = kwargs['kind']
     im_font = ImageFont.truetype(kwargs['font_path'], kwargs['font_size'])
     im = Image.new('L', (20, 20), 'white')
     draw = ImageDraw.Draw(im)
@@ -121,38 +123,39 @@ def create_label_im(text, **kwargs):
     text = '\n'.join(lines)
     linesize = im_font.getsize(text)
     textsize = draw.multiline_textsize(text, font=im_font)
-    width, height = kwargs['width'], kwargs['height']
-    if kwargs['orientation'] == 'standard':
-        if label_type in (ENDLESS_LABEL,):
-            height = textsize[1] + kwargs['margin_top'] + kwargs['margin_bottom']
-    elif kwargs['orientation'] == 'rotated':
-        if label_type in (ENDLESS_LABEL,):
-            width = textsize[0] + kwargs['margin_left'] + kwargs['margin_right']
+    width, height = instance.get_label_width_height(textsize, **kwargs)
+    adjusted_text_size = adjust_font_to_fit(draw, kwargs['font_path'], kwargs['font_size'], text, (width, height))
+    if adjusted_text_size != textsize:
+        im_font = ImageFont.truetype(kwargs['font_path'], adjusted_text_size)
     im = Image.new('RGB', (width, height), 'white')
     draw = ImageDraw.Draw(im)
-    if kwargs['orientation'] == 'standard':
-        if label_type in (DIE_CUT_LABEL, ROUND_DIE_CUT_LABEL):
-            vertical_offset  = (height - textsize[1])//2
-            vertical_offset += (kwargs['margin_top'] - kwargs['margin_bottom'])//2
-        else:
-            vertical_offset = kwargs['margin_top']
-        horizontal_offset = max((width - textsize[0])//2, 0)
-    elif kwargs['orientation'] == 'rotated':
-        vertical_offset  = (height - textsize[1])//2
-        vertical_offset += (kwargs['margin_top'] - kwargs['margin_bottom'])//2
-        if label_type in (DIE_CUT_LABEL, ROUND_DIE_CUT_LABEL):
-            horizontal_offset = max((width - textsize[0])//2, 0)
-        else:
-            horizontal_offset = kwargs['margin_left']
-    offset = horizontal_offset, vertical_offset
+    offset = instance.get_label_offset(width, height, textsize, **kwargs)
     draw.multiline_text(offset, text, kwargs['fill_color'], font=im_font, align=kwargs['align'])
     return im
-
+    
+def adjust_font_to_fit(draw, font, desired_font_size, text, label_size, horizontal_offset=0, vertical_offset=0):
+    fits = font_fits(draw, font, desired_font_size, text, label_size, horizontal_offset, vertical_offset)
+    if not fits and desired_font_size > 2:
+        return adjust_font_to_fit(draw, font, desired_font_size - 1, text, label_size)
+    return desired_font_size
+    
+def font_fits(draw, font, font_size, text, label_size, horizontal_offset=0, vertical_offset=0):
+    im_font = ImageFont.truetype(font, font_size)
+    textsize = draw.multiline_textsize(text, font=im_font)
+    fits = (textsize[0] + horizontal_offset) < label_size[0] and (textsize[1] + vertical_offset) < label_size[1]
+    return fits
+    
 def create_label_grocy(text, **kwargs):
     product = kwargs['product']
     duedate = kwargs['duedate']
     grocycode = kwargs['grocycode']
-
+    margin_left = 15 #kwargs['margin_left']
+    margin_top = 22 #kwargs['margin_top']
+    margin_right = margin_left #kwargs['margin_right']
+    margin_bottom = margin_top #kwargs['margin_bottom']
+    
+    wrapper = textwrap.TextWrapper(width=25)
+    product = "\n".join(wrapper.wrap(text = product))
 
     # prepare grocycode datamatrix
     from pylibdmtx.pylibdmtx import encode
@@ -160,10 +163,11 @@ def create_label_grocy(text, **kwargs):
     datamatrix = Image.frombytes('RGB', (encoded.width, encoded.height), encoded.pixels)
     datamatrix.save('/tmp/dmtx.png')
 
-    product_font = ImageFont.truetype(kwargs['font_path'], 100)
-    duedate_font = ImageFont.truetype(kwargs['font_path'], 60)
-    width = kwargs['width']
-    height = 200
+    product_font = ImageFont.truetype(kwargs['font_path'], kwargs['font_size'])
+    duedate_font = ImageFont.truetype(kwargs['font_path'], int(kwargs['font_size'] * 0.6))
+    
+    width, height = instance.get_label_width_height(product_font, **kwargs)
+
     if kwargs['orientation'] == 'rotated':
         tw = width
         width = height
@@ -172,11 +176,11 @@ def create_label_grocy(text, **kwargs):
     im = Image.new('RGB', (width, height), 'white')
     draw = ImageDraw.Draw(im)
     if kwargs['orientation'] == 'standard':
-        vertical_offset = kwargs['margin_top']
-        horizontal_offset = kwargs['margin_left']
+        vertical_offset = margin_top
+        horizontal_offset = margin_left
     elif kwargs['orientation'] == 'rotated':
-        vertical_offset = kwargs['margin_top']
-        horizontal_offset = kwargs['margin_left']
+        vertical_offset = margin_top
+        horizontal_offset = margin_left
         datamatrix.transpose(Image.ROTATE_270)
 
     im.paste(datamatrix, (horizontal_offset, vertical_offset, horizontal_offset + encoded.width, vertical_offset + encoded.height))
@@ -189,17 +193,24 @@ def create_label_grocy(text, **kwargs):
         horizontal_offset += -10
 
     textoffset = horizontal_offset, vertical_offset
-
+    adjusted_product_font_size = adjust_font_to_fit(draw, kwargs['font_path'], kwargs['font_size'], product, (width, height), horizontal_offset, vertical_offset)
+    if kwargs['font_size'] != adjusted_product_font_size:
+        product_font = ImageFont.truetype(kwargs['font_path'], kwargs['font_size'])
+    
     draw.text(textoffset, product, kwargs['fill_color'], font=product_font)
 
     if duedate is not None:
+        additional_offset = draw.multiline_textsize(duedate, font=product_font)[1] + 10
+
         if kwargs['orientation'] == 'standard':
-            vertical_offset += 110
-            horizontal_offset = kwargs['margin_left']
+            vertical_offset += additional_offset
+            #horizontal_offset = margin_left
         elif kwargs['orientation'] == 'rotated':
-            vertical_offset = kwargs['margin_left']
-            horizontal_offset += 110
+            #vertical_offset = margin_left
+            horizontal_offset += additional_offset
         textoffset = horizontal_offset, vertical_offset
+        
+        adjusted_duedate_font_size = adjust_font_to_fit(draw, kwargs['font_path'], kwargs['font_size'], duedate, (width, height), horizontal_offset, vertical_offset)
 
         draw.text(textoffset, duedate, kwargs['fill_color'], font=duedate_font)
 
@@ -219,6 +230,22 @@ def get_preview_image():
         response.set_header('Content-type', 'image/png')
         return image_to_png_bytes(im)
 
+
+@get('/api/preview/grocy')
+@post('/api/preview/grocy')
+def get_preview_grocy_image():
+    context = get_label_context(request)
+    im = create_label_grocy(**context)
+    return_format = request.query.get('return_format', 'png')
+    if return_format == 'base64':
+        import base64
+        response.set_header('Content-type', 'text/plain')
+        return base64.b64encode(image_to_png_bytes(im))
+    else:
+        response.set_header('Content-type', 'image/png')
+        return image_to_png_bytes(im)
+
+
 def image_to_png_bytes(im):
     image_buffer = BytesIO()
     im.save(image_buffer, format="PNG")
@@ -233,7 +260,6 @@ def print_grocy():
 
     returns; JSON
     """
-
     return_dict = {'success' : False }
 
     try:
@@ -247,33 +273,10 @@ def print_grocy():
         return return_dict
 
     im = create_label_grocy(**context)
-    if DEBUG: im.save('sample-out.png')
-
-    if context['kind'] == ENDLESS_LABEL:
-        rotate = 0 if context['orientation'] == 'standard' else 90
-    elif context['kind'] in (ROUND_DIE_CUT_LABEL, DIE_CUT_LABEL):
-        rotate = 'auto'
-
-    qlr = BrotherQLRaster(CONFIG['PRINTER']['MODEL'])
-    red = False
-    if 'red' in context['label_size']:
-        red = True
-    create_label(qlr, im, context['label_size'], red=red, threshold=context['threshold'], cut=True, rotate=rotate)
-
-    if not DEBUG:
-        try:
-            be = BACKEND_CLASS(CONFIG['PRINTER']['PRINTER'])
-            be.write(qlr.data)
-            be.dispose()
-            del be
-        except Exception as e:
-            return_dict['message'] = str(e)
-            logger.warning('Exception happened: %s', e)
-            return return_dict
-
-    return_dict['success'] = True
-    if DEBUG: return_dict['data'] = str(qlr.data)
-    return return_dict
+    if DEBUG:
+        im.save('sample-out.png')
+        
+    return instance.print_label(im, **context)
 
 @post('/api/print/text')
 @get('/api/print/text')
@@ -302,31 +305,7 @@ def print_text():
     im = create_label_im(**context)
     if DEBUG: im.save('sample-out.png')
 
-    if context['kind'] == ENDLESS_LABEL:
-        rotate = 0 if context['orientation'] == 'standard' else 90
-    elif context['kind'] in (ROUND_DIE_CUT_LABEL, DIE_CUT_LABEL):
-        rotate = 'auto'
-
-    qlr = BrotherQLRaster(CONFIG['PRINTER']['MODEL'])
-    red = False
-    if 'red' in context['label_size']:
-        red = True
-    create_label(qlr, im, context['label_size'], red=red, threshold=context['threshold'], cut=True, rotate=rotate)
-
-    if not DEBUG:
-        try:
-            be = BACKEND_CLASS(CONFIG['PRINTER']['PRINTER'])
-            be.write(qlr.data)
-            be.dispose()
-            del be
-        except Exception as e:
-            return_dict['message'] = str(e)
-            logger.warning('Exception happened: %s', e)
-            return return_dict
-
-    return_dict['success'] = True
-    if DEBUG: return_dict['data'] = str(qlr.data)
-    return return_dict
+    return instance.print_label(im, **context)
 
 def main():
     global DEBUG, FONTS, BACKEND_CLASS, CONFIG
@@ -358,6 +337,8 @@ def main():
     else:
         DEBUG = False
 
+    instance.DEBUG = DEBUG
+
     if args.model:
         CONFIG['PRINTER']['MODEL'] = args.model
 
@@ -374,12 +355,12 @@ def main():
 
 
     logging.basicConfig(level=LOGLEVEL)
+    instance.logger = logger
+    instance.CONFIG = CONFIG
 
-    try:
-        selected_backend = guess_backend(CONFIG['PRINTER']['PRINTER'])
-    except ValueError:
-        parser.error("Couln't guess the backend to use from the printer string descriptor")
-    BACKEND_CLASS = backend_factory(selected_backend)['backend_class']
+    initialization_errors = instance.initialize()
+    if len(initialization_errors) > 0:
+        parser.error(initialization_errors)
 
     if CONFIG['LABEL']['DEFAULT_SIZE'] not in label_sizes:
         parser.error("Invalid --default-label-size. Please choose on of the following:\n:" + " ".join(label_sizes))
