@@ -200,7 +200,7 @@ def create_label_grocy(text, **kwargs):
     draw.text(textoffset, product, kwargs['fill_color'], font=product_font)
 
     if duedate is not None:
-        additional_offset = draw.multiline_textsize(duedate, font=product_font)[1] + 10
+        additional_offset = draw.multiline_textsize(product, font=product_font)[1] + 10
 
         if kwargs['orientation'] == 'standard':
             vertical_offset += additional_offset
