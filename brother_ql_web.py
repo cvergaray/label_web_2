@@ -92,7 +92,7 @@ def get_label_context(request):
 
     def get_font_path(font_family_name, font_style_name):
         try:
-            if font_family_name is None or font_style_name is None:
+            if font_family_name is None or font_style_name is None or not font_family_name in FONTS or not font_style_name in FONTS[font_family_name]:
                 font_family_name = CONFIG['LABEL']['DEFAULT_FONTS']['family']
                 font_style_name =  CONFIG['LABEL']['DEFAULT_FONTS']['style']
             font_path = FONTS[font_family_name][font_style_name]
@@ -265,7 +265,7 @@ def print_grocy():
     try:
         context = get_label_context(request)
     except LookupError as e:
-        return_dict['error'] = e.msg
+        return_dict['error'] = e.message
         return return_dict
 
     if context['product'] is None:
@@ -295,7 +295,7 @@ def print_text():
     try:
         context = get_label_context(request)
     except LookupError as e:
-        return_dict['error'] = e.msg
+        return_dict['error'] = e.message
         return return_dict
 
     if context['text'] is None:
