@@ -124,7 +124,7 @@ def create_label_im(text, **kwargs):
     linesize = im_font.getsize(text)
     textsize = draw.multiline_textsize(text, font=im_font)
     width, height = instance.get_label_width_height(textsize, **kwargs)
-    adjusted_text_size = adjust_font_to_fit(draw, kwargs['font_path'], kwargs['font_size'], text, (width, height))
+    adjusted_text_size = adjust_font_to_fit(draw, kwargs['font_path'], kwargs['font_size'], text, (width, height), kwargs['margin_left'] + kwargs['margin_right'], kwargs['margin_top'] + kwargs['margin_bottom'])
     if adjusted_text_size != textsize:
         im_font = ImageFont.truetype(kwargs['font_path'], adjusted_text_size)
     im = Image.new('RGB', (width, height), 'white')
@@ -136,10 +136,10 @@ def create_label_im(text, **kwargs):
 def adjust_font_to_fit(draw, font, desired_font_size, text, label_size, horizontal_offset=0, vertical_offset=0):
     fits = font_fits(draw, font, desired_font_size, text, label_size, horizontal_offset, vertical_offset)
     if not fits and desired_font_size > 2:
-        return adjust_font_to_fit(draw, font, desired_font_size - 1, text, label_size)
+        return adjust_font_to_fit(draw, font, desired_font_size - 1, text, label_size, horizontal_offset, vertical_offset)
     return desired_font_size
     
-def font_fits(draw, font, font_size, text, label_size, horizontal_offset=0, vertical_offset=0):
+def font_fits(draw, font, font_size, text, label_size, horizontal_offset, vertical_offset):
     im_font = ImageFont.truetype(font, font_size)
     textsize = draw.multiline_textsize(text, font=im_font)
     fits = (textsize[0] + horizontal_offset) < label_size[0] and (textsize[1] + vertical_offset) < label_size[1]
@@ -175,6 +175,8 @@ def create_label_grocy(text, **kwargs):
 
     im = Image.new('RGB', (width, height), 'white')
     draw = ImageDraw.Draw(im)
+    horizontal_offset = 0
+    vertical_offset = 0
     if kwargs['orientation'] == 'standard':
         vertical_offset = margin_top
         horizontal_offset = margin_left
@@ -193,9 +195,9 @@ def create_label_grocy(text, **kwargs):
         horizontal_offset += -10
 
     textoffset = horizontal_offset, vertical_offset
-    adjusted_product_font_size = adjust_font_to_fit(draw, kwargs['font_path'], kwargs['font_size'], product, (width, height), horizontal_offset, vertical_offset)
+    adjusted_product_font_size = adjust_font_to_fit(draw, kwargs['font_path'], kwargs['font_size'], product, (width, height), horizontal_offset + margin_right, vertical_offset + margin_bottom)
     if kwargs['font_size'] != adjusted_product_font_size:
-        product_font = ImageFont.truetype(kwargs['font_path'], kwargs['font_size'])
+        product_font = ImageFont.truetype(kwargs['font_path'], adjusted_product_font_size)
     
     draw.text(textoffset, product, kwargs['fill_color'], font=product_font)
 
@@ -210,7 +212,7 @@ def create_label_grocy(text, **kwargs):
             horizontal_offset += additional_offset
         textoffset = horizontal_offset, vertical_offset
         
-        adjusted_duedate_font_size = adjust_font_to_fit(draw, kwargs['font_path'], kwargs['font_size'], duedate, (width, height), horizontal_offset, vertical_offset)
+        adjusted_duedate_font_size = adjust_font_to_fit(draw, kwargs['font_path'], kwargs['font_size'], duedate, (width, height), horizontal_offset + margin_right, vertical_offset + margin_bottom)
 
         draw.text(textoffset, duedate, kwargs['fill_color'], font=duedate_font)
 
