@@ -1,6 +1,6 @@
-## brother\_ql\_web
+## label\_web
 
-This is a web service to print labels on Brother QL label printers.
+This is a web service to print labels on either Brother QL label printers or any printer available via CUPS.
 
 You need Python 3 for this software to work.
 
@@ -11,15 +11,11 @@ There's also a screenshot showing [how it looks on a smartphone](./static/images
 
 ### Installation
 
-**ProTip™**: If you know how to use Docker, you might want to use my ready-to-use Docker image to deploy this software.
-It can be found [on the Docker hub](https://hub.docker.com/r/pklaus/brother_ql_web/).  
-Otherwise, follow the instructions below.
-
 Get the code:
 
-    git clone https://github.com/pklaus/brother_ql_web.git
+    git clone https://github.com/cvergaray/label_web.git
 
-or download [the ZIP file](https://github.com/pklaus/brother_ql_web/archive/master.zip) and unpack it.
+or download [the ZIP file](https://github.com/cvergaray/label_web/archive/master.zip) and unpack it.
 
 Install the requirements:
 
@@ -29,6 +25,23 @@ In addition, `fontconfig` should be installed on your system. It's used to ident
 inspect fonts on your machine. This package is pre-installed on many Linux distributions.
 If you're using a Mac, I recommend to use [Homebrew](https://brew.sh) to install
 fontconfig using [`brew install fontconfig`](http://brewformulas.org/Fontconfig).
+
+### Implementation Selection
+
+Uncomment the printer-specific implementation you wish to use in brother_ql_web.py
+By default a CUPS based implementation is selected, to use a Brother printer, comment out the line:
+
+`#from implementation_cups import implementation`
+and uncomment
+`from implementation_brother import implementation`
+
+### CUPS Configuration
+
+If using CUPS, then there are some printer-specific settings to include in implementation_cups:
+
+- `label_sizes`, a dictionary of items with a key and the human-readable description of that size
+- `label_printable_area`, a dictionary of items mapping the same keys to the printable area in DPI
+- `printer_name`, the name of the printer as exposed by CUPS
 
 ### Configuration file
 

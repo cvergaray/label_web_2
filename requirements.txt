@@ -1,3 +1,6 @@
 brother_ql
-bottle
+bottle~=0.12.25
 jinja2
+cups~=0.0.6
+pylibdmtx[scripts]
+pillow~=10.2.0

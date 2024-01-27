@@ -1,5 +1,7 @@
 import cups
 
+# Printer-specific settings
+# Set these based on your printer and loaded labels
 
 label_sizes = [
                ('3x1', '3" by 1"'),
@@ -10,7 +12,8 @@ label_printable_area = {
                 '3x1' : (609, 203),
                 '1x1' : (203, 609)
                 }
-                
+
+printer_name = 'Zebra-LP2844'
 
 class implementation:
 
@@ -76,7 +79,7 @@ class implementation:
         im.save('sample-out.png')
         
         conn = cups.Connection()
-        conn.printFile('Zebra-LP2844', 'sample-out.png', "grocy", {})
+        conn.printFile(printer_name, 'sample-out.png', "grocy", {})
         
         return_dict['success'] = True
         
