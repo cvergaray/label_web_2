@@ -47,6 +47,66 @@ If using CUPS, then there are some printer-specific settings to include in imple
 
 Copy `config.example.json` to `config.json` (e.g. `cp config.example.json config.json`) and adjust the values to match your needs.
 
+### Template File
+
+Label templates are JSON files in the running directory, an example JSON file can be found at grocy-test.lbl
+The main thing that the JSON object requires is a list of elements to be included on the label.
+```javascript
+{ 
+    "elements": [] 
+}
+```
+Elements can include hard-coded data in a `data` property or pulled from the request sent to the API using the `key` property. The following example elements include one hard-coded and one key-based element.
+
+#### DataMatrix
+
+```javascript
+{
+    "elements": [
+        {
+            "name": "hard-coded DataMatrix",
+            "type": "datamatrix",
+            "data": "hard-coded data to encode in datamatrix",
+            "horizontal_offset": 15,
+            "vertical_offset": 22
+        },
+        {
+            "name": "grocycode pulled from request",
+            "type": "datamatrix",
+            "key": "grocycode",
+            "horizontal_offset": 15,
+            "vertical_offset": 22
+        }
+    ]
+}
+```
+
+#### Text
+```javascript
+{
+    "elements": [
+        {
+            "name": "hard-coded duedate",
+            "type": "text",
+            "data": "2024-02-29",
+            "shrink": true,
+            "wrap": 24,
+            "horizontal_offset": 130,
+            "vertical_offset": 50
+        },
+        {
+            "name": "product pulled from request",
+            "type": "text",
+            "key": "product",
+            "shrink": true,
+            "wrap": 24,
+            "horizontal_offset": 15,
+            "vertical_offset": 130
+        }
+    ]
+}
+```
+
 ### Startup
 
 To start the server, run `./brother_ql_web.py`. The command line parameters overwrite the values configured in `config.json`. Here's its command line interface:
@@ -90,6 +150,7 @@ All in all, the web server offers:
 * a Web GUI allowing you to print your labels at `/labeldesigner`,
 * an API at `/api/print/text?text=Your_Text&font_size=100&font_family=Minion%20Pro%20(%20Semibold%20)`
   to print a label containing 'Your Text' with the specified font properties.
+* an API at `/api/print/template/your_template_file_name.lbl` to print labels using a label template found at your_template_file_name.lbl
 
 ### License
 

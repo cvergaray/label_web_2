@@ -1,0 +1,29 @@
+{
+    "elements": [
+        {
+            "name": "grocycode",
+            "type": "datamatrix",
+            "data": "g:123:p:3245:s:345",
+            "horizontal_offset": 15,
+            "vertical_offset": 22
+        },
+        {
+            "name": "duedate",
+            "type": "text",
+            "data": "2024-02-29",
+            "shrink": true,
+            "wrap": 24,
+            "horizontal_offset": 130,
+            "vertical_offset": 50
+        },
+        {
+            "name": "product",
+            "type": "text",
+            "data": "Really long product name that shouldn't be so long.",
+            "shrink": true,
+            "wrap": 24,
+            "horizontal_offset": 15,
+            "vertical_offset": 130
+        }
+    ]
+}

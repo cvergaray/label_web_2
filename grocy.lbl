@@ -1,0 +1,38 @@
+{
+    "elements": [
+        {
+            "name": "grocycode",
+            "type": "datamatrix",
+            "key": "grocycode",
+            "horizontal_offset": 15,
+            "vertical_offset": 22
+        },
+        {
+            "name": "duedate",
+            "type": "text",
+            "key": "duedate",
+            "shrink": true,
+            "wrap": 24,
+            "horizontal_offset": 130,
+            "vertical_offset": 50
+        },
+        {
+            "name": "duedate",
+            "type": "text",
+            "key": "due_date",
+            "shrink": true,
+            "wrap": 24,
+            "horizontal_offset": 130,
+            "vertical_offset": 50
+        },
+        {
+            "name": "product",
+            "type": "text",
+            "key": "product",
+            "shrink": true,
+            "wrap": 24,
+            "horizontal_offset": 15,
+            "vertical_offset": 130
+        }
+    ]
+}

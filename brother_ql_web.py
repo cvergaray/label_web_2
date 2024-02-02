@@ -56,14 +56,121 @@ def labeldesigner():
             'label_sizes': LABEL_SIZES,
             'website': CONFIG['WEBSITE'],
             'label': CONFIG['LABEL']}
+    
+@get('/api/print/template/<templatefile>')
+@post('/api/print/template/<templatefile>')
+def printtemplate(templatefile):
+    return_dict = {'Success': False}
+    template_data = get_template_data(templatefile)
+        
+    try:
+        context = get_label_context(request)
+    except LookupError as e:
+        return_dict['error'] = e.message
+        return return_dict
+        
+    im = create_label_from_template(template_data, **context)
+    if DEBUG:
+        im.save('sample-out.png')
+    
+    return instance.print_label(im, **context)
+    
+def get_template_data(templatefile):
+    template_data = None
+    with open(templatefile, 'r') as file:
+        template_data = json.load(file)
+    return template_data
 
+def create_label_from_template(template, **kwargs):
+    width, height = instance.get_label_width_height(get_value(template, kwargs, 'font_path'), **kwargs)
+    width = template.get('width', width)
+    height = template.get('height', height)
+    dimensions = width, height
+    
+    margin_left = get_value(template, kwargs, 'margin_left', 15)
+    margin_top = get_value(template, kwargs, 'margin_top', 22)
+    margin_right = get_value(template, kwargs, 'margin_right', margin_left)
+    margin_bottom = get_value(template, kwargs, 'margin_bottom', margin_top)
+    margins = [margin_left, margin_top, margin_right, margin_bottom]
+    
+    im = Image.new('RGB', (width, height), 'white')
+    draw = ImageDraw.Draw(im)
+
+    elements = template.get('elements', [])
+    for element in elements:
+        element_type = element['type']
+        if element_type == 'datamatrix':
+            im = element_datamatrix(element, im, margins, dimensions, **kwargs)
+        elif element_type == 'text':
+            im = element_text(element, im, margins, dimensions, **kwargs)
+    
+    return im
+    
+def get_value(template, kwargs, keyname, default=None):
+    return template.get(keyname, kwargs.get(keyname, default))
+    
+def element_datamatrix(element, im, margins, dimensions, **kwargs):
+    from pylibdmtx.pylibdmtx import encode
+    data = element.get('data', kwargs.get(element.get('key')))
+    size = element.get('size', 'SquareAuto')
+    
+    horizontal_offset = element['horizontal_offset']
+    vertical_offset = element['vertical_offset']
+    
+    encoded = encode(data.encode('utf8'), size=size) # adjusted for 300x300 dpi - results in DM code roughly 5x5mm
+    datamatrix = Image.frombytes('RGB', (encoded.width, encoded.height), encoded.pixels)
+    datamatrix.save('/tmp/dmtx.png')
+    
+    im.paste(datamatrix, (horizontal_offset, vertical_offset, horizontal_offset + encoded.width, vertical_offset + encoded.height))
+
+    return im
+    
+def element_text(element, im, margins, dimensions, **kwargs):
+    data = element.get('data', kwargs.get(element.get('key')))
+    
+    if data is None:
+        return im
+
+    font_path = get_value(element, kwargs, 'font_path')
+    font_size = get_value(element, kwargs, 'font_size')
+    fill_color = get_value(element, kwargs, 'fill_color')
+        
+    horizontal_offset = element['horizontal_offset']
+    vertical_offset = element['vertical_offset']
+    
+    textoffset = horizontal_offset, vertical_offset
+    
+    draw = ImageDraw.Draw(im)
+    
+    wrap = element.get('wrap', None)
+    if wrap is not None:
+        wrapper = textwrap.TextWrapper(width=wrap)
+        data = "\n".join(wrapper.wrap(text = data))
+    
+    shrink = element.get('shrink', False)
+    if shrink:
+        font_size = adjust_font_to_fit(draw, font_path, font_size, data, dimensions, 2, horizontal_offset + margins[2], vertical_offset + margins[3])
+        
+    font = ImageFont.truetype(font_path, font_size)
+    
+    draw.text(textoffset, data, fill_color, font=font)
+    
+    return im
+    
 def get_label_context(request):
     """ might raise LookupError() """
 
     d = request.params.decode() # UTF-8 decoded form data
 
-    font_family = d.get('font_family').rpartition('(')[0].strip()
-    font_style  = d.get('font_family').rpartition('(')[2].rstrip(')')
+    provided_font_family =  d.get('font_family')
+    if provided_font_family is not None:
+        font_family = provided_font_family.rpartition('(')[0].strip()
+        font_style  = provided_font_family.rpartition('(')[2].rstrip(')')
+    else:
+        default_fonts = CONFIG.get('LABEL')
+        font_family = CONFIG['LABEL']['DEFAULT_FONTS']['family']
+        font_style = CONFIG['LABEL']['DEFAULT_FONTS']['style']
+
     context = {
       'text':          d.get('text', None),
       'font_size': int(d.get('font_size', 40)),
@@ -256,6 +363,22 @@ def get_preview_image():
 def get_preview_grocy_image():
     context = get_label_context(request)
     im = create_label_grocy(**context)
+    return_format = request.query.get('return_format', 'png')
+    if return_format == 'base64':
+        import base64
+        response.set_header('Content-type', 'text/plain')
+        return base64.b64encode(image_to_png_bytes(im))
+    else:
+        response.set_header('Content-type', 'image/png')
+        return image_to_png_bytes(im)
+        
+@get('/api/preview/template/<templatefile>')
+@post('/api/preview/template/<templatefile>')
+def get_preview_template_image(templatefile):
+    context = get_label_context(request)
+    template_data = get_template_data(templatefile)
+
+    im = create_label_from_template(template_data, **context)
     return_format = request.query.get('return_format', 'png')
     if return_format == 'base64':
         import base64
