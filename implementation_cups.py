@@ -4,16 +4,16 @@ import cups
 # Set these based on your printer and loaded labels
 
 label_sizes = [
-               ('3x1', '3" by 1"'),
-               ('1x1', '1" x 1"')
+               ('2.25x1.25', '2.25" by 1.25"'),
+               ('1.25x2.25', '1.25" x 2.25"')
               ]
 
 label_printable_area = {
-                '3x1' : (609, 203),
-                '1x1' : (203, 609)
+                '2.25x1.25' : (457, 254),
+                '1.25x2.25' : (254, 457)
                 }
 
-printer_name = 'Zebra-LP2844'
+printer_name = 'UPS-Thermal-2844'
 
 class implementation:
 
@@ -31,7 +31,7 @@ class implementation:
         return label_sizes
         
     def get_default_label_size():
-        return "3x1"
+        return '2.25x1.25'
         
     def get_label_kind(self, label_size_description):
         return label_size_description
