@@ -228,8 +228,9 @@ def create_label_im(text, **kwargs):
         if line == '': line = ' '
         lines.append(line)
     text = '\n'.join(lines)
-    linesize = im_font.getsize(text)
-    textsize = draw.multiline_textsize(text, font=im_font)
+    linesize = im_font.getlength(text)
+    textsize = draw.multiline_textbbox((0,0), text, font=im_font)
+    textsize = (textsize[2], textsize[3])
     width, height = instance.get_label_width_height(textsize, **kwargs)
     adjusted_text_size = adjust_font_to_fit(draw, kwargs['font_path'], kwargs['font_size'], text, (width, height), 2, kwargs['margin_left'] + kwargs['margin_right'], kwargs['margin_top'] + kwargs['margin_bottom'])
     if adjusted_text_size != textsize:
@@ -265,7 +266,8 @@ def adjust_font_to_fit(draw, font, max_font_size, text, label_size, min_size = 2
     
 def font_fits(draw, font, font_size, text, label_size, horizontal_offset, vertical_offset):
     im_font = ImageFont.truetype(font, font_size)
-    textsize = draw.multiline_textsize(text, font=im_font)
+    textsize = draw.multiline_textbbox((0,0), text, font=im_font)
+    textsize = (textsize[2], textsize[3])
     fits = (textsize[0] + horizontal_offset) < label_size[0] and (textsize[1] + vertical_offset) < label_size[1]
     return fits
     
@@ -326,7 +328,7 @@ def create_label_grocy(text, **kwargs):
     draw.text(textoffset, product, kwargs['fill_color'], font=product_font)
 
     if duedate is not None:
-        additional_offset = draw.multiline_textsize(product, font=product_font)[1] + 10
+        additional_offset = draw.multiline_textbbox(product, font=product_font)[3] + 10
 
         if kwargs['orientation'] == 'standard':
             vertical_offset += additional_offset
