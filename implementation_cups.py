@@ -3,17 +3,27 @@ import cups
 # Printer-specific settings
 # Set these based on your printer and loaded labels
 
+# A dictionary of an identifier of the loaded label sizes to a human-readable description of the label size
 label_sizes = [
                ('2.25x1.25', '2.25" by 1.25"'),
                ('1.25x2.25', '1.25" x 2.25"')
               ]
 
+# A mapping of the keys from label_sizes to the size of that label in DPI.
+# This can be calculated by multiplying one dimension by the printer resolution
 label_printable_area = {
-                '2.25x1.25' : (457, 254),
-                '1.25x2.25' : (254, 457)
+                '2.25x1.25': (457, 254),
+                '1.25x2.25': (254, 457)
                 }
 
+# The default size of a label. This must be one of the keys in the label_sizes dictionary.
+default_size = '2.25x1.25'
+
+# The name of the printer as exposed by CUPS.
 printer_name = 'UPS-Thermal-2844'
+
+# End of Printer Specific Settings
+
 
 class implementation:
 
@@ -31,7 +41,7 @@ class implementation:
         return label_sizes
         
     def get_default_label_size():
-        return '2.25x1.25'
+        return default_size
         
     def get_label_kind(self, label_size_description):
         return label_size_description
