@@ -50,7 +50,15 @@ Copy `config.example.json` to `config.json` (e.g. `cp config.example.json config
 ### Template File
 
 Label templates are JSON files in the running directory, an example JSON file can be found at grocy-test.lbl
-The main thing that the JSON object requires is a list of elements to be included on the label.
+lbl template files may optionally include the label width and height. The main thing that the JSON object requires is a list of elements to be included on the label.
+
+| Property Key | Example Value        | Description                                         | Required | Default Value                                                |
+|--------------|----------------------|-----------------------------------------------------|----------|--------------------------------------------------------------|
+| name         | grocy label          | A value to describe the label                       | false    | N/A                                                          |
+| elements     | <See examples below> | A collection of the elements to render on the label | true     | N/A                                                          |
+| width        | 457                  | The width of the label in pixels/dots               | false    | The width provided by Implementation.get_label_width_height  |
+| height       | 254                  | The height of the label in pixels/dots              | false    | The height provided by Implementation.get_label_width_height |
+
 ```javascript
 { 
     "elements": [] 
@@ -59,7 +67,15 @@ The main thing that the JSON object requires is a list of elements to be include
 Elements can include hard-coded data in a `data` property or pulled from the request sent to the API using the `key` property. The following example elements include one hard-coded and one key-based element.
 
 #### DataMatrix
-
+| Property Key      | Example Value             | Description                                                                                                                 | Required                       | Default Value |
+|-------------------|---------------------------|-----------------------------------------------------------------------------------------------------------------------------|--------------------------------|---------------|
+| name              | grocycode                 | A value to describe the element                                                                                             | false                          | N/A           |
+| type              | datamatrix                | indicates that this is a datamatrix element                                                                                 | true                           | N/A           |
+| data              | grcy:p:130:x65a70d139b122 | The hard-coded text value to be rendered.                                                                                   | true IF 'key' is not included  | N/A           |
+| key               | grocycode                 | The key identifying the property from the HTML request that will be rendered                                                | true IF 'data' is not included | N/A           |
+| size              | ShapeAuto                 | the desired size of the generated datamatrix element. Must be one of the sizes defined by ENCODING_SIZE_NAMES in pylibdtmx  | false                          | SquareAuto    |
+| horizontal_offset | 15                        | The number of pixels to offset the element from the left of the label.                                                      | true                           | N/A           |
+| vertical_offset   | 130                       | The number of pixels to offset the element from the top of the label                                                        | true                           | N/A           |
 ```javascript
 {
     "elements": [
@@ -82,6 +98,20 @@ Elements can include hard-coded data in a `data` property or pulled from the req
 ```
 
 #### Text
+| Property Key      | Example Value | Description                                                                                                                   | Required                       | Default Value |
+|-------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------|--------------------------------|---------------|
+| name              | duedate       | A value to describe the element                                                                                               | false                          | N/A           |
+| type              | text          | indicates that this is a text element                                                                                         | true                           | N/A           |
+| data              | 2024-02-29    | The hard-coded text value to be rendered.                                                                                     | true IF 'key' is not included  | N/A           |
+| key               | duedate       | The key identifying the property from the HTML request that will be rendered                                                  | true IF 'data' is not included | N/A           |
+| shrink            | true          | When true, the font size will automatically shrink to fit                                                                     | false                          | false         |
+| wrap              | 70            | The number of characters that is allowed on a single line. When set, text will wrap onto a new line if longer than this value | false                          | None          |
+| font_size         | 24            | The size of the font to be rendered. When not provided, it will pull from the HTML request, if available.                     | false                          | 40            |
+| fill_color        | (255,0,0)     | A tuple of (R,G,B) values indicating the color of the text. Only applicable for multicolor printers                           | false                          | (0,0,0)       |
+| horizontal_offset | 15            | The number of pixels to offset the element from the left of the label.                                                        | true                           | N/A           |
+| vertical_offset   | 130           | The number of pixels to offset the element from the top of the label                                                          | true                           | N/A           |
+
+##### example definition:
 ```javascript
 {
     "elements": [
@@ -106,6 +136,7 @@ Elements can include hard-coded data in a `data` property or pulled from the req
     ]
 }
 ```
+
 
 ### Startup
 
