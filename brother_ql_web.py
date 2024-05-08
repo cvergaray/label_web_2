@@ -4,12 +4,11 @@
 """
 This is a web service to print labels on Brother QL label printers.
 """
-
 import cups
 
 import textwrap
 
-import sys, logging, random, json, argparse
+import sys, logging, random, json, argparse, requests
 from io import BytesIO
 
 from bottle import run, route, get, post, response, request, jinja2_view as view, static_file, redirect
@@ -97,15 +96,26 @@ def create_label_from_template(template, **kwargs):
     draw = ImageDraw.Draw(im)
 
     elements = template.get('elements', [])
+
     for element in elements:
-        element_type = element['type']
-        if element_type == 'datamatrix':
-            im = element_datamatrix(element, im, margins, dimensions, **kwargs)
-        elif element_type == 'text':
-            im = element_text(element, im, margins, dimensions, **kwargs)
-    
+        im = process_element(element, im, margins, dimensions, **kwargs)
+
     return im
-    
+
+def process_element(element, im, margins, dimensions, **kwargs):
+    print(f"Processing Element: {element}")
+    element_type = element['type']
+    if element_type == 'datamatrix':
+        im = element_datamatrix(element, im, margins, dimensions, **kwargs)
+    elif element_type == 'text':
+        im = element_text(element, im, margins, dimensions, **kwargs)
+    elif element_type == 'json_api':
+        im = element_json_api(element, im, margins, dimensions, **kwargs)
+    elif element_type == 'grocy_entry':
+        im = element_grocy_entry(element, im, margins, dimensions, **kwargs)
+
+    return im
+
 def get_value(template, kwargs, keyname, default=None):
     return template.get(keyname, kwargs.get(keyname, default))
     
@@ -156,7 +166,83 @@ def element_text(element, im, margins, dimensions, **kwargs):
     draw.text(textoffset, data, fill_color, font=font)
     
     return im
+
+def element_json_api(element, im, margins, dimensions, **kwargs):
+    endpoint = element.get('endpoint')
+    if endpoint is None:
+        return im
+
+    method = element.get('method')
+
+    if method is None or method not in ['get', 'post', 'put', 'delete']:
+        method  = 'get'
+
+    headers = element.get('headers')
+    headers = headers | {'accept': 'application/json'}
+
+    data = element.get('data', {})
+    datakey = kwargs.get(element.get('datakey'))
+    datakeyname = kwargs.get(element.get('datakeyname'), element.get('datakey'))
+    if datakey is not None and datakeyname is not None:
+        data[datakeyname] = datakey
+
+    if len(data) == 0:
+        data = None
+    else:
+        data = json.dumps(data)
+
+    if method == 'post':
+        response_api = requests.post(endpoint, data=data, headers=headers)
+    elif method == 'put':
+        response_api = requests.put(endpoint, data=data, headers=headers)
+    elif method == 'delete':
+        response_api = requests.delete(endpoint, data=data, headers=headers)
+    else:
+        response_api = requests.get(endpoint, data=data, headers=headers)
+
+    response_data = response_api.json()
+    if type(response_data) is list and len(response_data) > 0:
+        response_data = response_data[0]
+
+    elements = element.get('elements', [])
+    for sub_element in elements:
+        element_data = response_data.get(sub_element.get('key'))
+        print(f"Received data: '{element_data}'")
+        sub_element['data'] = element_data
+        process_element(sub_element, im, margins, dimensions, **kwargs)
+
+    return im
+
+def element_grocy_entry(element, im, margins, dimensions, **kwargs):
+    server = element.get('server')
+    api_key = element.get('api_key')
+    grocycode = element.get('grocycode', kwargs.get('grocycode')).split(':')
+    type = grocycode[1]
+    if type == 'p':
+        server = f"{server}/api/stock/products/{grocycode[2]}"
+    if len(grocycode) > 3:
+        server = f"{server}/entries?query%5B%5D=stock_id%3D{grocycode[3]}"
+
+    element['type'] = 'json_api'
+    element['endpoint'] = server
+    element['headers'] = {"GROCY-API-KEY": api_key}
     
+    print(f"calling API at: {server}")
+
+    im = process_element(element, im, margins, dimensions, **kwargs)
+
+    return im
+
+def parse_grocycode(grocycode):
+    splitList = grocycode.split(':')
+    if splitList[0] != 'grcy':
+        return None
+    returndict = {}
+    returndict['type'] = splitList[1]
+    returndict['id'] = splitList[2]
+    if(len(splitList) > 2):
+        returndict['extra'] = splitList[3]
+
 def get_label_context(request):
     """ might raise LookupError() """
 
