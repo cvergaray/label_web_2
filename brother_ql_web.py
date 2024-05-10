@@ -125,6 +125,10 @@ def get_value(template, kwargs, keyname, default=None):
 def element_datamatrix(element, im, margins, dimensions, **kwargs):
     from pylibdmtx.pylibdmtx import encode
     data = element.get('data', kwargs.get(element.get('key')))
+    datakey = element.get('datakey')
+    if datakey is not None and type(data) is dict and datakey in data:
+        data = data[datakey]
+
     size = element.get('size', 'SquareAuto')
     
     horizontal_offset = element['horizontal_offset']
@@ -140,6 +144,9 @@ def element_datamatrix(element, im, margins, dimensions, **kwargs):
     
 def element_text(element, im, margins, dimensions, **kwargs):
     data = element.get('data', kwargs.get(element.get('key')))
+    datakey = element.get('datakey')
+    if datakey is not None and type(data) is dict and datakey in data:
+        data = data[datakey]
     
     if data is None:
         return im
@@ -172,7 +179,7 @@ def element_text(element, im, margins, dimensions, **kwargs):
 
 def element_data_array_item(element, im, margins, dimensions, **kwargs):
     data = element.get('data')
-    index = element.get('index')
+    index = element.get('index', 0)
 
     if(len(data) > index):
         elements = element.get('elements', [])
@@ -241,7 +248,7 @@ def element_json_api(element, im, margins, dimensions, **kwargs):
     return im
 
 def element_grocy_entry(element, im, margins, dimensions, **kwargs):
-    server = element.get('server')
+    server = element.get('endpoint')
     api_key = element.get('api_key')
     grocycode = element.get('grocycode', kwargs.get('grocycode')).split(':')
     type = grocycode[1]
@@ -257,7 +264,8 @@ def element_grocy_entry(element, im, margins, dimensions, **kwargs):
 
     element['type'] = 'json_api'
     element['endpoint'] = server
-    element['headers'] = {"GROCY-API-KEY": api_key}
+    headers = element.get('headers', {})
+    element['headers'] = headers | {"GROCY-API-KEY": api_key}
 
     im = process_element(element, im, margins, dimensions, **kwargs)
 
