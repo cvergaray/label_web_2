@@ -103,7 +103,6 @@ def create_label_from_template(template, **kwargs):
     return im
 
 def process_element(element, im, margins, dimensions, **kwargs):
-    print(f"Processing Element: {element}")
     element_type = element['type']
     if element_type == 'datamatrix':
         im = element_datamatrix(element, im, margins, dimensions, **kwargs)
@@ -113,6 +112,10 @@ def process_element(element, im, margins, dimensions, **kwargs):
         im = element_json_api(element, im, margins, dimensions, **kwargs)
     elif element_type == 'grocy_entry':
         im = element_grocy_entry(element, im, margins, dimensions, **kwargs)
+    elif element_type == 'data_array_index':
+        im = element_data_array_item(element, im, margins, dimensions, **kwargs)
+    elif element_type == 'data_dict_item':
+        im = element_data_dict_item(element, im, margins, dimensions, **kwargs)
 
     return im
 
@@ -167,6 +170,30 @@ def element_text(element, im, margins, dimensions, **kwargs):
     
     return im
 
+def element_data_array_item(element, im, margins, dimensions, **kwargs):
+    data = element.get('data')
+    index = element.get('index')
+
+    if(len(data) > index):
+        elements = element.get('elements', [])
+        for sub_element in elements:
+            sub_element['data'] = data[index]
+            im = process_element(sub_element, im, margins, dimensions, **kwargs)
+
+    return im
+
+def element_data_dict_item(element, im, margins, dimensions, **kwargs):
+    data = element.get('data')
+    key = element.get('key')
+    elements = element.get('elements', [])
+
+    if(type(data) is dict and key in data):
+        for sub_element in elements:
+            sub_element['data'] = data[key]
+            im = process_element(sub_element, im, margins, dimensions, **kwargs)
+
+    return im
+
 def element_json_api(element, im, margins, dimensions, **kwargs):
     endpoint = element.get('endpoint')
     if endpoint is None:
@@ -201,14 +228,14 @@ def element_json_api(element, im, margins, dimensions, **kwargs):
         response_api = requests.get(endpoint, data=data, headers=headers)
 
     response_data = response_api.json()
-    if type(response_data) is list and len(response_data) > 0:
-        response_data = response_data[0]
 
     elements = element.get('elements', [])
     for sub_element in elements:
-        element_data = response_data.get(sub_element.get('key'))
-        print(f"Received data: '{element_data}'")
-        sub_element['data'] = element_data
+        sub_element_key = sub_element.get('key')
+        if sub_element_key is not None and sub_element_key in response_data:
+            sub_element['data'] = response_data[sub_element_key]
+        else:
+            sub_element['data'] = response_data
         process_element(sub_element, im, margins, dimensions, **kwargs)
 
     return im
@@ -218,30 +245,23 @@ def element_grocy_entry(element, im, margins, dimensions, **kwargs):
     api_key = element.get('api_key')
     grocycode = element.get('grocycode', kwargs.get('grocycode')).split(':')
     type = grocycode[1]
-    if type == 'p':
-        server = f"{server}/api/stock/products/{grocycode[2]}"
-    if len(grocycode) > 3:
-        server = f"{server}/entries?query%5B%5D=stock_id%3D{grocycode[3]}"
+    typeid = grocycode[2]
+    if type == 'p':     # Product
+        server = f"{server}/api/stock/products/{typeid}"
+        if len(grocycode) > 3:
+            server = f"{server}/entries?query%5B%5D=stock_id%3D{grocycode[3]}"
+    elif type == 'c':     # Chore
+        server = f"{server}/api/chores/{typeid}"
+    elif type == 'b':     # battery
+        server = f"{server}/api/battery/{typeid}"
 
     element['type'] = 'json_api'
     element['endpoint'] = server
     element['headers'] = {"GROCY-API-KEY": api_key}
-    
-    print(f"calling API at: {server}")
 
     im = process_element(element, im, margins, dimensions, **kwargs)
 
     return im
-
-def parse_grocycode(grocycode):
-    splitList = grocycode.split(':')
-    if splitList[0] != 'grcy':
-        return None
-    returndict = {}
-    returndict['type'] = splitList[1]
-    returndict['id'] = splitList[2]
-    if(len(splitList) > 2):
-        returndict['extra'] = splitList[3]
 
 def get_label_context(request):
     """ might raise LookupError() """
