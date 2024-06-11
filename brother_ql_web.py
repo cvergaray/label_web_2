@@ -4,12 +4,11 @@
 """
 This is a web service to print labels on Brother QL label printers.
 """
-
 import cups
 
 import textwrap
 
-import sys, logging, random, json, argparse
+import sys, logging, random, json, argparse, requests
 from io import BytesIO
 
 from bottle import run, route, get, post, response, request, jinja2_view as view, static_file, redirect
@@ -97,21 +96,39 @@ def create_label_from_template(template, **kwargs):
     draw = ImageDraw.Draw(im)
 
     elements = template.get('elements', [])
+
     for element in elements:
-        element_type = element['type']
-        if element_type == 'datamatrix':
-            im = element_datamatrix(element, im, margins, dimensions, **kwargs)
-        elif element_type == 'text':
-            im = element_text(element, im, margins, dimensions, **kwargs)
-    
+        im = process_element(element, im, margins, dimensions, **kwargs)
+
     return im
-    
+
+def process_element(element, im, margins, dimensions, **kwargs):
+    element_type = element['type']
+    if element_type == 'datamatrix':
+        im = element_datamatrix(element, im, margins, dimensions, **kwargs)
+    elif element_type == 'text':
+        im = element_text(element, im, margins, dimensions, **kwargs)
+    elif element_type == 'json_api':
+        im = element_json_api(element, im, margins, dimensions, **kwargs)
+    elif element_type == 'grocy_entry':
+        im = element_grocy_entry(element, im, margins, dimensions, **kwargs)
+    elif element_type == 'data_array_index':
+        im = element_data_array_item(element, im, margins, dimensions, **kwargs)
+    elif element_type == 'data_dict_item':
+        im = element_data_dict_item(element, im, margins, dimensions, **kwargs)
+
+    return im
+
 def get_value(template, kwargs, keyname, default=None):
     return template.get(keyname, kwargs.get(keyname, default))
     
 def element_datamatrix(element, im, margins, dimensions, **kwargs):
     from pylibdmtx.pylibdmtx import encode
     data = element.get('data', kwargs.get(element.get('key')))
+    datakey = element.get('datakey')
+    if datakey is not None and type(data) is dict and datakey in data:
+        data = data[datakey]
+
     size = element.get('size', 'SquareAuto')
     
     horizontal_offset = element['horizontal_offset']
@@ -127,6 +144,9 @@ def element_datamatrix(element, im, margins, dimensions, **kwargs):
     
 def element_text(element, im, margins, dimensions, **kwargs):
     data = element.get('data', kwargs.get(element.get('key')))
+    datakey = element.get('datakey')
+    if datakey is not None and type(data) is dict and datakey in data:
+        data = data[datakey]
     
     if data is None:
         return im
@@ -156,7 +176,101 @@ def element_text(element, im, margins, dimensions, **kwargs):
     draw.text(textoffset, data, fill_color, font=font)
     
     return im
-    
+
+def element_data_array_item(element, im, margins, dimensions, **kwargs):
+    data = element.get('data')
+    index = element.get('index', 0)
+
+    if(len(data) > index):
+        elements = element.get('elements', [])
+        for sub_element in elements:
+            sub_element['data'] = data[index]
+            im = process_element(sub_element, im, margins, dimensions, **kwargs)
+
+    return im
+
+def element_data_dict_item(element, im, margins, dimensions, **kwargs):
+    data = element.get('data')
+    key = element.get('key')
+    elements = element.get('elements', [])
+
+    if(type(data) is dict and key in data):
+        for sub_element in elements:
+            sub_element['data'] = data[key]
+            im = process_element(sub_element, im, margins, dimensions, **kwargs)
+
+    return im
+
+def element_json_api(element, im, margins, dimensions, **kwargs):
+    endpoint = element.get('endpoint')
+    if endpoint is None:
+        return im
+
+    method = element.get('method')
+
+    if method is None or method not in ['get', 'post', 'put', 'delete']:
+        method  = 'get'
+
+    headers = element.get('headers')
+    headers = headers | {'accept': 'application/json'}
+
+    data = element.get('data', {})
+    datakey = kwargs.get(element.get('datakey'))
+    datakeyname = kwargs.get(element.get('datakeyname'), element.get('datakey'))
+    if datakey is not None and datakeyname is not None:
+        data[datakeyname] = datakey
+
+    if len(data) == 0:
+        data = None
+    else:
+        data = json.dumps(data)
+
+    if method == 'post':
+        response_api = requests.post(endpoint, data=data, headers=headers)
+    elif method == 'put':
+        response_api = requests.put(endpoint, data=data, headers=headers)
+    elif method == 'delete':
+        response_api = requests.delete(endpoint, data=data, headers=headers)
+    else:
+        response_api = requests.get(endpoint, data=data, headers=headers)
+
+    response_data = response_api.json()
+
+    elements = element.get('elements', [])
+    for sub_element in elements:
+        sub_element_key = sub_element.get('key')
+        if sub_element_key is not None and sub_element_key in response_data:
+            sub_element['data'] = response_data[sub_element_key]
+        else:
+            sub_element['data'] = response_data
+        process_element(sub_element, im, margins, dimensions, **kwargs)
+
+    return im
+
+def element_grocy_entry(element, im, margins, dimensions, **kwargs):
+    server = element.get('endpoint')
+    api_key = element.get('api_key')
+    grocycode = element.get('grocycode', kwargs.get('grocycode')).split(':')
+    type = grocycode[1]
+    typeid = grocycode[2]
+    if type == 'p':     # Product
+        server = f"{server}/api/stock/products/{typeid}"
+        if len(grocycode) > 3:
+            server = f"{server}/entries?query%5B%5D=stock_id%3D{grocycode[3]}"
+    elif type == 'c':     # Chore
+        server = f"{server}/api/chores/{typeid}"
+    elif type == 'b':     # battery
+        server = f"{server}/api/battery/{typeid}"
+
+    element['type'] = 'json_api'
+    element['endpoint'] = server
+    headers = element.get('headers', {})
+    element['headers'] = headers | {"GROCY-API-KEY": api_key}
+
+    im = process_element(element, im, margins, dimensions, **kwargs)
+
+    return im
+
 def get_label_context(request):
     """ might raise LookupError() """
 
