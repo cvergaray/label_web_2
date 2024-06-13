@@ -1,6 +1,7 @@
-brother_ql
+#brother_ql
 bottle~=0.12.25
 jinja2
 pycups
 pylibdmtx[scripts]
 pillow~=10.2.0
+requests

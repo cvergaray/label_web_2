@@ -8,16 +8,18 @@ import cups
 
 import textwrap
 
+#import spf
+
 import sys, logging, random, json, argparse, requests
 from io import BytesIO
 
 from bottle import run, route, get, post, response, request, jinja2_view as view, static_file, redirect
 from PIL import Image, ImageDraw, ImageFont
 
-from brother_ql.devicedependent import models, label_type_specs, label_sizes
-from brother_ql.devicedependent import ENDLESS_LABEL, DIE_CUT_LABEL, ROUND_DIE_CUT_LABEL
-from brother_ql import BrotherQLRaster, create_label
-from brother_ql.backends import backend_factory, guess_backend
+#from brother_ql.devicedependent import models, label_type_specs, label_sizes
+#from brother_ql.devicedependent import ENDLESS_LABEL, DIE_CUT_LABEL, ROUND_DIE_CUT_LABEL
+#from brother_ql import BrotherQLRaster, create_label
+#from brother_ql.backends import backend_factory, guess_backend
 
 #uncomment the printer-specific implementation you wish to use
 #from implementation_brother import implementation
@@ -28,15 +30,18 @@ from font_helpers import get_fonts
 logger = logging.getLogger(__name__)
 instance = implementation()
 
-LABEL_SIZES = instance.get_label_sizes()
-
 try:
-    with open('config.json', encoding='utf-8') as fh:
+    with open('/appconfig/config.json', encoding='utf-8') as fh:
         CONFIG = json.load(fh)
+        print("loaded config from /appconfig/config.json")
 except FileNotFoundError as e:
     with open('config.example.json', encoding='utf-8') as fh:
         CONFIG = json.load(fh)
+        print("loaded config from config.example.json")
 
+
+PRINTERS = None
+LABEL_SIZES = None
 
 @route('/')
 def index():
@@ -53,6 +58,7 @@ def labeldesigner():
     return {'font_family_names': font_family_names,
             'fonts': FONTS,
             'label_sizes': LABEL_SIZES,
+            'printers': PRINTERS,
             'website': CONFIG['WEBSITE'],
             'label': CONFIG['LABEL']}
     
@@ -76,7 +82,7 @@ def printtemplate(templatefile):
     
 def get_template_data(templatefile):
     template_data = None
-    with open(templatefile, 'r') as file:
+    with open('/appconfig/' + templatefile, 'r') as file:
         template_data = json.load(file)
     return template_data
 
@@ -116,6 +122,10 @@ def process_element(element, im, margins, dimensions, **kwargs):
         im = element_data_array_item(element, im, margins, dimensions, **kwargs)
     elif element_type == 'data_dict_item':
         im = element_data_dict_item(element, im, margins, dimensions, **kwargs)
+    elif element_type == 'image_file':
+        im = element_image_file(element, im, margins, dimensions, **kwargs)
+    elif element_type == 'image_url':
+        im = element_image_url(element, im, margins, dimensions, **kwargs)
 
     return im
 
@@ -271,6 +281,45 @@ def element_grocy_entry(element, im, margins, dimensions, **kwargs):
 
     return im
 
+def element_image_file(element, im, margins, dimensions, **kwargs):
+    try:
+        filePath = element.get('file')
+
+        image = Image.open(filePath)
+        im = element_image_base(image, element, im, margins, dimensions, **kwargs)
+    except Exception as e:
+        if hasattr(e, 'message'):
+            print(e.message)
+
+    return im
+
+def element_image_url(element, im, margins, dimensions, **kwargs):
+    try:
+        url = element.get('url')
+        image = Image.open(requests.get(url, stream=True).raw)
+        im = element_image_base(image, element, im, margins, dimensions, **kwargs)
+    except Exception as e:
+        if hasattr(e, 'message'):
+            print(e.message)
+
+    return im
+
+def element_image_base(image_to_add, element, im, margins, dimensions, **kwargs):
+    try:
+        position = element.get('position')
+
+        image_to_add = image_to_add.resize(
+            (position[2] - position[0],
+            position[3] - position[1])
+        )
+
+        im.paste(image_to_add, position)
+    except Exception as e:
+        if hasattr(e, 'message'):
+            print(e.message)
+
+    return im
+
 def get_label_context(request):
     """ might raise LookupError() """
 
@@ -290,8 +339,8 @@ def get_label_context(request):
       'font_size': int(d.get('font_size', 40)),
       'font_family':   font_family,
       'font_style':    font_style,
-      'label_size':    d.get('label_size', implementation.get_default_label_size()),
-      'kind':          instance.get_label_kind(d.get('label_size', implementation.get_default_label_size())),
+      'label_size':    d.get('label_size', instance.get_default_label_size()),
+      'kind':          instance.get_label_kind(d.get('label_size', instance.get_default_label_size())),
       'margin':    int(d.get('margin', 10)),
       'threshold': int(d.get('threshold', 70)),
       'align':         d.get('align', 'center'),
@@ -302,7 +351,9 @@ def get_label_context(request):
       'margin_right':  float(d.get('margin_right',  35))/100.,
       'grocycode': d.get('grocycode', None),
       'product': d.get('product', None),
-      'duedate': d.get('due_date', d.get('duedate', None))
+      'duedate': d.get('due_date', d.get('duedate', None)),
+      'printer': d.get('printer', None),
+      'quantity': d.get('quantity', 1),
     }
     context['margin_top']    = int(context['font_size']*context['margin_top'])
     context['margin_bottom'] = int(context['font_size']*context['margin_bottom'])
@@ -491,6 +542,8 @@ def get_preview_grocy_image():
 @get('/api/preview/template/<templatefile>')
 @post('/api/preview/template/<templatefile>')
 def get_preview_template_image(templatefile):
+
+
     context = get_label_context(request)
     template_data = get_template_data(templatefile)
 
@@ -567,29 +620,29 @@ def print_text():
     return instance.print_label(im, **context)
 
 def main():
-    global DEBUG, FONTS, BACKEND_CLASS, CONFIG
+    global DEBUG, FONTS, BACKEND_CLASS, CONFIG, LABEL_SIZES, PRINTERS
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--port', default=False)
-    parser.add_argument('--loglevel', type=lambda x: getattr(logging, x.upper()), default=False)
-    parser.add_argument('--font-folder', default=False, help='folder for additional .ttf/.otf fonts')
-    parser.add_argument('--default-label-size', default=False, help='Label size inserted in your printer. Defaults to 62.')
-    parser.add_argument('--default-orientation', default=False, choices=('standard', 'rotated'), help='Label orientation, defaults to "standard". To turn your text by 90°, state "rotated".')
-    parser.add_argument('--model', default=False, choices=models, help='The model of your printer (default: QL-500)')
-    parser.add_argument('printer',  nargs='?', default=False, help='String descriptor for the printer to use (like tcp://192.168.0.23:9100 or file:///dev/usb/lp0)')
+    #parser.add_argument('--port', default=False)
+    #parser.add_argument('--loglevel', type=lambda x: getattr(logging, x.upper()), default=False)
+    #parser.add_argument('--font-folder', default=False, help='folder for additional .ttf/.otf fonts')
+    #parser.add_argument('--default-label-size', default=False, help='Label size inserted in your printer. Defaults to 62.')
+    #parser.add_argument('--default-orientation', default=False, choices=('standard', 'rotated'), help='Label orientation, defaults to "standard". To turn your text by 90°, state "rotated".')
+    #parser.add_argument('--model', default=False, choices=models, help='The model of your printer (default: QL-500)')
+    #parser.add_argument('printer',  nargs='?', default=False, help='String descriptor for the printer to use (like tcp://192.168.0.23:9100 or file:///dev/usb/lp0)')
     args = parser.parse_args()
 
-    if args.printer:
-        CONFIG['PRINTER']['PRINTER'] = args.printer
+    #if args.printer:
+    #    CONFIG['PRINTER']['PRINTER'] = args.printer
 
-    if args.port:
-        PORT = args.port
-    else:
-        PORT = CONFIG['SERVER']['PORT']
+    #if args.port:
+    #    PORT = args.port
+    #else:
+    PORT = 8013 # CONFIG['SERVER']['PORT']
 
-    if args.loglevel:
-        LOGLEVEL = args.loglevel
-    else:
-        LOGLEVEL = CONFIG['SERVER']['LOGLEVEL']
+    #if args.loglevel:
+    #    LOGLEVEL = args.loglevel
+    #else:
+    LOGLEVEL = CONFIG['SERVER']['LOGLEVEL']
 
     if LOGLEVEL == 'DEBUG':
         DEBUG = True
@@ -598,35 +651,38 @@ def main():
 
     instance.DEBUG = DEBUG
 
-    if args.model:
-        CONFIG['PRINTER']['MODEL'] = args.model
+    #if args.model:
+    #    CONFIG['PRINTER']['MODEL'] = args.model
 
-    if args.default_label_size:
-        CONFIG['LABEL']['DEFAULT_SIZE'] = args.default_label_size
+    #if args.default_label_size:
+    #    CONFIG['LABEL']['DEFAULT_SIZE'] = args.default_label_size
 
-    if args.default_orientation:
-        CONFIG['LABEL']['DEFAULT_ORIENTATION'] = args.default_orientation
+    #if args.default_orientation:
+    #    CONFIG['LABEL']['DEFAULT_ORIENTATION'] = args.default_orientation
 
-    if args.font_folder:
-        ADDITIONAL_FONT_FOLDER = args.font_folder
-    else:
-        ADDITIONAL_FONT_FOLDER = CONFIG['SERVER']['ADDITIONAL_FONT_FOLDER']
+    #if args.font_folder:
+    #    ADDITIONAL_FONT_FOLDER = args.font_folder
+    #else:
+    ADDITIONAL_FONT_FOLDER = '/fonts_folder'
 
 
     logging.basicConfig(level=LOGLEVEL)
     instance.logger = logger
     instance.CONFIG = CONFIG
 
-    initialization_errors = instance.initialize()
+    initialization_errors = instance.initialize(CONFIG)
     if len(initialization_errors) > 0:
         parser.error(initialization_errors)
 
-    if CONFIG['LABEL']['DEFAULT_SIZE'] not in label_sizes:
-        parser.error("Invalid --default-label-size. Please choose on of the following:\n:" + " ".join(label_sizes))
+    LABEL_SIZES = instance.get_label_sizes()
+
+    PRINTERS = instance.get_printers()
+
+    if CONFIG['LABEL']['DEFAULT_SIZE'] not in LABEL_SIZES.keys():
+        parser.error("Invalid --default-label-size. Please choose one of the following:\n:" + " ".join(list(LABEL_SIZES.keys())))
 
     FONTS = get_fonts()
-    if ADDITIONAL_FONT_FOLDER:
-        FONTS.update(get_fonts(ADDITIONAL_FONT_FOLDER))
+    FONTS.update(get_fonts(ADDITIONAL_FONT_FOLDER))
 
     if not FONTS:
         sys.stderr.write("Not a single font was found on your system. Please install some or use the \"--font-folder\" argument.\n")

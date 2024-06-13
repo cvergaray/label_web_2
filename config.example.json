@@ -6,11 +6,19 @@
     "ADDITIONAL_FONT_FOLDER": false
   },
   "PRINTER": {
-    "MODEL": "QL-500",
-    "PRINTER": "file:///dev/usb/lp1"
+    "SERVER": "192.168.1.176",
+    "PRINTER": "Zebra-LP2844",
+    "LABEL_SIZES": [
+               ["2.25x1.25", "2.25\" by 1.25\""],
+               ["1.25x2.25", "1.25\" x 2.25\""]
+              ],
+    "LABEL_PRINTABLE_AREA": {
+                "2.25x1.25": [457, 254],
+                "1.25x2.25": [254, 457]
+                }
   },
   "LABEL": {
-    "DEFAULT_SIZE": "62",
+    "DEFAULT_SIZE": "2.25x1.25",
     "DEFAULT_ORIENTATION": "standard",
     "DEFAULT_FONT_SIZE": 70,
     "DEFAULT_FONTS": [
@@ -21,7 +29,7 @@
   },
   "WEBSITE": {
     "HTML_TITLE": "Label Designer",
-    "PAGE_TITLE": "Brother QL Label Designer",
+    "PAGE_TITLE": "Web Label Designer",
     "PAGE_HEADLINE": "Design your label and print it…"
   }
 }

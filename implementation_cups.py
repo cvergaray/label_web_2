@@ -4,26 +4,27 @@ import cups
 # Set these based on your printer and loaded labels
 
 # A dictionary of an identifier of the loaded label sizes to a human-readable description of the label size
-label_sizes = [
-               ('2.25x1.25', '2.25" by 1.25"'),
-               ('1.25x2.25', '1.25" x 2.25"')
-              ]
+#label_sizes = [
+#               ('2.25x1.25', '2.25" by 1.25"'),
+#               ('1.25x2.25', '1.25" x 2.25"')
+#              ]
 
 # A mapping of the keys from label_sizes to the size of that label in DPI.
 # This can be calculated by multiplying one dimension by the printer resolution
-label_printable_area = {
-                '2.25x1.25': (457, 254),
-                '1.25x2.25': (254, 457)
-                }
+#label_printable_area = {
+#                '2.25x1.25': (457, 254),
+#                '1.25x2.25': (254, 457)
+#                }
 
 # The default size of a label. This must be one of the keys in the label_sizes dictionary.
-default_size = '2.25x1.25'
+#default_size = '2.25x1.25'
 
 # The name of the printer as exposed by CUPS.
-printer_name = 'UPS-Thermal-2844'
+#printer_name = 'UPS-Thermal-2844'
+
+#server_ip = '192.168.1.176'
 
 # End of Printer Specific Settings
-
 
 class implementation:
 
@@ -32,27 +33,42 @@ class implementation:
         self.DEBUG = False
         self.CONFIG = None
         self.logger = None
-    
-    def initialize(self):
+        self.server_ip = None
+
+    def initialize(self, config):
+        self.CONFIG = config
+        self.server_ip = None
+        if 'PRINTER' not in self.CONFIG:
+            return
+        if 'SERVER' in self.CONFIG['PRINTER']:
+            self.server_ip = self.CONFIG['PRINTER']['SERVER']
+
+        cups.setServer(self.server_ip)
+
         return ''
 
     # Provides an array of label sizes. Each entry in the array is a tuple of ('short name', 'long name')
     def get_label_sizes(self):
-        return label_sizes
+        return self.CONFIG['PRINTER']['LABEL_SIZES']
+        #return label_sizes
         
-    def get_default_label_size():
-        return default_size
+    def get_default_label_size(self):
+        return self.CONFIG['LABEL']['DEFAULT_SIZE'] #default_size
         
     def get_label_kind(self, label_size_description):
         return label_size_description
-    
+
+    def get_printer_properties(self, printerName):
+        conn = cups.Connection()
+        return conn.getPrinterAttributes(printerName, requestedAttributes=["media-default", "media-supported", "printer-resolution-supported", "printer-resolution-default"])
+
     def get_label_dimensions(self, label_size):
         #print(label_size)
         try:
-            ls = label_printable_area[label_size]
+            ls = self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA'][label_size]
         except KeyError:
             raise LookupError("Unknown label_size")
-        return ls
+        return tuple(ls)
     
     def get_label_width_height(self, textsize, **kwargs):
         label_type = kwargs['kind']
@@ -82,14 +98,32 @@ class implementation:
             horizontal_offset = kwargs['margin_left']
         offset = horizontal_offset, vertical_offset        
         return offset
-            
+
+    def get_printers(self):
+        conn = cups.Connection()
+        printers = conn.getPrinters()
+        return printers.keys()
+
     def print_label(self, im, **context):
-        return_dict = {'success' : False }
+        print(context)
+        return_dict = {'success': False}
 
         im.save('sample-out.png')
-        
+
+        quantity = context.get("quantity", 1)
+
         conn = cups.Connection()
-        conn.printFile(printer_name, 'sample-out.png', "grocy", {})
+
+        printer_name = context.get("printer")
+        if printer_name is None:
+            print("No printer specified in Context")
+            printer_name = self.CONFIG['PRINTER'].get("PRINTER")
+        if printer_name is None:
+            print("No printer specified in Config")
+            printer_name = str(conn.getDefault())
+        options = {"copies": str(quantity)}
+        print(printer_name, options)
+        conn.printFile(printer_name, 'sample-out.png', "grocy", options)
         
         return_dict['success'] = True
         
