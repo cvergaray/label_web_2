@@ -16,6 +16,8 @@ from io import BytesIO
 from bottle import run, route, get, post, response, request, jinja2_view as view, static_file, redirect
 from PIL import Image, ImageDraw, ImageFont
 
+import glob, os
+
 #from brother_ql.devicedependent import models, label_type_specs, label_sizes
 #from brother_ql.devicedependent import ENDLESS_LABEL, DIE_CUT_LABEL, ROUND_DIE_CUT_LABEL
 #from brother_ql import BrotherQLRaster, create_label
@@ -61,6 +63,17 @@ def labeldesigner():
             'printers': PRINTERS,
             'website': CONFIG['WEBSITE'],
             'label': CONFIG['LABEL']}
+
+@route("/templateprint")
+@view('templateprint.jinja2')
+def templatePrint():
+    templateFiles = [os.path.basename(file) for file in glob.glob('/appconfig/*.lbl')]
+
+    return {
+        'files': templateFiles,
+        'website': CONFIG['WEBSITE'],
+        'label': CONFIG['LABEL']
+    }
     
 @get('/api/print/template/<templatefile>')
 @post('/api/print/template/<templatefile>')

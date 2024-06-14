@@ -1,12 +1,12 @@
-FROM python:3.12-slim-bookworm
+FROM python:slim-bookworm
 LABEL authors="chris"
 
 WORKDIR /app
 
-copy . .
+copy -exclude=*.lbl -exclude=*.md -exclude=*ignore . .
 
 RUN apt-get update
-RUN apt-get -y install python3-dev libcups2-dev gcc fontconfig
+RUN apt-get -y install python3-dev libcups2-dev gcc fontconfig libdmtx-dev
 
 RUN pip3 install -r requirements.txt
 
