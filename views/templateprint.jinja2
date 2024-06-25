@@ -1,0 +1,101 @@
+{% extends "base.jinja2" %}
+
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block jumbotron %}
+  <h1>Template File Print</h1>
+  <p>Select your template and print it.</p>
+  <!--<p><a class="btn btn-primary btn-lg" href="#" role="button">History of printed labels</a></p>-->
+{% endblock %}
+
+{% block content %}
+<div class="row">
+<div class="col-md-4">
+    <fieldset class="form-group">
+        <div class="panel-group" id="accordion">
+          <div class="panel panel-default">
+              <div class="panel-heading">
+                  <h4 class="panel-title">
+                      <a data-toggle="collapse" data-parent="#accordion" href="#collapse0">
+                          <span class="glyphicon glyphicon-print"></span> Template File</a>
+                  </h4>
+              </div>
+              <div id="collapse0" class="panel-collapse collapse in" aria-expanded="true">
+                  <div class="chooser panel-body">
+                      <label for="template"> Template:</label>
+                      <select class="form-control" id="template" onChange="preview()">
+                          {% for template in files %}<option value="{{template}}">{{template }}</option>{% endfor %}
+                      </select>
+                      <label for="quantity" >Quantity:</label>
+                      <input id="quantity" class="form-control" type="number" min="1" value="1" required>
+                  </div> <!-- class="chooser panel-body" -->
+              </div>
+          </div>
+        </div>
+    </fieldset>
+</div>
+    <div class="col-md-4">
+      <fieldset class="form-group">
+        <label for="previewImg">Label Preview:</label><br />
+        <img id="previewImg" style="border: 1px solid #444; max-height: 350px; width: auto; max-width: 100%; margin-bottom: 10px;"/>
+        <p>Printed size w/o margins: <span id="labelWidth">?</span> cm x <span id="labelHeight">?</span> cm</p>
+        <button id="printButton" type="button" class="btn btn-primary btn-block btn-lg" onClick="print()">
+          <span class="glyphicon glyphicon-print" aria-hidden="true"></span> Print
+        </button>
+      </fieldset>
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <h3 class="panel-title"><span class="glyphicon glyphicon-console" aria-hidden="true" style="margin-right: 0.3em"></span> Status</h3>
+        </div>
+        <div id="statusPanel" class="panel-body">
+          - undefined -
+        </div>
+      </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+
+function formData() {
+  return {
+    printer:       $('#printer').val(),
+    quantity:      $('#quantity').val()
+  }
+}
+
+function preview() {
+  url = '/api/preview/template/' + $('#template').val();
+  $('#previewImg').attr('src', url);
+  var img = $('#previewImg')[0];
+  img.onload = function() {
+    $('#labelWidth').html( (img.naturalWidth /300*2.54).toFixed(1));
+    $('#labelHeight').html((img.naturalHeight/300*2.54).toFixed(1));
+    };
+}
+
+function setStatus(data) {
+  if (data['success'])
+    $('#statusPanel').html('<div id="statusBox" class="alert alert-success" role="alert"><i class="glyphicon glyphicon-check"></i><span>Printing was successful.</span></div>');
+  else
+    $('#statusPanel').html('<div id="statusBox" class="alert alert-warning" role="alert"><i class="glyphicon glyphicon-alert"></i><span>Printing was unsuccessful:<br />'+data['message']+'</span></div>');
+  $('#printButton').prop('disabled', false);
+}
+
+function print() {
+  $('#printButton').prop('disabled', true);
+  $('#statusPanel').html('<div id="statusBox" class="alert alert-info" role="alert"><i class="glyphicon glyphicon-hourglass"></i><span>Processing print request...</span></div>');
+  urlstring = '/api/print/template/' + $('#template').val();
+  $.ajax({
+    type:     'POST',
+    dataType: 'json',
+    data:     formData(),
+    url:      urlstring,
+    success:  setStatus,
+    error:    setStatus
+  });
+}
+
+preview()
+
+
+{% endblock %}

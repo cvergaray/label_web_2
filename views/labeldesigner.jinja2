@@ -14,6 +14,24 @@
       <fieldset class="form-group">
         <div class="panel-group" id="accordion">
           <div class="panel panel-default">
+              <div class="panel-heading">
+                  <h4 class="panel-title">
+                      <a data-toggle="collapse" data-parent="#accordion" href="#collapse0">
+                          <span class="glyphicon glyphicon-print" aria-hidden="true"></span> Printer Settings</a>
+                  </h4>
+              </div>
+              <div id="collapse0" class="panel-collapse collapse">
+                  <div class="chooser panel-body">
+                      <label for="printer"> Printer:</label>
+                      <select class="form-control" id="printer">
+                          {% for printer in printers %}<option value="{{printer}}" {% if label['DEFAULT_PRINTER'] == printer %}selected{% endif %}>{{printer}}</option>{% endfor %}
+                      </select>
+                      <label for="quantity" >Quantity:</label>
+                      <input id="quantity" class="form-control" type="number" min="1" value="1" required>
+                  </div> <!-- class="chooser panel-body" -->
+              </div>
+          </div>
+          <div class="panel panel-default">
             <div class="panel-heading">
               <h4 class="panel-title">
                 <a data-toggle="collapse" data-parent="#accordion" href="#collapse1">
@@ -24,7 +42,7 @@
               <div class="chooser panel-body">
               <label for="labelSize" style="display: none">Label Size:</label>
               <select class="form-control" id="labelSize" onChange="preview()">
-                {% for label_size in label_sizes %}<option value="{{label_size[0]}}" {% if label['DEFAULT_SIZE'] == label_size[0] %}selected{% endif %}>{{label_size[1]}}</option>{% endfor %}
+                {% for label_size in label_sizes.keys() %}<option value="{{label_size}}" {% if label['DEFAULT_SIZE'] == label_size %}selected{% endif %}>{{label_sizes[label_size]}}</option>{% endfor %}
               </select>
               <label for="orientation" style="margin-top: 10px; margin-bottom: 0">Label Orientation:</label>
               <div class="radio" style="margin-top: 5px;">
@@ -149,7 +167,9 @@ function formData() {
     margin_top:    $('#marginTop').val(),
     margin_bottom: $('#marginBottom').val(),
     margin_left:   $('#marginLeft').val(),
-    margin_right:  $('#marginRight').val()
+    margin_right:  $('#marginRight').val(),
+    printer:       $('#printer').val(),
+    quantity:      $('#quantity').val()
   }
 }
 

@@ -14,7 +14,13 @@ def get_fonts(folder=None):
         cmd = ['fc-scan', '--format', '%{file}:%{family}:style=%{style}\n', folder]
     else:
         cmd = ['fc-list', ':', 'file', 'family', 'style']
-    for line in subprocess.check_output(cmd).decode('utf-8').split("\n"):
+
+    try:
+        subprocess_results = subprocess.check_output(cmd).decode('utf-8').split("\n")
+    except subprocess.CalledProcessError:
+        return fonts
+
+    for line in subprocess_results:
         logger.debug(line)
         line.strip()
         if not line: continue
