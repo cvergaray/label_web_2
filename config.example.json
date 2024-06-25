@@ -1,6 +1,5 @@
 {
   "SERVER": {
-    "PORT": 8013,
     "HOST": "",
     "LOGLEVEL": "WARNING",
     "ADDITIONAL_FONT_FOLDER": false
@@ -8,17 +7,17 @@
   "PRINTER": {
     "SERVER": "192.168.1.176",
     "PRINTER": "Zebra-LP2844",
-    "LABEL_SIZES": [
-               ["2.25x1.25", "2.25\" by 1.25\""],
-               ["1.25x2.25", "1.25\" x 2.25\""]
-              ],
+    "LABEL_SIZES": {
+               "3x1": "3\" by 1\"",
+               "1x3": "1\" x 3\""
+	},
     "LABEL_PRINTABLE_AREA": {
-                "2.25x1.25": [457, 254],
-                "1.25x2.25": [254, 457]
+                "3x1": [609, 203],
+                "1x3": [203, 609]
                 }
   },
   "LABEL": {
-    "DEFAULT_SIZE": "2.25x1.25",
+    "DEFAULT_SIZE": "3x1",
     "DEFAULT_ORIENTATION": "standard",
     "DEFAULT_FONT_SIZE": 70,
     "DEFAULT_FONTS": [

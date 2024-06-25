@@ -17,8 +17,7 @@ def get_fonts(folder=None):
 
     try:
         subprocess_results = subprocess.check_output(cmd).decode('utf-8').split("\n")
-    except subprocess.CalledProcessError as e:
-        logger.error(e)
+    except subprocess.CalledProcessError:
         return fonts
 
     for line in subprocess_results:
