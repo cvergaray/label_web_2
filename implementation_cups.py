@@ -100,31 +100,39 @@ class implementation:
         return offset
 
     def get_printers(self):
-        conn = cups.Connection()
-        printers = conn.getPrinters()
-        return printers.keys()
+        try:
+            conn = cups.Connection()
+            printers = conn.getPrinters().keys()
+        except Exception as e:
+            print("Error getting list of printers. Verify that CUPS server is running and accessible.")
+            print(str(e))
+            printers = []
+        return printers
 
     def print_label(self, im, **context):
-        print(context)
         return_dict = {'success': False}
+        try:
+            print(context)
 
-        im.save('sample-out.png')
+            im.save('sample-out.png')
 
-        quantity = context.get("quantity", 1)
+            quantity = context.get("quantity", 1)
 
-        conn = cups.Connection()
+            conn = cups.Connection()
 
-        printer_name = context.get("printer")
-        if printer_name is None:
-            print("No printer specified in Context")
-            printer_name = self.CONFIG['PRINTER'].get("PRINTER")
-        if printer_name is None:
-            print("No printer specified in Config")
-            printer_name = str(conn.getDefault())
-        options = {"copies": str(quantity)}
-        print(printer_name, options)
-        conn.printFile(printer_name, 'sample-out.png', "grocy", options)
+            printer_name = context.get("printer")
+            if printer_name is None:
+                print("No printer specified in Context")
+                printer_name = self.CONFIG['PRINTER'].get("PRINTER")
+            if printer_name is None:
+                print("No printer specified in Config")
+                printer_name = str(conn.getDefault())
+            options = {"copies": str(quantity)}
+            print(printer_name, options)
+            conn.printFile(printer_name, 'sample-out.png', "grocy", options)
         
-        return_dict['success'] = True
-        
+            return_dict['success'] = True
+        except Exception as e:
+            return_dict['success'] = False
+            return_dict['message'] = str(e)
         return return_dict
