@@ -3,7 +3,7 @@ LABEL authors="chris"
 
 WORKDIR /app
 
-copy -exclude=*.lbl -exclude=*.md -exclude=*ignore . .
+COPY -exclude=*.lbl -exclude=*.md -exclude=*ignore . .
 
 RUN apt-get update
 RUN apt-get -y install python3-dev libcups2-dev gcc fontconfig libdmtx-dev
