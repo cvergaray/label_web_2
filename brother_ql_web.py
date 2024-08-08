@@ -122,7 +122,6 @@ def get_template_data(templatefile):
 
 
 def create_label_from_template(template, payload, **kwargs):
-    print('creating label from template')
     width, height = instance.get_label_width_height(ElementBase.get_value(template, kwargs, 'font_path'), **kwargs)
     width = template.get('width', width)
     height = template.get('height', height)
@@ -138,7 +137,6 @@ def create_label_from_template(template, payload, **kwargs):
     draw = ImageDraw.Draw(im)
 
     elements = template.get('elements', [])
-    print('got elements ' + str(elements))
 
     for element in elements:
         ElementBase.process_with_plugins(element, im, margins, dimensions, payload, **kwargs)
@@ -353,11 +351,8 @@ def get_preview_grocy_image():
 @route('/api/preview/template/<templatefile>', method=['GET', 'POST', 'OPTIONS'])
 @enable_cors
 def get_preview_template_image(templatefile):
-    print('Generating Preview from Tempalte ' + templatefile)
     context = get_label_context(request)
     template_data = get_template_data(templatefile)
-
-    print('Got template data ' + str(template_data))
 
     try:
         payload = request.json

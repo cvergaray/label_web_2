@@ -20,11 +20,11 @@ class ElementBase:
     @staticmethod
     def process_with_plugins(element, im: Image, margins, dimensions, payload, **kwargs):
         element_type = element['type']
-        print('Attempting to process element with type {}'.format(element_type))
+        # print('Attempting to process element with type {}'.format(element_type))
         for handler in ElementBase.plugins:
             if handler.can_process(element):
                 instance = handler()
-                print('Processing element with handler {}'.format(type(instance).__name__))
+                # print('Processing element with handler {}'.format(type(instance).__name__))
                 instance.process_element(element, im, margins, dimensions, payload, **kwargs)
 
     @staticmethod
