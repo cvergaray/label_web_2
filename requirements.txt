@@ -3,5 +3,5 @@ bottle>=0.12.25
 jinja2
 pycups
 pylibdmtx[scripts]
-pillow>=10.2.0
+pillow>=10.3.0
 requests

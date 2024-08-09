@@ -2,13 +2,11 @@
 # -*- coding: utf-8 -*-
 
 """
-This is a web service to print labels on Brother QL label printers.
+This is a web service to print labels on label printers via CUPS.
 """
 import cups
 
 import textwrap
-
-#import spf
 
 import sys, logging, random, json, argparse, requests
 from io import BytesIO
@@ -19,13 +17,8 @@ from PIL import Image, ImageDraw, ImageFont
 import glob
 import os
 
-#from brother_ql.devicedependent import models, label_type_specs, label_sizes
-#from brother_ql.devicedependent import ENDLESS_LABEL, DIE_CUT_LABEL, ROUND_DIE_CUT_LABEL
-#from brother_ql import BrotherQLRaster, create_label
-#from brother_ql.backends import backend_factory, guess_backend
+from elements import ElementBase
 
-#uncomment the printer-specific implementation you wish to use
-#from implementation_brother import implementation
 from implementation_cups import implementation
 
 from font_helpers import get_fonts
@@ -129,15 +122,15 @@ def get_template_data(templatefile):
 
 
 def create_label_from_template(template, payload, **kwargs):
-    width, height = instance.get_label_width_height(get_value(template, kwargs, 'font_path'), **kwargs)
+    width, height = instance.get_label_width_height(ElementBase.get_value(template, kwargs, 'font_path'), **kwargs)
     width = template.get('width', width)
     height = template.get('height', height)
     dimensions = width, height
 
-    margin_left = get_value(template, kwargs, 'margin_left', 15)
-    margin_top = get_value(template, kwargs, 'margin_top', 22)
-    margin_right = get_value(template, kwargs, 'margin_right', margin_left)
-    margin_bottom = get_value(template, kwargs, 'margin_bottom', margin_top)
+    margin_left = ElementBase.get_value(template, kwargs, 'margin_left', 15)
+    margin_top = ElementBase.get_value(template, kwargs, 'margin_top', 22)
+    margin_right = ElementBase.get_value(template, kwargs, 'margin_right', margin_left)
+    margin_bottom = ElementBase.get_value(template, kwargs, 'margin_bottom', margin_top)
     margins = [margin_left, margin_top, margin_right, margin_bottom]
 
     im = Image.new('RGB', (width, height), 'white')
@@ -146,304 +139,9 @@ def create_label_from_template(template, payload, **kwargs):
     elements = template.get('elements', [])
 
     for element in elements:
-        im = process_element(element, im, margins, dimensions, payload, **kwargs)
+        ElementBase.process_with_plugins(element, im, margins, dimensions, payload, **kwargs)
 
     return im
-
-
-def process_element(element, im, margins, dimensions, payload, **kwargs, ):
-    element_type = element['type']
-    if element_type == 'datamatrix':
-        im = element_datamatrix(element, im, margins, dimensions, **kwargs)
-    elif element_type == 'text':
-        im = element_text(element, im, margins, dimensions, **kwargs)
-    elif element_type == 'json_api':
-        im = element_json_api(element, im, margins, dimensions, payload, **kwargs)
-    elif element_type == 'grocy_entry':
-        im = element_grocy_entry(element, im, margins, dimensions, **kwargs)
-    elif element_type == 'data_array_index':
-        im = element_data_array_item(element, im, margins, dimensions, payload, **kwargs)
-    elif element_type == 'data_dict_item':
-        im = element_data_dict_item(element, im, margins, dimensions, payload, **kwargs)
-    elif element_type == 'image_file':
-        im = element_image_file(element, im, margins, dimensions, **kwargs)
-    elif element_type == 'image_url':
-        im = element_image_url(element, im, margins, dimensions, **kwargs)
-    elif element_type == 'from_json_payload':
-        im = element_json_payload(element, im, margins, dimensions, payload, **kwargs)
-
-    return im
-
-
-def get_value(template, kwargs, keyname, default=None):
-    return template.get(keyname, kwargs.get(keyname, default))
-
-
-def element_datamatrix(element, im, margins, dimensions, **kwargs):
-    from pylibdmtx.pylibdmtx import encode
-    data = element.get('data', kwargs.get(element.get('key')))
-    datakey = element.get('datakey')
-    if datakey is not None and type(data) is dict and datakey in data:
-        data = data[datakey]
-
-    size = element.get('size', 'SquareAuto')
-
-    horizontal_offset = element['horizontal_offset']
-    vertical_offset = element['vertical_offset']
-
-    encoded = encode(data.encode('utf8'), size=size)  # adjusted for 300x300 dpi - results in DM code roughly 5x5mm
-    datamatrix = Image.frombytes('RGB', (encoded.width, encoded.height), encoded.pixels)
-    datamatrix.save('/tmp/dmtx.png')
-
-    im.paste(datamatrix,
-             (horizontal_offset, vertical_offset, horizontal_offset + encoded.width, vertical_offset + encoded.height))
-
-    return im
-
-
-def element_text(element, im, margins, dimensions, **kwargs):
-    data = element.get('data', kwargs.get(element.get('key')))
-    datakey = element.get('datakey')
-    if datakey is not None and type(data) is dict and datakey in data:
-        data = data[datakey]
-
-    if data is None:
-        return im
-
-    data = str(data)
-
-    font_path = get_value(element, kwargs, 'font_path')
-    font_size = get_value(element, kwargs, 'font_size')
-    fill_color = get_value(element, kwargs, 'fill_color')
-
-    horizontal_offset = element['horizontal_offset']
-    vertical_offset = element['vertical_offset']
-
-    textoffset = horizontal_offset, vertical_offset
-
-    draw = ImageDraw.Draw(im)
-
-    wrap = element.get('wrap', None)
-    if wrap is not None:
-        wrapper = textwrap.TextWrapper(width=wrap)
-        data = "\n".join(wrapper.wrap(text=data))
-
-    shrink = element.get('shrink', False)
-    if shrink:
-        font_size = adjust_font_to_fit(draw, font_path, font_size, data, dimensions, 2, horizontal_offset + margins[2],
-                                       vertical_offset + margins[3])
-
-    font = ImageFont.truetype(font_path, font_size)
-
-    draw.text(textoffset, data, fill_color, font=font)
-
-    return im
-
-
-def element_data_array_item(element, im, margins, dimensions, payload, **kwargs):
-    data = element.get('data')
-    index = element.get('index', 0)
-
-    if (len(data) > index):
-        elements = element.get('elements', [])
-        for sub_element in elements:
-            sub_element['data'] = data[index]
-            im = process_element(sub_element, im, margins, dimensions, payload, **kwargs)
-
-    return im
-
-
-def element_data_dict_item(element, im, margins, dimensions, payload, **kwargs):
-    data = element.get('data')
-    key = element.get('key')
-    elements = element.get('elements', [])
-
-    if (type(data) is dict and key in data):
-        for sub_element in elements:
-            sub_element['data'] = data[key]
-            im = process_element(sub_element, im, margins, dimensions, payload, **kwargs)
-
-    return im
-
-
-def element_json_api(element, im, margins, dimensions, payload, **kwargs):
-    endpoint = element.get('endpoint')
-    if endpoint is None:
-        return im
-
-    method = element.get('method')
-
-    if method is None or method not in ['get', 'post', 'put', 'delete']:
-        method = 'get'
-
-    headers = element.get('headers')
-    headers = headers | {'accept': 'application/json'}
-
-    data = element.get('data', {})
-    datakey = kwargs.get(element.get('datakey'))
-    datakeyname = kwargs.get(element.get('datakeyname'), element.get('datakey'))
-    if datakey is not None and datakeyname is not None:
-        data[datakeyname] = datakey
-
-    if len(data) == 0:
-        data = None
-    else:
-        data = json.dumps(data)
-
-    if method == 'post':
-        response_api = requests.post(endpoint, data=data, headers=headers)
-    elif method == 'put':
-        response_api = requests.put(endpoint, data=data, headers=headers)
-    elif method == 'delete':
-        response_api = requests.delete(endpoint, data=data, headers=headers)
-    else:
-        response_api = requests.get(endpoint, data=data, headers=headers)
-
-    response_data = response_api.json()
-
-    elements = element.get('elements', [])
-    for sub_element in elements:
-        sub_element_key = sub_element.get('key')
-        if sub_element_key is not None and sub_element_key in response_data:
-            sub_element['data'] = response_data[sub_element_key]
-        else:
-            sub_element['data'] = response_data
-        process_element(sub_element, im, margins, dimensions, payload, **kwargs)
-
-    return im
-
-
-def element_json_payload(element, im, margins, dimensions, payload, **kwargs):
-    elements = element.get('elements', [])
-    for sub_element in elements:
-        sub_element_key = sub_element.get('key')
-        if sub_element_key is not None and sub_element_key in payload:
-            sub_element['data'] = payload[sub_element_key]
-        else:
-            sub_element['data'] = payload
-        process_element(sub_element, im, margins, dimensions, payload, **kwargs)
-
-    return im
-
-
-def element_grocy_entry(element, im, margins, dimensions, **kwargs):
-    server = element.get('endpoint')
-    api_key = element.get('api_key')
-    grocycode = element.get('grocycode', kwargs.get('grocycode')).split(':')
-    type = grocycode[1]
-    typeid = grocycode[2]
-    if type == 'p':  # Product
-        server = f"{server}/api/stock/products/{typeid}"
-        if len(grocycode) > 3:
-            server = f"{server}/entries?query%5B%5D=stock_id%3D{grocycode[3]}"
-    elif type == 'c':  # Chore
-        server = f"{server}/api/chores/{typeid}"
-    elif type == 'b':  # battery
-        server = f"{server}/api/battery/{typeid}"
-
-    element['type'] = 'json_api'
-    element['endpoint'] = server
-    headers = element.get('headers', {})
-    element['headers'] = headers | {"GROCY-API-KEY": api_key}
-
-    im = process_element(element, im, margins, dimensions, **kwargs)
-
-    return im
-
-
-def element_image_file(element, im, margins, dimensions, **kwargs):
-    try:
-        filePath = element.get('file')
-
-        image = Image.open(filePath)
-        im = element_image_base(image, element, im, margins, dimensions, **kwargs)
-    except Exception as e:
-        if hasattr(e, 'message'):
-            print(e.message)
-
-    return im
-
-
-def element_image_url(element, im, margins, dimensions, **kwargs):
-    try:
-        url = element.get('url')
-        image = Image.open(requests.get(url, stream=True).raw)
-        im = element_image_base(image, element, im, margins, dimensions, **kwargs)
-    except Exception as e:
-        if hasattr(e, 'message'):
-            print(e.message)
-
-    return im
-
-
-def element_image_base(image_to_add, element, im, margins, dimensions, **kwargs):
-    try:
-        position = element.get('position', None)
-
-        width = element.get('width', None)
-        height = element.get('height', None)
-        maintainAR = element.get('maintainAR', True)
-
-        if position is not None and len(position) == 4:
-            print("4 corners specified, resizing to fit.")
-            width = position[2] - position[0]
-            height = position[3] - position[1]
-            if maintainAR:
-                width, height = constrain_width_height(image_to_add, width, height)
-        else:
-            if width is not None and height is None:
-                # "Width specified, but no height."
-                if maintainAR:
-                    scale = width / image_to_add.width
-                    height = int(image_to_add.height * scale)
-                    # Maintaining AR, resizing to fit.
-                else:
-                    height = image_to_add.height
-                    # Changing width only.
-            elif height is not None and width is None:
-                # height specified, but no width.
-                if maintainAR:
-                    scale = height / image_to_add.height
-                    width = int(image_to_add.width * scale)
-                    # Maintaining AR, resizing to fit
-                else:
-                    width = image_to_add.width
-                    # Changing height only.
-
-        if width is not None and height is not None:
-            image_to_add = image_to_add.resize((width, height))
-
-        im.paste(image_to_add, position)
-    except Exception as e:
-        if hasattr(e, 'message'):
-            print(e.message)
-
-    return im
-
-def constrain_width_height(im, width, height):
-    height_scale = height / im.height
-    width_scale = width / im.width
-    if height_scale == width_scale:
-        return (width, height)
-    proposed_width = height_scale * im.width
-    proposed_height = width_scale * im.height
-
-    height_fits = proposed_height < height
-    width_fits = proposed_width < width
-
-    if height_fits and width_fits:
-        if width_scale > height_scale:
-            return (width, proposed_height)
-        else:
-            return (proposed_width, height)
-    elif width_fits:
-        return (proposed_width, height)
-    elif height_fits:
-        return (width, proposed_height)
-    else:
-        return (width, height)
-
-
 
 def get_label_context(request):
     """ might raise LookupError() """
@@ -525,7 +223,7 @@ def create_label_im(text, **kwargs):
     textsize = draw.multiline_textbbox((0, 0), text, font=im_font)
     textsize = (textsize[2], textsize[3])
     width, height = instance.get_label_width_height(textsize, **kwargs)
-    adjusted_text_size = adjust_font_to_fit(draw, kwargs['font_path'], kwargs['font_size'], text, (width, height), 2,
+    adjusted_text_size = ElementBase.adjust_font_to_fit(draw, kwargs['font_path'], kwargs['font_size'], text, (width, height), 2,
                                             kwargs['margin_left'] + kwargs['margin_right'],
                                             kwargs['margin_top'] + kwargs['margin_bottom'])
     if adjusted_text_size != textsize:
@@ -535,39 +233,6 @@ def create_label_im(text, **kwargs):
     offset = instance.get_label_offset(width, height, textsize, **kwargs)
     draw.multiline_text(offset, text, kwargs['fill_color'], font=im_font, align=kwargs['align'])
     return im
-
-
-def adjust_font_to_fit(draw, font, max_font_size, text, label_size, min_size=2, horizontal_offset=0, vertical_offset=0):
-    if min_size >= max_font_size or font_fits(draw, font, max_font_size, text, label_size, horizontal_offset,
-                                              vertical_offset):
-        return max_font_size
-    high = max_font_size
-    low = min_size
-
-    while low < high:
-        available_range = high - low
-        mid = (available_range // 2) + low
-        # print('Finding Largest Possible Font between [', low, ',', high, '] with offset of [', horizontal_offset, ',', vertical_offset, '] - Trying: ', mid)
-        fits = font_fits(draw, font, mid, text, label_size, horizontal_offset, vertical_offset)
-
-        if fits:
-            low = mid + 1
-        else:
-            high = mid
-
-    if not font_fits(draw, font, mid, text, label_size, horizontal_offset, vertical_offset):
-        mid -= 1
-
-    # print('Largest font size: ', mid)
-    return mid
-
-
-def font_fits(draw, font, font_size, text, label_size, horizontal_offset, vertical_offset):
-    im_font = ImageFont.truetype(font, font_size)
-    textsize = draw.multiline_textbbox((0, 0), text, font=im_font)
-    textsize = (textsize[2], textsize[3])
-    fits = (textsize[0] + horizontal_offset) < label_size[0] and (textsize[1] + vertical_offset) < label_size[1]
-    return fits
 
 
 def create_label_grocy(text, **kwargs):
@@ -622,7 +287,7 @@ def create_label_grocy(text, **kwargs):
         horizontal_offset += -10
 
     textoffset = horizontal_offset, vertical_offset
-    adjusted_product_font_size = adjust_font_to_fit(draw, kwargs['font_path'], kwargs['font_size'], product,
+    adjusted_product_font_size = ElementBase.adjust_font_to_fit(draw, kwargs['font_path'], kwargs['font_size'], product,
                                                     (width, height), 2, horizontal_offset + margin_right,
                                                     vertical_offset + margin_bottom)
     if kwargs['font_size'] != adjusted_product_font_size:
@@ -641,7 +306,7 @@ def create_label_grocy(text, **kwargs):
             horizontal_offset += additional_offset
         textoffset = horizontal_offset, vertical_offset
 
-        adjusted_duedate_font_size = adjust_font_to_fit(draw, kwargs['font_path'], kwargs['font_size'], duedate,
+        adjusted_duedate_font_size = ElementBase.adjust_font_to_fit(draw, kwargs['font_path'], kwargs['font_size'], duedate,
                                                         (width, height), 2, horizontal_offset + margin_right,
                                                         vertical_offset + margin_bottom)
         duedate_font = ImageFont.truetype(kwargs['font_path'], adjusted_duedate_font_size)
