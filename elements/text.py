@@ -16,9 +16,9 @@ class TextElement(elements.ElementBase):
 
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
         data = element.get('data', kwargs.get(element.get('key')))
-        datakey = element.get('datakey')
-        if datakey is not None and type(data) is dict and datakey in data:
-            data = data[datakey]
+        data_key = element.get('datakey')
+        if data_key is not None and type(data) is dict and data_key in data:
+            data = data[data_key]
 
         if data is None:
             return im
@@ -32,7 +32,7 @@ class TextElement(elements.ElementBase):
         horizontal_offset = element['horizontal_offset']
         vertical_offset = element['vertical_offset']
 
-        textoffset = horizontal_offset, vertical_offset
+        text_offset = horizontal_offset, vertical_offset
 
         draw = ImageDraw.Draw(im)
 
@@ -49,6 +49,6 @@ class TextElement(elements.ElementBase):
 
         font = ImageFont.truetype(font_path, font_size)
 
-        draw.text(textoffset, data, fill_color, font=font)
+        draw.text(text_offset, data, fill_color, font=font)
 
         return im

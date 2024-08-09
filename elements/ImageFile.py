@@ -15,11 +15,11 @@ class ImageFileElement(elements.ElementBase):
 
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
         try:
-            filePath = element.get('file')
+            file_path = element.get('file')
 
-            print('loading image from ' + str(filePath))
+            print('loading image from ' + str(file_path))
 
-            image = Image.open(filePath)
+            image = Image.open(file_path)
             if image is None:
                 print("Error reading file!")
             im = element_image_base(image, element, im, margins, dimensions, **kwargs)

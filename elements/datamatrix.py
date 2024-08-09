@@ -14,9 +14,9 @@ class DataMatrixElement(elements.ElementBase):
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
         from pylibdmtx.pylibdmtx import encode
         data = element.get('data', kwargs.get(element.get('key')))
-        datakey = element.get('datakey')
-        if datakey is not None and type(data) is dict and datakey in data:
-            data = data[datakey]
+        data_key = element.get('datakey')
+        if data_key is not None and type(data) is dict and data_key in data:
+            data = data[data_key]
 
         size = element.get('size', 'SquareAuto')
 
