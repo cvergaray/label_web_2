@@ -35,7 +35,10 @@ class BasicElement(elements.ElementBase):
                     },
                     "type": {
                         "type": "string",
-                        "enum": [BasicElement.element_key()]
+                        "enum": [BasicElement.element_key()],
+                        "options": {
+                            "hidden": "true"
+                        }
                     }
                 }
             }

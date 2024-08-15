@@ -38,10 +38,17 @@ class ElementBase:
 
     @staticmethod
     def get_plugin_editor_keys():
-        keys = []
+        keys = [{
+            "title": "none",
+            "type": "null"
+        }]
         for handler in ElementBase.plugins:
             instance = handler()
-            keys.append(instance.element_key())
+            key = instance.element_key()
+            keys.append({
+                "title": key,
+                "$ref": "#/definitions/" + key
+            })
         return keys
 
     @staticmethod

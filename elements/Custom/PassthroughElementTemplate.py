@@ -34,7 +34,8 @@ class PassthroughElement(elements.ElementBase):
                 "type": "object",
                 "id": PassthroughElement.element_key(),
                 "defaultProperties": [
-                    "type"
+                    "type",
+                    "elements"
                 ],
                 "properties": {
                     "name": {
@@ -42,10 +43,18 @@ class PassthroughElement(elements.ElementBase):
                     },
                     "type": {
                         "type": "string",
-                        "enum": [PassthroughElement.element_key()]
+                        "enum": [PassthroughElement.element_key()],
+                        "options": {
+                            "hidden": "true"
+                        }
                     },
                     "elements": {
                         "type": "array",
+                        "title": "Elements",
+                        "items": {
+                            "title": "Element",
+                            "anyOf": PassthroughElement.get_plugin_editor_keys()
+                        }
                     }
                 }
             }

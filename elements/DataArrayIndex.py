@@ -28,4 +28,50 @@ class DataArrayIndexElement(elements.ElementBase):
 
     @staticmethod
     def get_definition():
-        return {}
+        return {
+            DataArrayIndexElement.element_key(): {
+                "type": "object",
+                "id": DataArrayIndexElement.element_key(),
+                "defaultProperties": [
+                    "type",
+                    "index",
+                    "elements"
+                ],
+                "requiredProperties": [
+                    "type",
+                    "index"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [DataArrayIndexElement.element_key()],
+                        "options": {
+                            "hidden": "true"
+                        }
+                    },
+                    "elements": {
+                        "type": "array",
+                        "title": "Elements",
+                        "items": {
+                            "title": "Element",
+                            "anyOf": DataArrayIndexElement.get_plugin_editor_keys()
+                        }
+                    },
+                    "data": {
+                        "type": "string",
+                        "title": "Data",
+                        "description": "Data array, or leave blank if inheriting from parent element.",
+                    },
+                    "index": {
+                        "type": "integer",
+                        "title": "Index",
+                        "default": 0,
+                        "description": "The index of the element from data to be set as the data property of child "
+                                       "elements",
+                    }
+                }
+            }
+        }

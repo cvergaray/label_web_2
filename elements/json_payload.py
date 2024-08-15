@@ -28,4 +28,45 @@ class JsonPayloadElement(elements.ElementBase):
 
     @staticmethod
     def get_definition():
-        return {}
+        return {
+            JsonPayloadElement.element_key(): {
+                "type": "object",
+                "id": JsonPayloadElement.element_key(),
+                "defaultProperties": [
+                    "type",
+                    "key",
+                    "elements"
+                ],
+                "requiredProperties": [
+                    "type",
+                    "key",
+                    "endpoint"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [JsonPayloadElement.element_key()],
+                        "options": {
+                            "hidden": "true"
+                        }
+                    },
+                    "elements": {
+                        "type": "array",
+                        "title": "JSON Payload Sub Elements",
+                        "items": {
+                            "title": "Sub-Element",
+                            "anyOf": JsonPayloadElement.get_plugin_editor_keys()
+                        }
+                    },
+                    "key": {
+                        "type": "string",
+                        "title": "Key",
+                        "description": "The key of the element from JSON Payload to be set as the data property of " +
+                                       "child elements",
+                    }
+                }
+            }
+        }

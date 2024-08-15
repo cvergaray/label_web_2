@@ -28,4 +28,49 @@ class DataDictItemElement(elements.ElementBase):
 
     @staticmethod
     def get_definition():
-        return {}
+        return {
+            DataDictItemElement.element_key(): {
+                "type": "object",
+                "id": DataDictItemElement.element_key(),
+                "defaultProperties": [
+                    "type",
+                    "index",
+                    "elements"
+                ],
+                "requiredProperties": [
+                    "type",
+                    "key"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [DataDictItemElement.element_key()],
+                        "options": {
+                            "hidden": "true"
+                        }
+                    },
+                    "elements": {
+                        "type": "array",
+                        "title": "Elements",
+                        "items": {
+                            "title": "Element",
+                            "anyOf": DataDictItemElement.get_plugin_editor_keys()
+                        }
+                    },
+                    "data": {
+                        "type": "string",
+                        "title": "Data",
+                        "description": "Data dictionary, or leave blank if inheriting from parent element.",
+                    },
+                    "key": {
+                        "type": "string",
+                        "title": "Key",
+                        "description": "The key of the element from data dictionary to be set as the data property of "
+                                       "child elements",
+                    }
+                }
+            }
+        }

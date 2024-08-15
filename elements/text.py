@@ -80,7 +80,10 @@ class TextElement(elements.ElementBase):
                     },
                     "type": {
                         "type": "string",
-                        "enum": [TextElement.element_key()]
+                        "enum": [TextElement.element_key()],
+                        "options": {
+                            "hidden": "true"
+                        }
                     },
                     "data": {
                         "type": "string",
