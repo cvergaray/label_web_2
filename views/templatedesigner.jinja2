@@ -115,6 +115,17 @@
             title: "Label Template",
             $ref: "#/definitions/label",
             definitions: {
+                select_label_file: {
+                    type: "string",
+                    enum: [
+                        {% for template in files %}"{{ template }}",{% endfor %}
+                    ]},
+                select_image_file: {
+                    type: "string",
+                    enum: [
+                        {% for image in image_files %}"{{ image }}",{% endfor %}
+                    ]
+                },
                 label: {
                     type: "object",
                     id: "label",
@@ -161,16 +172,16 @@
                             }
                         },
                     }
-                }
-                {% for definition in element_definitions.keys() %},
-                {{ definition }}: {{ element_definitions[definition]}}
-                {% endfor %}
-            }
+                }{% for definition in element_definitions.keys() %},
+                {{ definition }}: {{ element_definitions[definition]}}{% endfor %}
+            },
+
         },
         theme: 'bootstrap3',
         no_additional_properties: true,
         disable_edit_json: false,
-        object_layout: 'grid'
+        object_layout: 'grid',
+        disable_array_reorder: true
       });
 
         function formData() {

@@ -34,7 +34,7 @@ class DataDictItemElement(elements.ElementBase):
                 "id": DataDictItemElement.element_key(),
                 "defaultProperties": [
                     "type",
-                    "index",
+                    "key",
                     "elements"
                 ],
                 "requiredProperties": [

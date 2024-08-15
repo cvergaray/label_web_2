@@ -1,7 +1,7 @@
 import elements
 
 from PIL import Image
-from elements.ImageElement.Element import element_image_base
+from elements.ImageElement.Element import element_image_base, get_base_definition
 import requests
 
 
@@ -31,4 +31,18 @@ class ImageUrlElement(elements.ElementBase):
 
     @staticmethod
     def get_definition():
-        return {}
+        definition = get_base_definition()
+
+        definition['id'] = ImageUrlElement.element_key()
+        definition['defaultProperties'].insert(len(definition['defaultProperties'])-1, "url")
+        definition['required'].append("url")
+        definition['properties']['type']["enum"] = [ImageUrlElement.element_key()]
+        definition['properties']['url'] = {
+                    "type": "string",
+                    "description": "URL of the image to include",
+                    "format": "url"
+                }
+
+        return {
+            ImageUrlElement.element_key(): definition
+        }

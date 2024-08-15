@@ -70,3 +70,72 @@ def constrain_width_height(im, width, height):
         return width, proposed_height
     else:
         return width, height
+
+def get_base_definition():
+    return {
+            "type": "object",
+            "defaultProperties": [
+                "type",
+                "width",
+                "height",
+                "maintainAR",
+                "position"
+            ],
+            "required": [
+                "type",
+                "position"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                },
+                "type": {
+                    "type": "string",
+                    "options": {
+                        "hidden": "true"
+                    }
+                },
+                "position": {
+                    "type": "array",
+                    "items": [
+                        {
+                            "type": "integer",
+                            "default": 0,
+                            "description": "Top Left x position",
+                            "required": "true"
+                        },
+                        {
+                            "type": "integer",
+                            "default": 0,
+                            "description": "Top Left y position",
+                            "required": "true"
+                        },
+                        {
+                            "type": "integer",
+                            "default": 100,
+                            "description": "Bottom Right x position"
+                        },
+                        {
+                            "type": "integer",
+                            "default": 100,
+                            "description": "Bottom Right y position"
+                        }
+                    ],
+                    "default": [0, 0]
+                },
+                "width": {
+                    "type": "integer",
+                    "description": "The desired width of the image.",
+                },
+                "height": {
+                    "type": "integer",
+                    "description": "The desired height of the image.",
+                },
+                "maintainAR": {
+                    "type": "boolean",
+                    "format": "checkbox",
+                    "description": "If true, the image will maintained the Aspect Ratio when resizing.",
+                    "default": "true"
+                }
+            }
+        }
