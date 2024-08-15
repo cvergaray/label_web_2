@@ -1,8 +1,7 @@
 {
   "SERVER": {
     "HOST": "",
-    "LOGLEVEL": "WARNING",
-    "ADDITIONAL_FONT_FOLDER": false
+    "LOGLEVEL": "WARNING"
   },
   "PRINTER": {
     "SERVER": "192.168.1.176",

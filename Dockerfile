@@ -1,9 +1,11 @@
+# syntax=docker.io/docker/dockerfile:1.7-labs
+
 FROM python:slim-bookworm
 LABEL authors="chris"
 
 WORKDIR /app
 
-COPY -exclude=*.lbl -exclude=*.md -exclude=*ignore . .
+COPY --exclude=*.lbl --exclude=*.md --exclude=*ignore . .
 
 RUN apt-get update
 RUN apt-get -y install python3-dev libcups2-dev gcc fontconfig libdmtx-dev

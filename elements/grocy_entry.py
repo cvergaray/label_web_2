@@ -7,8 +7,12 @@ class GrocyEntryElement(elements.ElementBase):
         pass
 
     @staticmethod
+    def element_key():
+        return 'grocy_entry'
+
+    @staticmethod
     def can_process(element):
-        return element['type'] == 'grocy_entry'
+        return element['type'] == GrocyEntryElement.element_key()
 
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
         server = element.get('endpoint')
@@ -33,3 +37,7 @@ class GrocyEntryElement(elements.ElementBase):
         im = self.process_with_plugins(element, im, margins, dimensions, **kwargs)
 
         return im
+
+    @staticmethod
+    def get_definition():
+        return {}

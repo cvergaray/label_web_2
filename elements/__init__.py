@@ -27,6 +27,23 @@ class ElementBase:
                 # print('Processing element with handler {}'.format(type(instance).__name__))
                 instance.process_element(element, im, margins, dimensions, payload, **kwargs)
 
+
+    @staticmethod
+    def get_plugin_editor_definitions():
+        definitions = {}
+        for handler in ElementBase.plugins:
+            instance = handler()
+            definitions = definitions | instance.get_definition()
+        return definitions
+
+    @staticmethod
+    def get_plugin_editor_keys():
+        keys = []
+        for handler in ElementBase.plugins:
+            instance = handler()
+            keys.append(instance.element_key())
+        return keys
+
     @staticmethod
     def get_value(template, kwargs, keyname, default=None):
         return template.get(keyname, kwargs.get(keyname, default))

@@ -34,12 +34,13 @@
     </div>
     <div class="container">{% block content %}{% endblock %}</div>
 
-    <!-- jQuery first, then Bootstrap JS. -->
-    <script src="/static/js/jquery.min.js"></script>
-    <script src="/static/js/bootstrap.min.js"></script>
-    <script type="text/javascript">
-      {% block javascript %}{% endblock %}
-    </script>
+<!-- jQuery first, then Bootstrap JS. -->
+<script src="/static/js/jquery.min.js"></script>
+<script src="/static/js/bootstrap.min.js"></script>
+{% block extrajavascript %}{% endblock %}
+<script type="text/javascript">
+    {% block javascript %}{% endblock %}
+</script>
   </body>
 </html>
 

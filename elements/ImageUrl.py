@@ -11,8 +11,12 @@ class ImageUrlElement(elements.ElementBase):
         pass
 
     @staticmethod
+    def element_key():
+        return 'image_url'
+
+    @staticmethod
     def can_process(element):
-        return element['type'] == 'image_url'
+        return element['type'] == ImageUrlElement.element_key()
 
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
         try:
@@ -24,3 +28,7 @@ class ImageUrlElement(elements.ElementBase):
                 print(e.message)
 
         return im
+
+    @staticmethod
+    def get_definition():
+        return {}

@@ -7,8 +7,12 @@ class PassthroughElement(elements.ElementBase):
         pass
 
     @staticmethod
+    def element_key():
+        return 'passthrough'
+
+    @staticmethod
     def can_process(element):
-        return element['type'] == 'passthrough'
+        return element['type'] == PassthroughElement.element_key()
 
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
         # Do some sort of transformation on the elements object
@@ -22,3 +26,27 @@ class PassthroughElement(elements.ElementBase):
 
         # return updated image object
         return im
+
+    @staticmethod
+    def get_definition():
+        return {
+            PassthroughElement.element_key(): {
+                "type": "object",
+                "id": PassthroughElement.element_key(),
+                "defaultProperties": [
+                    "type"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [PassthroughElement.element_key()]
+                    },
+                    "elements": {
+                        "type": "array",
+                    }
+                }
+            }
+        }

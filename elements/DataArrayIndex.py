@@ -7,8 +7,12 @@ class DataArrayIndexElement(elements.ElementBase):
         pass
 
     @staticmethod
+    def element_key():
+        return 'data_array_index'
+
+    @staticmethod
     def can_process(element):
-        return element['type'] == 'data_array_index'
+        return element['type'] == DataArrayIndexElement.element_key()
 
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
         data = element.get('data')
@@ -21,3 +25,7 @@ class DataArrayIndexElement(elements.ElementBase):
                 im = self.process_with_plugins(sub_element, im, margins, dimensions, payload, **kwargs)
 
         return im
+
+    @staticmethod
+    def get_definition():
+        return {}

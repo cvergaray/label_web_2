@@ -7,8 +7,12 @@ class DataDictItemElement(elements.ElementBase):
         pass
 
     @staticmethod
+    def element_key():
+        return 'data_dict_item'
+
+    @staticmethod
     def can_process(element):
-        return element['type'] == 'data_dict_item'
+        return element['type'] == DataDictItemElement.element_key()
 
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
         data = element.get('data')
@@ -21,3 +25,7 @@ class DataDictItemElement(elements.ElementBase):
                 im = self.process_with_plugins(sub_element, im, margins, dimensions, payload, **kwargs)
 
         return im
+
+    @staticmethod
+    def get_definition():
+        return {}

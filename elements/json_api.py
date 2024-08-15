@@ -10,8 +10,12 @@ class JsonAPIElement(elements.ElementBase):
         pass
 
     @staticmethod
+    def element_key():
+        return 'json_api'
+
+    @staticmethod
     def can_process(element):
-        return element['type'] == 'json_api'
+        return element['type'] == JsonAPIElement.element_key()
 
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
 
@@ -58,4 +62,8 @@ class JsonAPIElement(elements.ElementBase):
                 sub_element['data'] = response_data
             self.process_with_plugins(sub_element, im, margins, dimensions, payload, **kwargs)
 
-        return im
+        return
+
+    @staticmethod
+    def get_definition():
+        return {}

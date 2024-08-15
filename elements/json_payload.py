@@ -7,8 +7,12 @@ class JsonPayloadElement(elements.ElementBase):
         pass
 
     @staticmethod
+    def element_key():
+        return 'from_json_payload'
+
+    @staticmethod
     def can_process(element):
-        return element['type'] == 'from_json_payload'
+        return element['type'] == JsonPayloadElement.element_key()
 
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
         sub_elements = element.get('elements', [])
@@ -21,3 +25,7 @@ class JsonPayloadElement(elements.ElementBase):
             self.process_with_plugins(sub_element, im, margins, dimensions, payload, **kwargs)
 
         return im
+
+    @staticmethod
+    def get_definition():
+        return {}

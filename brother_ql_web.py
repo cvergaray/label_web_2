@@ -76,6 +76,23 @@ def labeldesigner():
             'label': CONFIG['LABEL']}
 
 
+@route('/templatedesigner')
+@view('templatedesigner.jinja2')
+def template_designer():
+    font_family_names = sorted(list(FONTS.keys()))
+    templateFiles = [os.path.basename(file) for file in glob.glob('*.lbl')]
+    return {'font_family_names': font_family_names,
+            'fonts': FONTS,
+            'label_sizes': LABEL_SIZES,
+            'printers': PRINTERS,
+            'website': CONFIG['WEBSITE'],
+            'label': CONFIG['LABEL'],
+            'element_handlers': ElementBase.plugins,
+            'files': templateFiles,
+            'element_definitions': ElementBase.get_plugin_editor_definitions()
+            }
+
+
 @route("/templateprint")
 @view('templateprint.jinja2')
 def templatePrint():

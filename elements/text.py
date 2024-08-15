@@ -11,8 +11,12 @@ class TextElement(elements.ElementBase):
         pass
 
     @staticmethod
+    def element_key():
+        return 'text'
+
+    @staticmethod
     def can_process(element):
-        return element['type'] == 'text'
+        return element['type'] == TextElement.element_key()
 
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
         data = element.get('data', kwargs.get(element.get('key')))
@@ -52,3 +56,78 @@ class TextElement(elements.ElementBase):
         draw.text(text_offset, data, fill_color, font=font)
 
         return im
+
+    @staticmethod
+    def get_definition():
+        return {
+            TextElement.element_key(): {
+                "type": "object",
+                "id": TextElement.element_key(),
+                "defaultProperties": [
+                    "type",
+                    "data",
+                    "horizontal_offset",
+                    "vertical_offset"
+                ],
+                "required": [
+                    "type",
+                    "horizontal_offset",
+                    "vertical_offset"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [TextElement.element_key()]
+                    },
+                    "data": {
+                        "type": "string",
+                        "description": "Hard-coded text value to be rendered"
+                    },
+                    "key": {
+                        "type": "string",
+                        "description": "The key identifying the item from the HTML request that will be rendered."
+                    },
+                    "datakey": {
+                        "type": "string",
+                        "description": "The value from with the data property that will be used as data"
+                    },
+                    "shrink": {
+                        "type": "boolean",
+                        "format": "checkbox"
+                    },
+                    "wrap": {
+                        "type": "integer"
+                    },
+                    "font_size": {
+                        "type": "integer",
+                        "title": "Font Size",
+                        "minimum": 1,
+                        "default": 40
+                    },
+                    "fill_color": {
+                        "type": 'string',
+                        "format": 'color',
+                        "title": 'Fill Color',
+                        'default': 'rgb(0,0,0)',
+                        'options': {
+                            'colorpicker': {
+                                'editorFormat': 'rgb'
+                            }
+                        }
+                    },
+                    "horizontal_offset": {
+                        "title": "Horizontal Offset",
+                        "type": 'integer',
+                        "minimum": 0,
+                    },
+                    "vertical_offset": {
+                        "title": "Vertical Offset",
+                        "type": 'integer',
+                        "minimum": 0
+                    }
+                }
+            }
+        }
