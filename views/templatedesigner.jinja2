@@ -108,81 +108,82 @@
 {% block extrajavascript %}
     <script src="https://cdn.jsdelivr.net/npm/@json-editor/json-editor@latest/dist/jsoneditor.min.js"></script>
 
-        <script>
+    <script>
 
-    var editor = new JSONEditor(document.getElementById('editor_holder'),{
-        schema: {
-            title: "Label Template",
-            $ref: "#/definitions/label",
-            definitions: {
-                select_label_file: {
-                    type: "string",
-                    enum: [
-                        {% for template in files %}"{{ template }}",{% endfor %}
-                    ]},
-                select_image_file: {
-                    type: "string",
-                    enum: [
-                        {% for image in image_files %}"{{ image }}",{% endfor %}
-                    ]
+        var editor = new JSONEditor(document.getElementById('editor_holder'), {
+            schema: {
+                title: "Label Template",
+                $ref: "#/definitions/label",
+                definitions: {
+                    select_label_file: {
+                        type: "string",
+                        enum: [
+                            {% for template in files %}"{{ template }}",{% endfor %}
+                        ]
+                    },
+                    select_image_file: {
+                        type: "string",
+                        enum: [
+                            {% for image in image_files %}"{{ image }}",{% endfor %}
+                        ]
+                    },
+                    label: {
+                        type: "object",
+                        id: "label",
+                        // The object will start with only these properties
+                        defaultProperties: [
+                            "name",
+                            "elements"
+                        ],
+                        properties: {
+                            name: {
+                                title: "Description",
+                                type: "string",
+                                description: "Description of the label",
+                            },
+                            width: {
+                                title: "Width",
+                                type: "integer",
+                                minimum: 1,
+                                default: 300
+                            },
+                            height: {
+                                title: "Height",
+                                type: "integer",
+                                minimum: 1,
+                                default: 100
+                            },
+                            elements: {
+                                type: "array",
+                                title: "Elements",
+                                items: {
+                                    title: "Element",
+                                    anyOf: [
+                                        {
+                                            title: "none",
+                                            type: "null"
+                                        }
+                                        {% for definition in element_definitions.keys() %}
+                                            ,{
+                                            title: "{{definition}}",
+                                            $ref: "#/definitions/{{definition}}"
+                                        }
+                                        {% endfor %}
+                                    ]
+                                }
+                            },
+                        }
+                    }{% for definition in element_definitions.keys() %},
+                    {{ definition }}: {{ element_definitions[definition]}}{% endfor %}
                 },
-                label: {
-                    type: "object",
-                    id: "label",
-                    // The object will start with only these properties
-                    defaultProperties: [
-                        "name",
-                        "elements"
-                    ],
-                    properties: {
-                        name: {
-                            title: "Description",
-                            type: "string",
-                            description: "Description of the label",
-                        },
-                        width: {
-                            title: "Width",
-                            type: "integer",
-                            minimum: 1,
-                            default: 300
-                        },
-                        height: {
-                            title: "Height",
-                            type: "integer",
-                            minimum: 1,
-                            default: 100
-                        },
-                        elements: {
-                            type: "array",
-                            title: "Elements",
-                            items: {
-                                title: "Element",
-                                anyOf: [
-                                    {
-                                        title: "none",
-                                        type: "null"
-                                    }
-                                    {% for definition in element_definitions.keys() %}
-                                    ,{
-                                        title: "{{definition}}",
-                                        $ref: "#/definitions/{{definition}}"
-                                    }
-                                    {% endfor %}
-                                ]
-                            }
-                        },
-                    }
-                }{% for definition in element_definitions.keys() %},
-                {{ definition }}: {{ element_definitions[definition]}}{% endfor %}
-            },
 
-        },
-        theme: 'bootstrap3',
-        no_additional_properties: true,
-        disable_edit_json: false,
-        object_layout: 'grid',
-        disable_array_reorder: true
-      });
+            },
+            theme: 'bootstrap3',
+            no_additional_properties: true,
+            disable_edit_json: false,
+            object_layout: 'grid',
+            disable_array_reorder: true
+        });
 
         function formData() {
             return {
@@ -194,8 +195,8 @@
         function preview() {
             var templateVal = $('#template').val();
 
-            if(templateVal == "NEW_FILE"){
-                $('#loadFileButton').prop("value","Save");
+            if (templateVal === "NEW_FILE") {
+                $('#loadFileButton').prop("value", "Save");
                 $('#newFileName').show();
                 $('#newFileNameLabel').show();
                 return
@@ -203,15 +204,26 @@
 
             $('#newFileName').hide();
             $('#newFileNameLabel').hide();
-            $('#loadFileButton').prop("value","Load");
+            $('#loadFileButton').prop("value", "Load");
 
-            url = '/api/preview/template/' + templateVal;
+            /*
+
+            var fileName = $('#newFileName').val();
+
+            $.post( "/api/save/template", {
+                label_definition: editor.getValue(),
+                file_name: fileName
+            });
+
+            url = '/api/preview/template/' + fileName;
             $('#previewImg').attr('src', url);
             var img = $('#previewImg')[0];
             img.onload = function () {
                 $('#labelWidth').html((img.naturalWidth / 300 * 2.54).toFixed(1));
                 $('#labelHeight').html((img.naturalHeight / 300 * 2.54).toFixed(1));
             };
+
+            */
         }
 
         function setStatus(data) {
@@ -222,11 +234,28 @@
             $('#printButton').prop('disabled', false);
         }
 
-        function load_file(){
-
+        function isJsonString(str) {
+            try {
+                JSON.parse(str);
+            } catch (e) {
+                return false;
+            }
+            return true;
         }
 
-        preview()
+        function load_file() {
+            var template_name = $('#template').val();
+            $.ajax({
+                url: '/api/read/template/' + template_name,
+                success: function (data) {
+                    var dataJson = JSON.stringify(data)
+                    if(isJsonString(dataJson))
+                        editor.setValue(data);
+                }
+            })
+        }
+
+        //preview()
     </script>
 
 {% endblock %}

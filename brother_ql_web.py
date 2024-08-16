@@ -80,7 +80,11 @@ def labeldesigner():
 @view('templatedesigner.jinja2')
 def template_designer():
     font_family_names = sorted(list(FONTS.keys()))
-    templateFiles = [os.path.basename(file) for file in glob.glob('*.lbl')]
+    templateFiles = [os.path.basename(file) for file in glob.glob(CONFIG['SERVER']['DataFolder'] + '*.lbl')]
+    image_formats = ['*.png', '*.jpg', '*.jpeg', '*.bmp', '*.gif', '*.tiff', '*.tiff']
+    image_files = []
+    for format in image_formats:
+        image_files = image_files + [os.path.basename(file) for file in glob.glob(CONFIG['SERVER']['DataFolder'] + format)]
     return {'font_family_names': font_family_names,
             'fonts': FONTS,
             'label_sizes': LABEL_SIZES,
@@ -89,6 +93,7 @@ def template_designer():
             'label': CONFIG['LABEL'],
             'element_handlers': ElementBase.plugins,
             'files': templateFiles,
+            'image_files': image_files,
             'element_definitions': ElementBase.get_plugin_editor_definitions()
             }
 
@@ -96,7 +101,7 @@ def template_designer():
 @route("/templateprint")
 @view('templateprint.jinja2')
 def templatePrint():
-    templateFiles = [os.path.basename(file) for file in glob.glob('/appconfig/*.lbl')]
+    templateFiles = [os.path.basename(file) for file in glob.glob(CONFIG['SERVER']['DataFolder'] + '*.lbl')]
 
     return {
         'files': templateFiles,
@@ -111,9 +116,9 @@ def templatePrint():
 @enable_cors
 def printtemplate(templatefile):
     return_dict = {'Success': False}
-    template_data = get_template_data(templatefile)
 
     try:
+        template_data = get_template_data(templatefile)
         context = get_label_context(request)
     except LookupError as e:
         return_dict['error'] = e.message
@@ -131,9 +136,10 @@ def printtemplate(templatefile):
     return instance.print_label(im, **context)
 
 
+@route('/api/read/template/<templatefile>', method=['GET', 'POST', 'OPTIONS'])
 def get_template_data(templatefile):
     template_data = None
-    with open('/appconfig/' + templatefile, 'r') as file:
+    with open(CONFIG['SERVER']['DataFolder'] + templatefile, 'r') as file:
         template_data = json.load(file)
     return template_data
 
@@ -369,9 +375,9 @@ def get_preview_grocy_image():
 @enable_cors
 def get_preview_template_image(templatefile):
     context = get_label_context(request)
-    template_data = get_template_data(templatefile)
 
     try:
+        template_data = get_template_data(templatefile)
         payload = request.json
     except json.JSONDecodeError as e:
         payload = None
@@ -385,6 +391,29 @@ def get_preview_template_image(templatefile):
     else:
         response.set_header('Content-type', 'image/png')
         return image_to_png_bytes(im)
+
+
+@route('/api/save/template', method=['GET', 'POST', 'OPTIONS'])
+@enable_cors
+def save_template_file():
+    context = get_label_context(request)
+    try:
+        payload = request.json
+    except json.JSONDecodeError as e:
+        payload = None
+        return None
+
+    label_definition = payload['label_definition']
+    file_name = payload['file_name']
+
+    if label_definition is None or file_name is None:
+        return None
+
+    if not file_name.endswith('.lbl') or not file_name.endswith('.tmplbl'):
+        file_name += '.lbl'
+    filepath = CONFIG['SERVER']['DataFolder'] + file_name
+    f = open(filepath, "w")
+    f.write(label_definition)
 
 
 def image_to_png_bytes(im):
@@ -454,26 +483,14 @@ def print_text():
 def main():
     global DEBUG, FONTS, BACKEND_CLASS, CONFIG, LABEL_SIZES, PRINTERS
     parser = argparse.ArgumentParser(description=__doc__)
-    #parser.add_argument('--port', default=False)
-    #parser.add_argument('--loglevel', type=lambda x: getattr(logging, x.upper()), default=False)
-    #parser.add_argument('--font-folder', default=False, help='folder for additional .ttf/.otf fonts')
-    #parser.add_argument('--default-label-size', default=False, help='Label size inserted in your printer. Defaults to 62.')
-    #parser.add_argument('--default-orientation', default=False, choices=('standard', 'rotated'), help='Label orientation, defaults to "standard". To turn your text by 90°, state "rotated".')
-    #parser.add_argument('--model', default=False, choices=models, help='The model of your printer (default: QL-500)')
-    #parser.add_argument('printer',  nargs='?', default=False, help='String descriptor for the printer to use (like tcp://192.168.0.23:9100 or file:///dev/usb/lp0)')
     args = parser.parse_args()
-
-    #if args.printer:
-    #    CONFIG['PRINTER']['PRINTER'] = args.printer
-
-    #if args.port:
-    #    PORT = args.port
-    #else:
     PORT = 8013  # CONFIG['SERVER']['PORT']
 
-    #if args.loglevel:
-    #    LOGLEVEL = args.loglevel
-    #else:
+    # If an alternate template folder is not specified,
+    # assume it's the same location as the config file
+    if CONFIG['SERVER']['DataFolder'] is None:
+        CONFIG['SERVER']['DataFolder'] = '/appconfig/'
+
     LOGLEVEL = CONFIG['SERVER']['LOGLEVEL']
 
     if LOGLEVEL == 'DEBUG':
@@ -482,19 +499,6 @@ def main():
         DEBUG = False
 
     instance.DEBUG = DEBUG
-
-    #if args.model:
-    #    CONFIG['PRINTER']['MODEL'] = args.model
-
-    #if args.default_label_size:
-    #    CONFIG['LABEL']['DEFAULT_SIZE'] = args.default_label_size
-
-    #if args.default_orientation:
-    #    CONFIG['LABEL']['DEFAULT_ORIENTATION'] = args.default_orientation
-
-    #if args.font_folder:
-    #    ADDITIONAL_FONT_FOLDER = args.font_folder
-    #else:
     ADDITIONAL_FONT_FOLDER = '/fonts_folder'
 
     logging.basicConfig(level=LOGLEVEL)

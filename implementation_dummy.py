@@ -1,5 +1,3 @@
-import cups
-
 # Printer-specific settings
 # Set these based on your printer and loaded labels
 
@@ -43,8 +41,6 @@ class implementation:
         if 'SERVER' in self.CONFIG['PRINTER']:
             self.server_ip = self.CONFIG['PRINTER']['SERVER']
 
-        cups.setServer(self.server_ip)
-
         return ''
 
     # Provides an array of label sizes. Each entry in the array is a tuple of ('short name', 'long name')
@@ -57,10 +53,6 @@ class implementation:
         
     def get_label_kind(self, label_size_description):
         return label_size_description
-
-    def get_printer_properties(self, printerName):
-        conn = cups.Connection()
-        return conn.getPrinterAttributes(printerName, requestedAttributes=["media-default", "media-supported", "printer-resolution-supported", "printer-resolution-default"])
 
     def get_label_dimensions(self, label_size):
         #print(label_size)
@@ -100,39 +92,8 @@ class implementation:
         return offset
 
     def get_printers(self):
-        try:
-            conn = cups.Connection()
-            printers = conn.getPrinters().keys()
-        except Exception as e:
-            print("Error getting list of printers. Verify that CUPS server is running and accessible.")
-            print(str(e))
-            printers = []
-        return printers
+        return [self.CONFIG['PRINTER']['PRINTER']]
 
     def print_label(self, im, **context):
-        return_dict = {'success': False}
-        try:
-            print(context)
-
-            im.save('sample-out.png')
-
-            quantity = context.get("quantity", 1)
-
-            conn = cups.Connection()
-
-            printer_name = context.get("printer")
-            if printer_name is None:
-                print("No printer specified in Context")
-                printer_name = self.CONFIG['PRINTER'].get("PRINTER")
-            if printer_name is None:
-                print("No printer specified in Config")
-                printer_name = str(conn.getDefault())
-            options = {"copies": str(quantity)}
-            print(printer_name, options)
-            conn.printFile(printer_name, 'sample-out.png', "grocy", options)
-        
-            return_dict['success'] = True
-        except Exception as e:
-            return_dict['success'] = False
-            return_dict['message'] = str(e)
+        return_dict = {'success': False, 'message': 'This is a dummy printer that doesn\'t print anything'}
         return return_dict
