@@ -20,14 +20,11 @@ jobs:
       - name: Get current date
         id: date
         run: echo "NOW=$(date +'%Y.%m%d')" >> $GITHUB_ENV
-      - name: Create release
-        id: create_release_id
-        uses: actions/create-release@latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: avakar/tag-and-release@v1
         with:
           tag_name: ${{ env.NOW }}.${{ github.run_number }}
-          release_name: Release ${{ env.NOW }}.${{ github.run_number }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@988b5a0280414f521da01fcc63a27aeeb4b104db
       - name: Log in to the Container registry
