@@ -28,14 +28,13 @@ jobs:
         uses: "WyriHaximus/github-action-next-semvers@v1"
         with:
           version: ${{ steps.previoustag.outputs.tag }}
-      - name: Create release
-        id: create_release_id
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 'Create new milestone'
+        id: createmilestone
+        uses: "WyriHaximus/github-action-create-milestone@v1"
         with:
-          tag_name: ${{ steps.semver.outputs.minor }}
-          release_name: Release ${{ steps.semver.outputs.minor }}
+          title: ${{ steps.semvers.outputs.minor }}
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@988b5a0280414f521da01fcc63a27aeeb4b104db
       - name: Log in to the Container registry
