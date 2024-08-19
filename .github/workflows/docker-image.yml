@@ -12,7 +12,8 @@ jobs:
 
     runs-on: ubuntu-latest
     env:
-      IMAGE_NAME: cvergaray/label_web_2
+      IMAGE_BASE: cvergaray
+      IMAGE_NAME: label_web_2
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -50,5 +51,5 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_NAME }}:${{ steps.semver.outputs.minor }}
+            ${{ env.IMAGE_BASE }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_BASE }}/${{ env.IMAGE_NAME }}:${{ steps.semver.outputs.minor }}
