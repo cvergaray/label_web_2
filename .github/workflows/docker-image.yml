@@ -22,7 +22,7 @@ jobs:
         run: echo "NOW=$(date +'%Y.%m%d')" >> $GITHUB_ENV
       - name: Create release
         id: create_release_id
-        uses: actions/create-release@v1
+        uses: actions/create-release@latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
