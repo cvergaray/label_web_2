@@ -437,27 +437,26 @@ def print_text():
 def main():
     global DEBUG, FONTS, BACKEND_CLASS, CONFIG, LABEL_SIZES, PRINTERS
     parser = argparse.ArgumentParser(description=__doc__)
-    #parser.add_argument('--port', default=False)
-    #parser.add_argument('--loglevel', type=lambda x: getattr(logging, x.upper()), default=False)
-    #parser.add_argument('--font-folder', default=False, help='folder for additional .ttf/.otf fonts')
+    parser.add_argument('--port', default=False)
+    parser.add_argument('--loglevel', type=lambda x: getattr(logging, x.upper()), default=False)
+    parser.add_argument('--font-folder', default=False, help='folder for additional .ttf/.otf fonts')
     #parser.add_argument('--default-label-size', default=False, help='Label size inserted in your printer. Defaults to 62.')
     #parser.add_argument('--default-orientation', default=False, choices=('standard', 'rotated'), help='Label orientation, defaults to "standard". To turn your text by 90°, state "rotated".')
-    #parser.add_argument('--model', default=False, choices=models, help='The model of your printer (default: QL-500)')
     #parser.add_argument('printer',  nargs='?', default=False, help='String descriptor for the printer to use (like tcp://192.168.0.23:9100 or file:///dev/usb/lp0)')
     args = parser.parse_args()
 
     #if args.printer:
     #    CONFIG['PRINTER']['PRINTER'] = args.printer
 
-    #if args.port:
-    #    PORT = args.port
-    #else:
-    PORT = 8013  # CONFIG['SERVER']['PORT']
+    if args.port:
+        PORT = args.port
+    else:
+        PORT = 8013  # CONFIG['SERVER']['PORT']
 
-    #if args.loglevel:
-    #    LOGLEVEL = args.loglevel
-    #else:
-    LOGLEVEL = CONFIG['SERVER']['LOGLEVEL']
+    if args.loglevel:
+        LOGLEVEL = args.loglevel
+    else:
+        LOGLEVEL = CONFIG['SERVER']['LOGLEVEL']
 
     if LOGLEVEL == 'DEBUG':
         DEBUG = True
@@ -475,10 +474,10 @@ def main():
     #if args.default_orientation:
     #    CONFIG['LABEL']['DEFAULT_ORIENTATION'] = args.default_orientation
 
-    #if args.font_folder:
-    #    ADDITIONAL_FONT_FOLDER = args.font_folder
-    #else:
-    ADDITIONAL_FONT_FOLDER = '/fonts_folder'
+    if args.font_folder:
+        ADDITIONAL_FONT_FOLDER = args.font_folder
+    else:
+        ADDITIONAL_FONT_FOLDER = '/fonts_folder'
 
     logging.basicConfig(level=LOGLEVEL)
     instance.logger = logger
