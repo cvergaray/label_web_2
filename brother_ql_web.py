@@ -113,6 +113,14 @@ def printtemplate(templatefile):
 
     return instance.print_label(im, **context)
 
+@route('/health', method=['GET', 'POST'])
+@enable_cors
+def health():
+    response.status = '200 OK'
+    printers = instance.get_printers()
+    response.body = json.dumps({'printers': printers})
+    if len(printers) == 0:
+        response.status = '500 Internal Server Error'
 
 def get_template_data(templatefile):
     template_data = None
