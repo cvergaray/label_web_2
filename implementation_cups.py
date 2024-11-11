@@ -102,7 +102,7 @@ class implementation:
     def get_printers(self):
         try:
             conn = cups.Connection()
-            printers = conn.getPrinters().keys()
+            printers = list(conn.getPrinters().keys())
         except Exception as e:
             print("Error getting list of printers. Verify that CUPS server is running and accessible.")
             print(str(e))

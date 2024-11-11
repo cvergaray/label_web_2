@@ -141,7 +141,7 @@ def create_label_from_template(template, payload, **kwargs):
     margin_bottom = ElementBase.get_value(template, kwargs, 'margin_bottom', margin_top)
     margins = [margin_left, margin_top, margin_right, margin_bottom]
 
-    im = Image.new('RGB', (width, height), 'white')
+    im = Image.new('RGBA', (width, height), 'white')
     draw = ImageDraw.Draw(im)
 
     elements = template.get('elements', [])
