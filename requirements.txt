@@ -1,6 +1,7 @@
 #brother_ql
+setuptools
 bottle>=0.12.25
-jinja2
+jinja2>=3.1.4
 pycups
 pylibdmtx[scripts]
 pillow>=10.3.0
