@@ -1,100 +1,63 @@
-## label\_web
+# label\_web
 
-This is a web service to print labels on either Brother QL label printers or any printer available via CUPS.
+This is a web service to print labels on (label) printers exposed via CUPS. Based on, but heavily modified from 
+[Brother_QL_Web](https://github.com/hackathi/brother_ql_web).
 
-You need Python 3 for this software to work.
+Primarily, I use this in conjunction with [Grocy](https://grocy.info/) for label printing, so there are some features 
+that are built with that tool in mind, but the intent is to make this flexible and useful in other scenarios.
+
+If not using the docker container, you need Python 3 for this software to work.
 
 ![Screenshot](./static/images/screenshots/Label-Designer_Desktop.png)
 
 The web interface is [responsive](https://en.wikipedia.org/wiki/Responsive_web_design).
 There's also a screenshot showing [how it looks on a smartphone](./static/images/screenshots/Label-Designer_Phone.png)
 
-### Installation
+## Installation
 
-Get the code:
+### Docker Compose (preferred) 
+docker-compose.yaml
 
-    git clone https://github.com/cvergaray/label_web.git
+    services:
+      label_web:
+        image: cvergaray/label_web_2:latest
+        container_name: label_web
+        ports:
+          - 8013:8013
+        volumes:
+          - <Your Local Path>/Label_Config:/appconfig
+          - <Your Local Path>/label_plugins:/app/elements/Custom
 
-or download [the ZIP file](https://github.com/cvergaray/label_web/archive/master.zip) and unpack it.
+1. Create a file at `<Your Local Path>/Label_Config/config.json`, add the contents from 
+[config.example.json](./config.example.json), and update with your configuration. See the [Configuration Section](#configuration-file) for details.
 
-Install the requirements:
+2. Add any template (.lbl) files to the same `<Your Local Path>/Label_Config/config.json` folder
 
-    pip install -r requirements.txt
+3. Add any Custom element plugins to the `<Your Local Path>/Label_Config/label_plugins` folder
 
-In addition, `fontconfig` should be installed on your system. It's used to identify and
-inspect fonts on your machine. This package is pre-installed on many Linux distributions.
-If you're using a Mac, I recommend to use [Homebrew](https://brew.sh) to install
-fontconfig using [`brew install fontconfig`](http://brewformulas.org/Fontconfig).
-
-### Implementation Selection
-
-Uncomment the printer-specific implementation you wish to use in brother_ql_web.py
-By default a CUPS based implementation is selected, to use a Brother printer, comment out the line:
-
-`#from implementation_cups import implementation`
-
-and uncomment
-
-`from implementation_brother import implementation`
-
-### CUPS Configuration
-
-If using CUPS, then there are some printer-specific settings to include in implementation_cups:
-
-- `label_sizes`, a dictionary of items with a key and the human-readable description of that size
-- `label_printable_area`, a dictionary of items mapping the same keys to the printable area in DPI
-- `printer_name`, the name of the printer as exposed by CUPS
-- `default size`, the size from the `label_sizes` that should be used by default.
-
-### Configuration file
+## Configuration file
 
 Copy `config.example.json` to `config.json` (e.g. `cp config.example.json config.json`) and adjust the values 
 to match your needs.
 
-**NOTE: Some of these configuration items are ignored by implementation_cups.py and only used with implementation_brother.py**
+There are some printer-specific settings to include in config.json:
 
-### Template File
+- `LABEL_SIZES`, a dictionary of items with a key and the human-readable description of that size
+- `LABEL_PRINTABLE_AREA`, a dictionary of items mapping the same keys to the printable area in DPI
+- `PRINTER`, the name of the default printer to be used as exposed by CUPS
+- `DEFAULT_SIZE`, the key of the size from the `LABEL_SIZES` that should be used by default.
+
+## Template File
 
 Labels are defined in template files. The templates are specific to how you want the label to look, which 
 depends on the printer/media available and what data you would like on the label. An in-depth description of the label
 template elements can be found in the documentation [Template File Elements Documentation](TemplateElements.md) file.
 
-### Startup
-
-To start the server, run `./brother_ql_web.py`. The command line parameters overwrite the values configured in `config.json`. Here's its command line interface:
-
-    usage: brother_ql_web.py [-h] [--port PORT] [--loglevel LOGLEVEL]
-                             [--font-folder FONT_FOLDER]
-                             [--default-label-size DEFAULT_LABEL_SIZE]
-                             [--default-orientation {standard,rotated}]
-                             [--model {QL-500,QL-550,QL-560,QL-570,QL-580N,QL-650TD,QL-700,QL-710W,QL-720NW,QL-1050,QL-1060N}]
-                             [printer]
-    
-    This is a web service to print labels on Brother QL label printers.
-    
-    positional arguments:
-      printer               String descriptor for the printer to use (like
-                            tcp://192.168.0.23:9100 or file:///dev/usb/lp0)
-    
-    optional arguments:
-      -h, --help            show this help message and exit
-      --port PORT
-      --loglevel LOGLEVEL
-      --font-folder FONT_FOLDER
-                            folder for additional .ttf/.otf fonts
-      --default-label-size DEFAULT_LABEL_SIZE
-                            Label size inserted in your printer. Defaults to 62.
-      --default-orientation {standard,rotated}
-                            Label orientation, defaults to "standard". To turn
-                            your text by 90°, state "rotated".
-      --model {QL-500,QL-550,QL-560,QL-570,QL-580N,QL-650TD,QL-700,QL-710W,QL-720NW,QL-1050,QL-1060N}
-                            The model of your printer (default: QL-500)
-
-### Usage
+## Usage
 
 Once it's running, access the web interface by opening the page with your browser.
 If you run it on your local machine, go to <http://localhost:8013> (You can change
-the default port 8013 using the --port argument).
+the default port 8013 by remapping in the docker-compose file or using the --port argument if not using docker).
 You will then be forwarded by default to the interactive web gui located at `/labeldesigner`.
 
 All in all, the web server offers:
@@ -103,8 +66,45 @@ All in all, the web server offers:
 * an API at `/api/print/text?text=Your_Text&font_size=100&font_family=Minion%20Pro%20(%20Semibold%20)`
   to print a label containing 'Your Text' with the specified font properties.
 * an API at `/api/print/template/your_template_file_name.lbl` to print labels using a label template found at your_template_file_name.lbl
+* a Web GUI for selecting and printing label templates.
 
-### License
+## Roadmap
+
+### Features: 
+- [X] Support any CUPS printer instead of only Brother QL Printers
+- [X] Select from any shared printer on the CUPS server
+- [X] Automatically resize text to fit the label
+- [X] Print Quantity (printing multiple labels at a time)
+- [X] Label Template support (e.g. Configure a Grocy label without code changes)
+- [X] Containerized for ease of deployment
+- [X] Created Plugin Architecture for visual elements
+- [X] GUI for printing template files from web UI
+- [ ] GUI for Creating/Editing template files from Web UI
+
+### Element Plugins:
+
+These plugins are built-in, but please feel free to request additional ones or develop your own!
+
+- Rendering:
+  - [x] Text
+  - [x] Datamatrix
+  - [x] Image File
+  - [x] Image URL
+  - [ ] QR Code
+  - [ ] Code39
+  - [ ] Code128
+  - [ ] Line
+  - [ ] Rectangle
+  - [ ] Circle
+- Non-Rendering:
+  - [x] Data Array Index
+  - [x] Data Dict Item
+  - [x] [GROCY](https://grocy.info/) Entry
+  - [x] JSON API
+  - [x] JSON Payload
+  - [ ] Layout Helpers (Center, Stack Layout, Etc.)
+
+## License
 
 This software is published under the terms of the GPLv3, see the LICENSE file in the repository.
 
@@ -113,3 +113,6 @@ Parts of this package are redistributed software products from 3rd parties. They
 * [Bootstrap](https://github.com/twbs/bootstrap), MIT License
 * [Glyphicons](https://getbootstrap.com/docs/3.3/components/#glyphicons), MIT License (as part of Bootstrap 3.3)
 * [jQuery](https://github.com/jquery/jquery), MIT License
+
+Plugin architecture based on [example code provided](https://gist.github.com/dorneanu/cce1cd6711969d581873a88e0257e312) 
+by GitHub user [Victor Dorneau](https://gist.github.com/dorneanu)

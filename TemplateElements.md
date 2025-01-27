@@ -4,11 +4,13 @@
   * [Rendering Elements](#rendering-elements)
     * [DataMatrix](#datamatrix)
     * [Text](#text)
+    * [Image](#Image)
   * [Non-Rendering Elements](#non-rendering-elements)
     * [Array Index](#array-index)
     * [Dictionary Item](#dictionary-item)
     * [JSON API](#json-api)
     * [Grocy Entry API](#grocy-entry-api)
+    * [JSON Payload](#json-payload)
 <!-- TOC -->
 
 Label templates are JSON files in the running directory, an example JSON file can be found at grocy-test.lbl
@@ -135,6 +137,53 @@ Text elements render raw text. In addition to being useful for printing data pro
 }
 ```
 
+### Image
+
+Image elements render Images either from a local file or downloaded from a URL.
+
+| Property Key | Example Value                                       | Description                                                                                                                                     | Required                                                                              | Default Value |
+|--------------|-----------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|---------------|
+| name         | duedate                                             | A value to describe the element                                                                                                                 | false                                                                                 | N/A           |
+| type         | image_file                                          | indicates that this is an image element. Should be either image_file or image_url                                                               | true                                                                                  | N/A           |
+| file         | my_image.png                                        | The path of the image to be rendered.                                                                                                           | true IF 'type' is image_file                                                          | N/A           |
+| url          | https://avatars.githubusercontent.com/u/8941602?v=4 | The web url to the image to be rendered.                                                                                                        | true IF 'type' is image_url                                                           | N/A           |
+| position     | [35, 35, 335, 335]                                  | The position of the image as either one or two sets of coordinate points indicating the pixel offset for the top left and bottom right corners. | true (only 2 numbers if width and height are set or no resizing desired, 4 otherwise) | N/A           |
+| width        | 120                                                 | The width of the image. When maintainAR is set, this is the maximum width.                                                                      | false                                                                                 | N/A           |
+| height       | 120                                                 | The height of the image. When maintainAR is set, this is the maximum height.                                                                    | false                                                                                 | false         |
+| maintainAR   | true                                                | Indicates that when resizing the image the Aspect Ratio will be maintained.                                                                     | true                                                                                  | None          |
+
+```javascript
+{
+    "elements": [
+        {
+            "name": "LinkTree",
+            "type": "image_file",
+            "file": "/appconfig/linktree.png",
+			"position": [35, 35, 335, 335]
+        },
+        {
+            "name": "Logo",
+            "type": "image_url",
+            "url": "https://avatars.githubusercontent.com/u/8941602?v=4",
+			"position": [335, 35],
+            "width": 300,
+            "height": 300,
+            "maintainAR": true
+        },
+        {
+            "name": "Business Name",
+            "type": "text",
+            "data": "My Great Business",
+            "shrink": true,
+            "wrap": 24,
+			"font_size": 150,
+            "horizontal_offset": 350,
+            "vertical_offset": 100
+        }
+    ]
+}
+```
+
 ## Non-Rendering Elements
 
 ### Array Index
@@ -248,6 +297,49 @@ This means that anything provided in the `data` property of the child elements w
                 },
                 {
                     "name": "Completion Status pulled from API Response",
+                    "type": "text",
+                    "datakey": "completed",
+                    "shrink": true,
+                    "wrap": 24,
+                    "horizontal_offset": 15,
+                    "vertical_offset": 30
+                }
+            ]
+        }
+    ]
+}
+```
+
+### JSON Payload
+
+JSON Payload elements will pull data from JSON submitted with the web request calling for the label to be rendered and then assign requested object to the `data` property of children elements. If no key is provided, the entire JSON payload is provided to children elements.
+This means that anything provided in the `data` property of the child elements will be ignored and replaced with the retrieved value.
+
+| Property Key | Example Value                                | Description                                                                                            | Required | Default Value |
+|--------------|----------------------------------------------|--------------------------------------------------------------------------------------------------------|----------|---------------|
+| name         | API                                          | A value to describe the element                                                                        | false    | N/A           |
+| type         | from_json_payload                            | indicates that this is a json_api element                                                              | true     | N/A           |
+| key          | id                                           | The key identifying the property from the JSON payload that will be passed in the data of the request. | false    | N/A           |
+| elements     | < SEE OTHER ELEMENTS >                       | A collection of the elements to render on the label.                                                   | false    | N/A           |
+
+```javascript
+{
+    "elements": [
+        {
+            "name": "hard-coded duedate",
+            "type": "from_json_payload",
+            "elements": [
+                {
+                    "name": "Title pulled from JSON Payload",
+                    "type": "text",
+                    "datakey": "title",
+                    "shrink": true,
+                    "wrap": 24,
+                    "horizontal_offset": 15,
+                    "vertical_offset": 130
+                },
+                {
+                    "name": "Completion Status pulled from JSON Payload",
                     "type": "text",
                     "datakey": "completed",
                     "shrink": true,

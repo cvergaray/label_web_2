@@ -1,6 +1,6 @@
 def element_image_base(image_to_add, element, im, margins, dimensions, **kwargs):
     try:
-        image_to_add = image_to_add.convert('RGB')
+        image_to_add = image_to_add.convert('RGBA')
 
         position = element.get('position', None)
 

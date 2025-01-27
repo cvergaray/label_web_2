@@ -11,7 +11,7 @@ class BasicElement(elements.ElementBase):
         return element['type'] == 'basic'
 
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
-        # Do Stuff here to add viual elements to the im object
+        # Do Stuff here to add visual elements to the im object
 
         # Return the im object when you're done
         return im

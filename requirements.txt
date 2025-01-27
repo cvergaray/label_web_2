@@ -5,3 +5,4 @@ pycups
 pylibdmtx[scripts]
 pillow>=10.3.0
 requests
+healthyurl
