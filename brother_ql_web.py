@@ -192,7 +192,7 @@ def get_label_context(request):
         'kind': instance.get_label_kind(d.get('label_size', instance.get_default_label_size())),
         'margin': int(d.get('margin', 10)),
         'threshold': int(d.get('threshold', 70)),
-        'align': d.get('align', 'center'),
+        'align': d.get('align', 'left'),
         'orientation': d.get('orientation', 'standard'),
         'margin_top': float(d.get('margin_top', 24)) / 100.,
         'margin_bottom': float(d.get('margin_bottom', 45)) / 100.,
@@ -251,7 +251,8 @@ def create_label_im(text, **kwargs):
     width, height = instance.get_label_width_height(textsize, **kwargs)
     adjusted_text_size = ElementBase.adjust_font_to_fit(draw, kwargs['font_path'], kwargs['font_size'], text, (width, height), 2,
                                             kwargs['margin_left'] + kwargs['margin_right'],
-                                            kwargs['margin_top'] + kwargs['margin_bottom'])
+                                            kwargs['margin_top'] + kwargs['margin_bottom'],
+                                            kwargs['align'])
     if adjusted_text_size != textsize:
         im_font = ImageFont.truetype(kwargs['font_path'], adjusted_text_size)
     im = Image.new('RGB', (width, height), 'white')

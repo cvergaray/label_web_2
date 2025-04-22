@@ -28,6 +28,7 @@ class TextElement(elements.ElementBase):
         font_path = self.get_value(element, kwargs, 'font_path')
         font_size = self.get_value(element, kwargs, 'font_size')
         fill_color = self.get_value(element, kwargs, 'fill_color')
+        align = self.get_value(element, kwargs, 'align', 'left')
 
         horizontal_offset = element['horizontal_offset']
         vertical_offset = element['vertical_offset']
@@ -45,10 +46,11 @@ class TextElement(elements.ElementBase):
         if shrink:
             font_size = self.adjust_font_to_fit(draw, font_path, font_size, data, dimensions, 2,
                                                 horizontal_offset + margins[2],
-                                                vertical_offset + margins[3])
+                                                vertical_offset + margins[3],
+                                                align)
 
         font = ImageFont.truetype(font_path, font_size)
 
-        draw.text(text_offset, data, fill_color, font=font)
+        draw.multiline_text(text_offset, data, fill_color, font=font, align=align)
 
         return im
