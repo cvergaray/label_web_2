@@ -8,7 +8,7 @@ import cups
 
 import textwrap
 
-import sys, logging, random, json, argparse, requests
+import sys, logging, random, json, argparse, requests, yaml
 from io import BytesIO
 
 from bottle import run, route, get, post, response, request, jinja2_view as view, static_file, redirect
@@ -123,11 +123,29 @@ def health():
         response.status = '500 Internal Server Error'
 
 def get_template_data(templatefile):
-    template_data = None
-    with open('/appconfig/' + templatefile, 'r') as file:
-        template_data = json.load(file)
-    return template_data
+    """
+    Deserialize data from a template file that may contain either JSON or YAML content.
 
+    Parameters:
+        templatefile (str): Path to the file.
+
+    Returns:
+        data (dict): Deserialized data structure.
+    """
+    try:
+        with open('/appconfig/' + templatefile, 'r') as file:
+            # Try to parse the file as JSON
+            try:
+                data = json.load(file)
+                return data
+            except json.JSONDecodeError:
+                # If JSON parsing fails, attempt YAML parsing
+                file.seek(0)  # Reset file pointer to the beginning
+                data = yaml.safe_load(file)
+                return data
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
 
 def create_label_from_template(template, payload, **kwargs):
     width, height = instance.get_label_width_height(ElementBase.get_value(template, kwargs, 'font_path'), **kwargs)
