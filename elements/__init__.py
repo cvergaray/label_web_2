@@ -33,9 +33,9 @@ class ElementBase:
 
     @staticmethod
     def adjust_font_to_fit(draw, font, max_font_size, text, label_size, min_size=2, horizontal_offset=0,
-                           vertical_offset=0):
+                           vertical_offset=0, align='left'):
         if min_size >= max_font_size or ElementBase.font_fits(draw, font, max_font_size, text, label_size, horizontal_offset,
-                                                  vertical_offset):
+                                                  vertical_offset, align):
             return max_font_size
         high = max_font_size
         low = min_size
@@ -44,23 +44,23 @@ class ElementBase:
             available_range = high - low
             mid = (available_range // 2) + low
             # print('Finding Largest Possible Font between [', low, ',', high, '] with offset of [', horizontal_offset, ',', vertical_offset, '] - Trying: ', mid)
-            fits = ElementBase.font_fits(draw, font, mid, text, label_size, horizontal_offset, vertical_offset)
+            fits = ElementBase.font_fits(draw, font, mid, text, label_size, horizontal_offset, vertical_offset, align)
 
             if fits:
                 low = mid + 1
             else:
                 high = mid
 
-        if not ElementBase.font_fits(draw, font, mid, text, label_size, horizontal_offset, vertical_offset):
+        if not ElementBase.font_fits(draw, font, mid, text, label_size, horizontal_offset, vertical_offset, align):
             mid -= 1
 
         # print('Largest font size: ', mid)
         return mid
 
     @staticmethod
-    def font_fits(draw, font, font_size, text, label_size, horizontal_offset, vertical_offset):
+    def font_fits(draw, font, font_size, text, label_size, horizontal_offset, vertical_offset, align):
         im_font = ImageFont.truetype(font, font_size)
-        textsize = draw.multiline_textbbox((0, 0), text, font=im_font)
+        textsize = draw.multiline_textbbox((0, 0), text, font=im_font, align=align)
         textsize = (textsize[2], textsize[3])
         fits = (textsize[0] + horizontal_offset) < label_size[0] and (textsize[1] + vertical_offset) < label_size[1]
         return fits
