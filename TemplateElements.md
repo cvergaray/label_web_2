@@ -4,16 +4,16 @@
   * [Rendering Elements](#rendering-elements)
     * [DataMatrix](#datamatrix)
     * [Text](#text)
-    * [Image](#Image)
+    * [Image](#image)
   * [Non-Rendering Elements](#non-rendering-elements)
     * [Array Index](#array-index)
     * [Dictionary Item](#dictionary-item)
     * [JSON API](#json-api)
-    * [Grocy Entry API](#grocy-entry-api)
     * [JSON Payload](#json-payload)
+    * [Grocy Entry API](#grocy-entry-api)
 <!-- TOC -->
 
-Label templates are JSON files in the running directory, an example JSON file can be found at grocy-test.lbl
+Label templates are JSON files or YAML files in the running directory with the extension of lbl. An example YAML file can be found at grocy-test.lbl<br/>
 lbl template files may optionally include the label width and height. The main thing that the JSON object requires is a list of elements to be included on the label.
 
 | Property Key | Example Value          | Description                                         | Required | Default Value                                                |
@@ -24,9 +24,16 @@ lbl template files may optionally include the label width and height. The main t
 | height       | 254                    | The height of the label in pixels/dots              | false    | The height provided by Implementation.get_label_width_height |
 
 ```javascript
-{ 
+{
+    "name": "Example Label with no elements",
     "elements": [] 
 }
+```
+
+```yaml
+name: Example Label with no elements
+elements: []
+
 ```
 
 There are two types of elements: Rendering and non-rendering elements. 
@@ -75,13 +82,33 @@ Datamatrix elements encode the data into a datamatrix code for use with 3D barco
         {
             "name": "grocycode pulled from data using a key value",
             "type": "datamatrix",
-            "data": { "grocycode": "grcy:p:123" }
+            "data": { "grocycode": "grcy:p:123" },
             "datakey": "grocycode",
             "horizontal_offset": 15,
             "vertical_offset": 22
         }
     ]
 }
+```
+```yaml
+elements:
+  - name: hard-coded DataMatrix
+    type: datamatrix
+    data: hard-coded data to encode in datamatrix
+    horizontal_offset: 15
+    vertical_offset: 22
+  - name: grocycode pulled from request
+    type: datamatrix
+    key: grocycode
+    horizontal_offset: 15
+    vertical_offset: 22
+  - name: grocycode pulled from data using a key value
+    type: datamatrix
+    data:
+      grocycode: grcy:p:123
+    datakey: grocycode
+    horizontal_offset: 15
+    vertical_offset: 22
 ```
 
 ### Text
@@ -126,7 +153,7 @@ Text elements render raw text. In addition to being useful for printing data pro
         {
             "name": "product pulled from request",
             "type": "text",
-            "data" : {"id": 1, "note": "This is the property I care about."}
+            "data" : {"id": 1, "note": "This is the property I care about."},
             "datakey": "note",
             "shrink": true,
             "wrap": 24,
@@ -135,6 +162,34 @@ Text elements render raw text. In addition to being useful for printing data pro
         }
     ]
 }
+```
+```yaml
+elements:
+  - name: hard-coded duedate
+    type: text
+    data: '2024-02-29'
+    shrink: true
+    wrap: 24
+    horizontal_offset: 130
+    vertical_offset: 50
+  - name: product pulled from request
+    type: text
+    key: product
+    shrink: true
+    wrap: 24
+    horizontal_offset: 15
+    vertical_offset: 130
+  - name: product pulled from request
+    type: text
+    data:
+      id: 1
+      note: This is the property I care about.
+    datakey: note
+    shrink: true
+    wrap: 24
+    horizontal_offset: 15
+    vertical_offset: 130
+
 ```
 
 ### Image
@@ -184,6 +239,35 @@ Image elements render Images either from a local file or downloaded from a URL.
 }
 ```
 
+```yaml
+elements:
+  - name: LinkTree
+    type: image_file
+    file: /appconfig/linktree.png
+    position:
+      - 35
+      - 35
+      - 335
+      - 335
+  - name: Logo
+    type: image_url
+    url: https://avatars.githubusercontent.com/u/8941602?v=4
+    position:
+      - 335
+      - 35
+    width: 300
+    height: 300
+    maintainAR: true
+  - name: Business Name
+    type: text
+    data: My Great Business
+    shrink: true
+    wrap: 24
+    font_size: 150
+    horizontal_offset: 350
+    vertical_offset: 100
+
+```
 ## Non-Rendering Elements
 
 ### Array Index
@@ -202,7 +286,7 @@ Retrieves the item from the data property at the specified index and sets the `d
 {
     "elements": [
         {
-            "data": ["Sunday", "Monday", "Tuesday"]
+            "data": ["Sunday", "Monday", "Tuesday"],
             "index": 1,
             "type": "data_array_index",
             "elements": [
@@ -220,6 +304,23 @@ Retrieves the item from the data property at the specified index and sets the `d
 }
 ```
 
+```yaml
+elements:
+  - data:
+      - Sunday
+      - Monday
+      - Tuesday
+    index: 1
+    type: data_array_index
+    elements:
+      - horizontal_offset: 130
+        name: Monday
+        shrink: true
+        type: text
+        vertical_offset: 70
+        wrap: 24
+
+```
 
 ### Dictionary Item
 
@@ -259,7 +360,24 @@ Retrieves the item from the data property with the given `key` and sets the `dat
     ]
 }
 ```
+```yaml
+elements:
+  - key: title
+    type: data_dict_item
+    data:
+      userId: 1
+      id: 1
+      title: delectus aut autem
+      completed: false
+    elements:
+      - horizontal_offset: 130
+        name: Title passed from parent element
+        shrink: true
+        type: text
+        vertical_offset: 70
+        wrap: 24
 
+```
 
 ### JSON API
 
@@ -284,7 +402,7 @@ This means that anything provided in the `data` property of the child elements w
         {
             "name": "hard-coded duedate",
             "type": "json_api",
-            "endpoint": https://jsonplaceholder.typicode.com/todos/1,
+            "endpoint": "https://jsonplaceholder.typicode.com/todos/1",
             "elements": [
                 {
                     "name": "Title pulled from API Response",
@@ -308,6 +426,28 @@ This means that anything provided in the `data` property of the child elements w
         }
     ]
 }
+```
+```yaml
+elements:
+  - name: hard-coded duedate
+    type: json_api
+    endpoint: https://jsonplaceholder.typicode.com/todos/1
+    elements:
+      - name: Title pulled from API Response
+        type: text
+        datakey: title
+        shrink: true
+        wrap: 24
+        horizontal_offset: 15
+        vertical_offset: 130
+      - name: Completion Status pulled from API Response
+        type: text
+        datakey: completed
+        shrink: true
+        wrap: 24
+        horizontal_offset: 15
+        vertical_offset: 30
+
 ```
 
 ### JSON Payload
@@ -352,7 +492,27 @@ This means that anything provided in the `data` property of the child elements w
     ]
 }
 ```
+```yaml
+elements:
+  - name: hard-coded duedate
+    type: from_json_payload
+    elements:
+      - name: Title pulled from JSON Payload
+        type: text
+        datakey: title
+        shrink: true
+        wrap: 24
+        horizontal_offset: 15
+        vertical_offset: 130
+      - name: Completion Status pulled from JSON Payload
+        type: text
+        datakey: completed
+        shrink: true
+        wrap: 24
+        horizontal_offset: 15
+        vertical_offset: 30
 
+```
 ### Grocy Entry API
 
 The Grocy Entry API element is a convenience wrapper around the JSON API element that makes it easier to get details 
@@ -382,7 +542,7 @@ about a grocy entry. However, not all properties of the JSON API apply. Only the
             "type": "grocy_entry",
             "elements": [
                 {
-                    "name": "Translation element because the Grocy API returns an array of items"
+                    "name": "Translation element because the Grocy API returns an array of items",
                     "index": 0,
                     "type": "data_array_index",
                     "elements": [
@@ -401,5 +561,25 @@ about a grocy entry. However, not all properties of the JSON API apply. Only the
         }
     ]
 }
+```
+```yaml
+elements:
+  - api_key: YOUR_API_KEY_HERE
+    name: GROCY ProductAPI
+    endpoint: http://YOUR_IP_HERE:9283
+    type: grocy_entry
+    elements:
+      - name: Translation element because the Grocy API returns an array of items
+        index: 0
+        type: data_array_index
+        elements:
+          - horizontal_offset: 130
+            name: Note
+            key: note
+            shrink: true
+            type: text
+            vertical_offset: 70
+            wrap: 24
+
 ```
 
