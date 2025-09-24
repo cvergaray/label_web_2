@@ -410,41 +410,15 @@ def get_template_fields(templatefile):
 
     fields = []
 
-    def extract_fields_from_elements(elements, prefix=""):
+    def extract_fields_from_elements(elements):
         for element in elements:
-            element_type = element.get('type', '')
-            element_name = element.get('name', '')
-
-            # Check if element uses 'key' property (data from request)
-            if 'key' in element:
-                key = element['key']
-                field_info = {
-                    'name': key,
-                    'label': element_name or key.replace('_', ' ').title(),
-                    'type': 'text',
-                    'required': True,
-                    'element_type': element_type
-                }
-
-                # Set appropriate input type based on element type
-                if element_type == 'datamatrix':
-                    field_info['type'] = 'text'
-                    field_info['description'] = 'Data to encode in DataMatrix code'
-                elif element_type == 'text':
-                    field_info['type'] = 'text'
-                    if 'wrap' in element:
-                        field_info['description'] = f'Text (max {element["wrap"]} chars per line)'
-                elif element_type == 'image_url':
-                    field_info['type'] = 'url'
-                    field_info['description'] = 'URL to image'
-
-                # Avoid duplicates
-                if not any(f['name'] == key for f in fields):
-                    fields.append(field_info)
+            form_elements = ElementBase.get_form_elements_with_plugins(element)
+            if form_elements is not None:
+                fields.append(form_elements)
 
             # Check for nested elements
             if 'elements' in element:
-                extract_fields_from_elements(element['elements'], prefix)
+                extract_fields_from_elements(element['elements'])
 
     if 'elements' in template_data:
         extract_fields_from_elements(template_data['elements'])
@@ -453,6 +427,7 @@ def get_template_fields(templatefile):
         'template_name': template_data.get('name', templatefile),
         'fields': fields
     }
+
 def image_to_png_bytes(im):
     image_buffer = BytesIO()
     im.save(image_buffer, format="PNG")

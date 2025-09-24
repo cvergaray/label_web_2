@@ -78,7 +78,7 @@ var currentTemplateFields = [];
 
 function formData() {
   var data = {
-    quantity: $('#quantity').val()
+    quantity: parseInt($('#quantity').val()) || 1
   };
 
   // Add dynamic field values
@@ -145,7 +145,7 @@ function generateDynamicFields(fields) {
     fieldHtml += ':</label>';
 
     var inputType = field.type || 'text';
-    var placeholder = field.description || '';
+    var placeholder = field.placeholder || '';
 
     if (inputType === 'textarea') {
       fieldHtml += '<textarea class="form-control" id="field_' + field.name + '" name="' + field.name + '"';
@@ -173,7 +173,8 @@ function generateDynamicFields(fields) {
 function onFieldChange() {
   updatePrintButtonState();
   // Update preview when fields change
-  setTimeout(preview, 300); // Debounce preview updates
+  clearTimeout(window.previewTimeout);
+  window.previewTimeout = setTimeout(preview, 300); // Debounce preview updates
 }
 
 function updatePrintButtonState() {

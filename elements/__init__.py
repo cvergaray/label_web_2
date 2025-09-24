@@ -28,6 +28,37 @@ class ElementBase:
                 instance.process_element(element, im, margins, dimensions, payload, **kwargs)
 
     @staticmethod
+    def get_form_elements_with_plugins(element):
+        element_type = element['type']
+        # print('Attempting to process element with type {}'.format(element_type))
+        for handler in ElementBase.plugins:
+            if handler.can_process(element):
+                instance = handler()
+                if hasattr(instance, 'get_form_elements'):
+                    form_elements = instance.get_form_elements(element)
+                else:
+                    form_elements = ElementBase.get_default_form_elements(element)
+                return form_elements
+        return ElementBase.get_default_form_elements(element)
+
+    @staticmethod
+    def get_default_form_elements(element):
+        key = element.get('key')
+        if key is None:
+            return None
+
+        field_info = {
+            'name': key,
+            'label': element.get('name') or key.replace('_', ' ').title(),
+            'type': element.get('form_type', 'text'),
+            'required': element.get('required', False),
+            'element_type': element.get('type', ''),
+            'description': element.get('description', ''),
+            'placeholder': element.get('placeholder', ''),
+        }
+        return field_info
+
+    @staticmethod
     def get_value(template, kwargs, keyname, default=None):
         return template.get(keyname, kwargs.get(keyname, default))
 
