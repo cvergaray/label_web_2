@@ -23,12 +23,30 @@
               <div id="collapse0" class="panel-collapse collapse in" aria-expanded="true">
                   <div class="chooser panel-body">
                       <label for="template"> Template:</label>
-                      <select class="form-control" id="template" onChange="preview()">
+                      <select class="form-control" id="template" onChange="onTemplateChange()">
+                          <option value="">Select a template...</option>
                           {% for template in files %}<option value="{{template}}">{{template }}</option>{% endfor %}
                       </select>
                       <label for="quantity" >Quantity:</label>
                       <input id="quantity" class="form-control" type="number" min="1" value="1" required>
                   </div> <!-- class="chooser panel-body" -->
+              </div>
+          </div>
+
+          <!-- Dynamic Form Fields Panel -->
+          <div class="panel panel-default" id="dynamicFieldsPanel" style="display: none;">
+              <div class="panel-heading">
+                  <h4 class="panel-title">
+                      <a data-toggle="collapse" data-parent="#accordion" href="#collapse1">
+                          <span class="glyphicon glyphicon-edit"></span> Template Data</a>
+                  </h4>
+              </div>
+              <div id="collapse1" class="panel-collapse collapse in" aria-expanded="true">
+                  <div class="panel-body">
+                      <div id="dynamicFields">
+                          <!-- Dynamic form fields will be inserted here -->
+                      </div>
+                  </div>
               </div>
           </div>
         </div>
@@ -39,7 +57,7 @@
         <label for="previewImg">Label Preview:</label><br />
         <img id="previewImg" style="border: 1px solid #444; max-height: 350px; width: auto; max-width: 100%; margin-bottom: 10px;"/>
         <p>Printed size w/o margins: <span id="labelWidth">?</span> cm x <span id="labelHeight">?</span> cm</p>
-        <button id="printButton" type="button" class="btn btn-primary btn-block btn-lg" onClick="print()">
+        <button id="printButton" type="button" class="btn btn-primary btn-block btn-lg" onClick="print()" disabled>
           <span class="glyphicon glyphicon-print" aria-hidden="true"></span> Print
         </button>
       </fieldset>
@@ -56,21 +74,147 @@
 
 {% block javascript %}
 
+var currentTemplateFields = [];
+
 function formData() {
-  return {
-    printer:       $('#printer').val(),
-    quantity:      $('#quantity').val()
+  var data = {
+    quantity: $('#quantity').val()
+  };
+
+  // Add dynamic field values
+  currentTemplateFields.forEach(function(field) {
+    var value = $('#field_' + field.name).val();
+    if (value) {
+      data[field.name] = value;
+    }
+  });
+
+  return data;
+}
+
+function onTemplateChange() {
+  var templateName = $('#template').val();
+  if (!templateName) {
+    $('#dynamicFieldsPanel').hide();
+    $('#previewImg').attr('src', '');
+    $('#printButton').prop('disabled', true);
+    return;
   }
+
+  loadTemplateFields(templateName);
+  preview();
+}
+
+function loadTemplateFields(templateName) {
+  $.ajax({
+    url: '/api/template/' + templateName + '/fields',
+    type: 'GET',
+    dataType: 'json',
+    success: function(response) {
+      currentTemplateFields = response.fields || [];
+      generateDynamicFields(currentTemplateFields);
+      $('#printButton').prop('disabled', currentTemplateFields.length > 0);
+    },
+    error: function(xhr, status, error) {
+      console.error('Error loading template fields:', error);
+      $('#dynamicFieldsPanel').hide();
+      currentTemplateFields = [];
+      $('#printButton').prop('disabled', false);
+    }
+  });
+}
+
+function generateDynamicFields(fields) {
+  var fieldsContainer = $('#dynamicFields');
+  fieldsContainer.empty();
+
+  if (fields.length === 0) {
+    $('#dynamicFieldsPanel').hide();
+    $('#printButton').prop('disabled', false);
+    return;
+  }
+
+  $('#dynamicFieldsPanel').show();
+
+  fields.forEach(function(field) {
+    var fieldHtml = '<div class="form-group">';
+    fieldHtml += '<label for="field_' + field.name + '">' + field.label;
+    if (field.required) {
+      fieldHtml += ' <span class="text-danger">*</span>';
+    }
+    fieldHtml += ':</label>';
+
+    var inputType = field.type || 'text';
+    var placeholder = field.description || '';
+
+    if (inputType === 'textarea') {
+      fieldHtml += '<textarea class="form-control" id="field_' + field.name + '" name="' + field.name + '"';
+      if (field.required) fieldHtml += ' required';
+      fieldHtml += ' placeholder="' + placeholder + '" onchange="onFieldChange()" onkeyup="onFieldChange()"></textarea>';
+    } else {
+      fieldHtml += '<input type="' + inputType + '" class="form-control" id="field_' + field.name + '" name="' + field.name + '"';
+      if (field.required) fieldHtml += ' required';
+      fieldHtml += ' placeholder="' + placeholder + '" onchange="onFieldChange()" onkeyup="onFieldChange()">';
+    }
+
+    if (field.description) {
+      fieldHtml += '<small class="form-text text-muted">' + field.description + '</small>';
+    }
+
+    fieldHtml += '</div>';
+
+    fieldsContainer.append(fieldHtml);
+  });
+
+  // Enable/disable print button based on required fields
+  updatePrintButtonState();
+}
+
+function onFieldChange() {
+  updatePrintButtonState();
+  // Update preview when fields change
+  setTimeout(preview, 300); // Debounce preview updates
+}
+
+function updatePrintButtonState() {
+  var allRequiredFieldsFilled = true;
+
+  currentTemplateFields.forEach(function(field) {
+    if (field.required) {
+      var value = $('#field_' + field.name).val();
+      if (!value || value.trim() === '') {
+        allRequiredFieldsFilled = false;
+      }
+    }
+  });
+
+  $('#printButton').prop('disabled', !allRequiredFieldsFilled);
 }
 
 function preview() {
-  url = '/api/preview/template/' + $('#template').val();
+  var templateName = $('#template').val();
+  if (!templateName) return;
+
+  // Build query string with form data for GET request
+  var formDataObj = formData();
+  var queryParams = [];
+  for (var key in formDataObj) {
+    if (formDataObj[key]) {
+      queryParams.push(encodeURIComponent(key) + '=' + encodeURIComponent(formDataObj[key]));
+    }
+  }
+
+  var url = '/api/preview/template/' + templateName;
+  if (queryParams.length > 0) {
+    url += '?' + queryParams.join('&');
+  }
+
   $('#previewImg').attr('src', url);
   var img = $('#previewImg')[0];
   img.onload = function() {
     $('#labelWidth').html( (img.naturalWidth /300*2.54).toFixed(1));
     $('#labelHeight').html((img.naturalHeight/300*2.54).toFixed(1));
-    };
+  };
 }
 
 function setStatus(data) {
@@ -79,6 +223,7 @@ function setStatus(data) {
   else
     $('#statusPanel').html('<div id="statusBox" class="alert alert-warning" role="alert"><i class="glyphicon glyphicon-alert"></i><span>Printing was unsuccessful:<br />'+data['message']+'</span></div>');
   $('#printButton').prop('disabled', false);
+  updatePrintButtonState(); // Restore proper button state
 }
 
 function print() {
@@ -95,7 +240,12 @@ function print() {
   });
 }
 
-preview()
-
+// Initialize on page load
+$(document).ready(function() {
+  var initialTemplate = $('#template').val();
+  if (initialTemplate) {
+    onTemplateChange();
+  }
+});
 
 {% endblock %}

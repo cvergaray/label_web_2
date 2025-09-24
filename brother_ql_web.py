@@ -396,7 +396,63 @@ def get_preview_template_image(templatefile):
         response.set_header('Content-type', 'image/png')
         return image_to_png_bytes(im)
 
+@route('/api/template/<templatefile>/fields', method=['GET', 'OPTIONS'])
+@enable_cors
+def get_template_fields(templatefile):
+    """
+    API endpoint to get form fields required by a template
+    Returns a JSON object with field definitions
+    """
+    template_data = get_template_data(templatefile)
+    if not template_data:
+        response.status = 404
+        return {'error': 'Template not found'}
 
+    fields = []
+
+    def extract_fields_from_elements(elements, prefix=""):
+        for element in elements:
+            element_type = element.get('type', '')
+            element_name = element.get('name', '')
+
+            # Check if element uses 'key' property (data from request)
+            if 'key' in element:
+                key = element['key']
+                field_info = {
+                    'name': key,
+                    'label': element_name or key.replace('_', ' ').title(),
+                    'type': 'text',
+                    'required': True,
+                    'element_type': element_type
+                }
+
+                # Set appropriate input type based on element type
+                if element_type == 'datamatrix':
+                    field_info['type'] = 'text'
+                    field_info['description'] = 'Data to encode in DataMatrix code'
+                elif element_type == 'text':
+                    field_info['type'] = 'text'
+                    if 'wrap' in element:
+                        field_info['description'] = f'Text (max {element["wrap"]} chars per line)'
+                elif element_type == 'image_url':
+                    field_info['type'] = 'url'
+                    field_info['description'] = 'URL to image'
+
+                # Avoid duplicates
+                if not any(f['name'] == key for f in fields):
+                    fields.append(field_info)
+
+            # Check for nested elements
+            if 'elements' in element:
+                extract_fields_from_elements(element['elements'], prefix)
+
+    if 'elements' in template_data:
+        extract_fields_from_elements(template_data['elements'])
+
+    return {
+        'template_name': template_data.get('name', templatefile),
+        'fields': fields
+    }
 def image_to_png_bytes(im):
     image_buffer = BytesIO()
     im.save(image_buffer, format="PNG")
