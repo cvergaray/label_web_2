@@ -196,28 +196,44 @@ function preview() {
   var templateName = $('#template').val();
   if (!templateName) return;
 
-  // Build query string with form data for GET request
   var formDataObj = formData();
+  var url = '/api/preview/template/' + templateName;
+
+  // Separate regular form data from JSON payload fields
+  var regularData = {};
+  var jsonPayload = {};
+
+  currentTemplateFields.forEach(function(field) {
+    var value = $('#field_' + field.name).val();
+    if (value) {
+      if (field.json_payload) {
+        jsonPayload[field.name] = value;
+      } else {
+        regularData[field.name] = value;
+      }
+    }
+  });
+
+  // Add quantity to regular data
+  regularData.quantity = formDataObj.quantity;
+
+  // Build query string for regular form data
   var queryParams = [];
-  for (var key in formDataObj) {
-    if (formDataObj[key]) {
-      queryParams.push(encodeURIComponent(key) + '=' + encodeURIComponent(formDataObj[key]));
+  for (var key in regularData) {
+    if (regularData[key]) {
+      queryParams.push(encodeURIComponent(key) + '=' + encodeURIComponent(regularData[key]));
     }
   }
 
-  var url = '/api/preview/template/' + templateName;
   if (queryParams.length > 0) {
     url += '?' + queryParams.join('&');
   }
-
-  $('#previewImg').attr('src', url);
-  var img = $('#previewImg')[0];
 
   // Use POST request with JSON payload
   $.ajax({
     url: url,
     type: 'POST',
-    data: JSON.stringify(data.jsonPayload),
+    data: JSON.stringify(jsonPayload),
     contentType: 'application/json',
     xhrFields: {
       responseType: 'blob'
@@ -234,7 +250,7 @@ function preview() {
     },
     error: function(xhr, status, error) {
       console.error('Error loading preview:', error);
-      // Fallback to setting src directly for backward compatibility
+      // Fallback to GET request
       $('#previewImg').attr('src', url);
       var img = $('#previewImg')[0];
       img.onload = function() {
