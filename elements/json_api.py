@@ -59,3 +59,4 @@ class JsonAPIElement(elements.ElementBase):
             self.process_with_plugins(sub_element, im, margins, dimensions, payload, **kwargs)
 
         return im
+

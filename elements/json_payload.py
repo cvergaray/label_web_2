@@ -21,3 +21,26 @@ class JsonPayloadElement(elements.ElementBase):
             self.process_with_plugins(sub_element, im, margins, dimensions, payload, **kwargs)
 
         return im
+
+    def get_form_elements(self, element):
+        """
+        Return a flat list of form elements for nested elements within json_payload.
+        These fields will be marked for JSON payload submission.
+        """
+        sub_elements = element.get('elements', [])
+        result_fields = []
+
+        for sub_element in sub_elements:
+            # Get form elements for each nested element
+            form_element = self.get_form_elements_with_plugins(sub_element)
+
+            if form_element is not None:
+                # Mark each field as part of JSON payload and add to result
+                for field in form_element:
+                    if isinstance(field, dict):
+                        field['json_payload'] = True
+                    result_fields.append(field)
+
+        return result_fields
+
+        return None

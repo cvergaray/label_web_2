@@ -212,10 +212,37 @@ function preview() {
 
   $('#previewImg').attr('src', url);
   var img = $('#previewImg')[0];
-  img.onload = function() {
-    $('#labelWidth').html( (img.naturalWidth /300*2.54).toFixed(1));
-    $('#labelHeight').html((img.naturalHeight/300*2.54).toFixed(1));
-  };
+
+  // Use POST request with JSON payload
+  $.ajax({
+    url: url,
+    type: 'POST',
+    data: JSON.stringify(data.jsonPayload),
+    contentType: 'application/json',
+    xhrFields: {
+      responseType: 'blob'
+    },
+    success: function(imageData) {
+      var imageUrl = URL.createObjectURL(imageData);
+      $('#previewImg').attr('src', imageUrl);
+      var img = $('#previewImg')[0];
+      img.onload = function() {
+        $('#labelWidth').html((img.naturalWidth / 300 * 2.54).toFixed(1));
+        $('#labelHeight').html((img.naturalHeight / 300 * 2.54).toFixed(1));
+        URL.revokeObjectURL(imageUrl);
+      };
+    },
+    error: function(xhr, status, error) {
+      console.error('Error loading preview:', error);
+      // Fallback to setting src directly for backward compatibility
+      $('#previewImg').attr('src', url);
+      var img = $('#previewImg')[0];
+      img.onload = function() {
+        $('#labelWidth').html((img.naturalWidth / 300 * 2.54).toFixed(1));
+        $('#labelHeight').html((img.naturalHeight / 300 * 2.54).toFixed(1));
+      };
+    }
+  });
 }
 
 function setStatus(data) {
@@ -240,13 +267,5 @@ function print() {
     error:    setStatus
   });
 }
-
-// Initialize on page load
-$(document).ready(function() {
-  var initialTemplate = $('#template').val();
-  if (initialTemplate) {
-    onTemplateChange();
-  }
-});
 
 {% endblock %}

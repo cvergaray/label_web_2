@@ -414,11 +414,7 @@ def get_template_fields(templatefile):
         for element in elements:
             form_elements = ElementBase.get_form_elements_with_plugins(element)
             if form_elements is not None:
-                fields.append(form_elements)
-
-            # Check for nested elements
-            if 'elements' in element:
-                extract_fields_from_elements(element['elements'])
+                fields.extend(form_elements)
 
     if 'elements' in template_data:
         extract_fields_from_elements(template_data['elements'])

@@ -38,7 +38,18 @@ class ElementBase:
                     form_elements = instance.get_form_elements(element)
                 else:
                     form_elements = ElementBase.get_default_form_elements(element)
+
+                # Each plugin is responsible for returning a list of fields
+                # If no fields, return empty list
+                if form_elements is None:
+                    return None
+
+                # Plugins must return a list - if they don't, wrap single elements in a list
+                if not isinstance(form_elements, list):
+                    return [form_elements]
+
                 return form_elements
+        # If no plugin found, return default form elements
         return ElementBase.get_default_form_elements(element)
 
     @staticmethod

@@ -13,11 +13,13 @@ class DataDictItemElement(elements.ElementBase):
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
         data = element.get('data')
         key = element.get('key')
-        seb_elements = element.get('elements', [])
+        sub_elements = element.get('elements', [])
 
         if type(data) is dict and key in data:
-            for sub_element in seb_elements:
+            for sub_element in sub_elements:
                 sub_element['data'] = data[key]
                 im = self.process_with_plugins(sub_element, im, margins, dimensions, payload, **kwargs)
 
         return im
+
+        # Return a flat list of form elements for nested elements within data_dict_item.

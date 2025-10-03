@@ -21,3 +21,7 @@ class DataArrayIndexElement(elements.ElementBase):
                 im = self.process_with_plugins(sub_element, im, margins, dimensions, payload, **kwargs)
 
         return im
+
+
+
+        # Return a flat list of form elements for nested elements within data_array_index.
