@@ -10,65 +10,73 @@
 
 {% block content %}
 <div class="row">
-<div class="col-md-4">
+  <!-- First Column: Template File Picker -->
+  <div class="col-md-4">
     <fieldset class="form-group">
-        <div class="panel-group" id="accordion">
-          <div class="panel panel-default">
-              <div class="panel-heading">
-                  <h4 class="panel-title">
-                      <a data-toggle="collapse" data-parent="#accordion" href="#collapse0">
-                          <span class="glyphicon glyphicon-print"></span> Template File</a>
-                  </h4>
-              </div>
-              <div id="collapse0" class="panel-collapse collapse in" aria-expanded="true">
-                  <div class="chooser panel-body">
-                      <label for="template"> Template:</label>
-                      <select class="form-control" id="template" onChange="onTemplateChange()">
-                          <option value="">Select a template...</option>
-                          {% for template in files %}<option value="{{template}}">{{template }}</option>{% endfor %}
-                      </select>
-                      <label for="quantity" >Quantity:</label>
-                      <input id="quantity" class="form-control" type="number" min="1" value="1" required>
-                  </div> <!-- class="chooser panel-body" -->
-              </div>
-          </div>
-
-          <!-- Dynamic Form Fields Panel -->
-          <div class="panel panel-default" id="dynamicFieldsPanel" style="display: none;">
-              <div class="panel-heading">
-                  <h4 class="panel-title">
-                      <a data-toggle="collapse" data-parent="#accordion" href="#collapse1">
-                          <span class="glyphicon glyphicon-edit"></span> Template Data</a>
-                  </h4>
-              </div>
-              <div id="collapse1" class="panel-collapse collapse in" aria-expanded="true">
-                  <div class="panel-body">
-                      <div id="dynamicFields">
-                          <!-- Dynamic form fields will be inserted here -->
-                      </div>
-                  </div>
-              </div>
-          </div>
-        </div>
-    </fieldset>
-</div>
-    <div class="col-md-4">
-      <fieldset class="form-group">
-        <label for="previewImg">Label Preview:</label><br />
-        <img id="previewImg" alt="Label preview" style="border: 1px solid #444; max-height: 350px; width: auto; max-width: 100%; margin-bottom: 10px;"/>
-        <p>Printed size w/o margins: <span id="labelWidth">?</span> cm x <span id="labelHeight">?</span> cm</p>
-        <button id="printButton" type="button" class="btn btn-primary btn-block btn-lg" onClick="print()" disabled>
-          <span class="glyphicon glyphicon-print" aria-hidden="true"></span> Print
-        </button>
-      </fieldset>
       <div class="panel panel-default">
         <div class="panel-heading">
-          <h3 class="panel-title"><span class="glyphicon glyphicon-console" aria-hidden="true" style="margin-right: 0.3em"></span> Status</h3>
+          <h4 class="panel-title">
+            <a data-toggle="collapse" href="#collapseTemplateFile" aria-expanded="true" aria-controls="collapseTemplateFile">
+              <span class="glyphicon glyphicon-print"></span> Template File
+            </a>
+          </h4>
         </div>
-        <div id="statusPanel" class="panel-body">
-          - undefined -
+        <div id="collapseTemplateFile" class="panel-collapse collapse in">
+          <div class="panel-body">
+            <label for="template"> Template:</label>
+            <select class="form-control" id="template" onChange="onTemplateChange()">
+              <option value="">Select a template...</option>
+              {% for template in files %}<option value="{{template}}">{{template }}</option>{% endfor %}
+            </select>
+            <label for="quantity" >Quantity:</label>
+            <input id="quantity" class="form-control" type="number" min="1" value="1" required>
+          </div>
         </div>
       </div>
+    </fieldset>
+  </div>
+
+  <!-- Second Column: Dynamic Template Fields -->
+  <div class="col-md-4">
+    <fieldset class="form-group">
+      <div class="panel panel-default" id="dynamicFieldsPanel">
+        <div class="panel-heading">
+          <h4 class="panel-title">
+            <a data-toggle="collapse" href="#collapseTemplateData" aria-expanded="true" aria-controls="collapseTemplateData">
+              <span class="glyphicon glyphicon-edit"></span> Template Data
+            </a>
+          </h4>
+        </div>
+        <div id="collapseTemplateData" class="panel-collapse collapse in">
+          <div class="panel-body">
+            <div id="dynamicFields">
+              <!-- Dynamic form fields will be inserted here -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+  </div>
+
+  <!-- Third Column: Preview Image and Controls -->
+  <div class="col-md-4">
+    <fieldset class="form-group">
+      <label for="previewImg">Label Preview:</label><br />
+      <img id="previewImg" alt="Label preview" style="border: 1px solid #444; max-height: 350px; width: auto; max-width: 100%; margin-bottom: 10px;"/>
+      <p>Printed size w/o margins: <span id="labelWidth">?</span> cm x <span id="labelHeight">?</span> cm</p>
+      <button id="printButton" type="button" class="btn btn-primary btn-block btn-lg" onClick="print()" disabled>
+        <span class="glyphicon glyphicon-print" aria-hidden="true"></span> Print
+      </button>
+    </fieldset>
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h3 class="panel-title"><span class="glyphicon glyphicon-console" aria-hidden="true" style="margin-right: 0.3em"></span> Status</h3>
+      </div>
+      <div id="statusPanel" class="panel-body">
+        - undefined -
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
@@ -98,7 +106,6 @@ function formData() {
 function onTemplateChange() {
   var templateName = $('#template').val();
   if (!templateName) {
-    $('#dynamicFieldsPanel').hide();
     $('#previewImg').attr('src', '');
     $('#printButton').prop('disabled', true);
     return;
@@ -122,7 +129,6 @@ function loadTemplateFields(templateName) {
     },
     error: function(xhr, status, error) {
       console.error('Error loading template fields:', error);
-      $('#dynamicFieldsPanel').hide();
       currentTemplateFields = [];
       $('#printButton').prop('disabled', false);
       // Still try to load preview even if fields loading fails
@@ -136,12 +142,10 @@ function generateDynamicFields(fields) {
   fieldsContainer.empty();
 
   if (fields.length === 0) {
-    $('#dynamicFieldsPanel').hide();
     $('#printButton').prop('disabled', false);
     return;
   }
 
-  $('#dynamicFieldsPanel').show();
 
   fields.forEach(function(field) {
     var fieldHtml = '<div class="form-group">';
