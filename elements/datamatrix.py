@@ -18,6 +18,9 @@ class DataMatrixElement(elements.ElementBase):
         if data_key is not None and type(data) is dict and data_key in data:
             data = data[data_key]
 
+        if not data:
+            return im
+
         size = element.get('size', 'SquareAuto')
 
         horizontal_offset = element['horizontal_offset']

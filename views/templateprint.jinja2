@@ -105,7 +105,7 @@ function onTemplateChange() {
   }
 
   loadTemplateFields(templateName);
-  preview();
+  // Don't call preview() here - it will be called after fields are loaded
 }
 
 function loadTemplateFields(templateName) {
@@ -117,12 +117,16 @@ function loadTemplateFields(templateName) {
       currentTemplateFields = response.fields || [];
       generateDynamicFields(currentTemplateFields);
       $('#printButton').prop('disabled', currentTemplateFields.length > 0);
+      // Call preview() after fields are successfully loaded
+      preview();
     },
     error: function(xhr, status, error) {
       console.error('Error loading template fields:', error);
       $('#dynamicFieldsPanel').hide();
       currentTemplateFields = [];
       $('#printButton').prop('disabled', false);
+      // Still try to load preview even if fields loading fails
+      preview();
     }
   });
 }
@@ -208,7 +212,16 @@ function preview() {
 
   currentTemplateFields.forEach(function(field) {
     var value = $('#field_' + field.name).val();
-    if (field.required || value) {
+    // Always submit required fields, even if empty
+    if (field.required) {
+      var fieldValue = value !== undefined && value !== null ? value : '';
+      if (field.json_payload) {
+        jsonPayload[field.name] = fieldValue;
+      } else {
+        regularData[field.name] = fieldValue;
+      }
+    } else if (value) {
+      // Only submit non-required fields if they have a value
       if (field.json_payload) {
         jsonPayload[field.name] = value;
       } else {
@@ -223,9 +236,7 @@ function preview() {
   // Build query string for regular form data
   var queryParams = [];
   for (var key in regularData) {
-    if (regularData[key]) {
       queryParams.push(encodeURIComponent(key) + '=' + encodeURIComponent(regularData[key]));
-    }
   }
 
   if (queryParams.length > 0) {
