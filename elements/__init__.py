@@ -1,4 +1,3 @@
-
 import os
 import traceback
 from importlib import util
@@ -55,12 +54,18 @@ class ElementBase:
     @staticmethod
     def get_default_form_elements(element):
         key = element.get('key')
-        if key is None:
+        datakey = element.get('datakey')
+
+        # Generate form field if element has key OR datakey (indicating it expects input data)
+        if key is None and datakey is None:
             return None
 
+        # Use key if available, otherwise use datakey as the field name
+        field_name = key if key is not None else datakey
+
         field_info = {
-            'name': key,
-            'label': element.get('name') or key.replace('_', ' ').title(),
+            'name': field_name,
+            'label': element.get('name') or field_name.replace('_', ' ').title(),
             'type': element.get('form_type', 'text'),
             'required': element.get('required', False),
             'element_type': element.get('type', ''),
