@@ -83,6 +83,7 @@ def templatePrint():
 
     return {
         'files': templateFiles,
+        'printers': PRINTERS,
         'website': CONFIG['WEBSITE'],
         'label': CONFIG['LABEL']
     }
