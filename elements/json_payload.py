@@ -42,5 +42,3 @@ class JsonPayloadElement(elements.ElementBase):
                     result_fields.append(field)
 
         return result_fields
-
-        return None
