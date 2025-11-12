@@ -22,4 +22,17 @@ class DataDictItemElement(elements.ElementBase):
 
         return im
 
-        # Return a flat list of form elements for nested elements within data_dict_item.
+    def get_form_elements(self, element):
+        """
+        Return a flat list of form elements for nested elements within data_dict_item.
+        """
+        form_elements = []
+        sub_elements = element.get('elements', [])
+        for sub_element in sub_elements:
+            # Find the appropriate handler for the sub_element
+            for handler in elements.ELEMENT_CLASSES:
+                if handler.can_process(sub_element):
+                    if hasattr(handler, 'get_form_elements'):
+                        form_elements.extend(handler().get_form_elements(sub_element))
+                    break
+        return form_elements
