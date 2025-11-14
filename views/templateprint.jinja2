@@ -212,17 +212,17 @@ function updatePrintButtonState() {
   $('#printButton').prop('disabled', !allRequiredFieldsFilled);
 }
 
-function preview() {
-  var templateName = $('#template').val();
-  if (!templateName) return;
-
-  var formDataObj = formData();
-  var url = '/api/preview/template/' + templateName;
-
-  // Separate regular form data from JSON payload fields
+function buildRequestData(includeFields) {
+  /**
+   * Build request data by separating regular form data from JSON payload fields.
+   * @param {Object} includeFields - Additional fields to include in regularData (e.g., {quantity: 1, printer: 'main'})
+   * @returns {Object} Object containing regularData and jsonPayload
+   */
   var regularData = {};
   var jsonPayload = {};
+  var formDataObj = formData();
 
+  // Process template fields
   currentTemplateFields.forEach(function(field) {
     var value = $('#field_' + field.name).val();
     // Always submit required fields, even if empty
@@ -243,24 +243,57 @@ function preview() {
     }
   });
 
-  // Add quantity to regular data
-  regularData.quantity = formDataObj.quantity;
+  // Add additional fields to regular data
+  if (includeFields) {
+    for (var key in includeFields) {
+      regularData[key] = includeFields[key];
+    }
+  }
 
-  // Build query string for regular form data
+  return {
+    regularData: regularData,
+    jsonPayload: jsonPayload
+  };
+}
+
+function buildUrlWithParams(baseUrl, params) {
+  /**
+   * Build URL with query parameters.
+   * @param {string} baseUrl - The base URL
+   * @param {Object} params - Parameters to add as query string
+   * @returns {string} URL with query parameters
+   */
   var queryParams = [];
-  for (var key in regularData) {
-      queryParams.push(encodeURIComponent(key) + '=' + encodeURIComponent(regularData[key]));
+  for (var key in params) {
+    queryParams.push(encodeURIComponent(key) + '=' + encodeURIComponent(params[key]));
   }
 
   if (queryParams.length > 0) {
-    url += '?' + queryParams.join('&');
+    return baseUrl + '?' + queryParams.join('&');
   }
+  return baseUrl;
+}
+
+function preview() {
+  var templateName = $('#template').val();
+  if (!templateName) return;
+
+  var formDataObj = formData();
+  var baseUrl = '/api/preview/template/' + templateName;
+
+  // Build request data
+  var requestData = buildRequestData({
+    quantity: formDataObj.quantity
+  });
+
+  // Build URL with query parameters
+  var url = buildUrlWithParams(baseUrl, requestData.regularData);
 
   // Use POST request with JSON payload
   $.ajax({
     url: url,
     type: 'POST',
-    data: JSON.stringify(jsonPayload),
+    data: JSON.stringify(requestData.jsonPayload),
     contentType: 'application/json',
     xhrFields: {
       responseType: 'blob'
@@ -300,14 +333,29 @@ function setStatus(data) {
 function print() {
   $('#printButton').prop('disabled', true);
   $('#statusPanel').html('<div id="statusBox" class="alert alert-info" role="alert"><i class="glyphicon glyphicon-hourglass"></i><span>Processing print request...</span></div>');
-  urlstring = '/api/print/template/' + $('#template').val();
+
+  var templateName = $('#template').val();
+  var formDataObj = formData();
+  var baseUrl = '/api/print/template/' + templateName;
+
+  // Build request data
+  var requestData = buildRequestData({
+    quantity: formDataObj.quantity,
+    printer: $('#printer').val()
+  });
+
+  // Build URL with query parameters
+  var url = buildUrlWithParams(baseUrl, requestData.regularData);
+
+  // Use POST request with JSON payload
   $.ajax({
-    type:     'POST',
+    url: url,
+    type: 'POST',
+    data: JSON.stringify(requestData.jsonPayload),
+    contentType: 'application/json',
     dataType: 'json',
-    data:     formData(),
-    url:      urlstring,
-    success:  setStatus,
-    error:    setStatus
+    success: setStatus,
+    error: setStatus
   });
 }
 
