@@ -329,8 +329,8 @@ Retrieves the item from the data property with the given `key` and sets the `dat
 | Property Key | Example Value                                                     | Description                                          | Required                               | Default Value |
 |--------------|-------------------------------------------------------------------|------------------------------------------------------|----------------------------------------|---------------|
 | name         | Dictionary Item                                                   | A value to describe the element                      | false                                  | N/A           |
-| data         | {"userId": 1, "title": "delectus aut autem", "completed": false } | The list of items to index                           | true if not provided by parent element | 0             |
-| type         | data_dict_item                                                    | indicates that this is a data array index element    | true                                   | N/A           |
+| data         | {"userId": 1, "title": "delectus aut autem", "completed": false } | The dictionary to index                              | true if not provided by parent element | 0             |
+| type         | data_dict_item                                                    | indicates that this is a data dict item element      | true                                   | N/A           |
 | key          | title                                                             | The key of the item to be passed to child elements   | true                                   | N/A           |
 | elements     | < SEE OTHER ELEMENTS >                                            | A collection of the elements to render on the label. | false                                  | N/A           |
 
@@ -513,6 +513,7 @@ elements:
         vertical_offset: 30
 
 ```
+
 ### Grocy Entry API
 
 The Grocy Entry API element is a convenience wrapper around the JSON API element that makes it easier to get details 
@@ -582,4 +583,3 @@ elements:
             wrap: 24
 
 ```
-

@@ -59,3 +59,27 @@ class BasicElement(elements.ElementBase):
         return im
     
 ```
+## Form Field Generation for Plugins
+
+All element plugins that require user input for the web UI must implement a `get_form_elements(self, element)` method. This method should return a **list of dictionaries**, each representing a form field. The structure of each dictionary should match the following keys:
+- `name`: The field name (string)
+- `label`: The label to display in the UI (string)
+- `type`: The input type (e.g., 'text', 'number', 'url', etc.)
+- `required`: Boolean indicating if the field is required
+- `element_type`: The type of the element (string)
+- `description`: Help text for the field (string)
+- `placeholder`: Placeholder text for the field (string)
+
+If your element has sub-elements (e.g., container or passthrough types), your `get_form_elements` should aggregate the form fields from all children and return a flat list.
+
+**Example:**
+```python
+    def get_form_elements(self, element):
+        form = self.get_default_form_elements(element)
+        if form is None:
+            return []
+        return [form]
+```
+
+**Consistency:**
+All built-in and custom elements now return a list of form field dicts, even if only one field is present. This ensures the UI and payload generation are consistent for preview and print.
