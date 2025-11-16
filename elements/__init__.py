@@ -43,7 +43,10 @@ class ElementBase:
                 if form_elements is None:
                     return None
 
-                # Plugins must return a list - if they don't, wrap single elements in a list
+                # Plugins are expected to return a list of form elements.
+                # For backward compatibility, if a plugin returns a single item (not a list),
+                # it will be wrapped in a list here. Plugin authors should prefer returning a list,
+                # even if it contains only one element.
                 if not isinstance(form_elements, list):
                     return [form_elements]
 
