@@ -30,7 +30,7 @@ class DataDictItemElement(elements.ElementBase):
         sub_elements = element.get('elements', [])
         for sub_element in sub_elements:
             # Find the appropriate handler for the sub_element
-            for handler in elements.ELEMENT_CLASSES:
+            for handler in elements.ElementBase.plugins:
                 if handler.can_process(sub_element):
                     if hasattr(handler, 'get_form_elements'):
                         form_elements.extend(handler().get_form_elements(sub_element))
