@@ -93,6 +93,25 @@
 
 var currentTemplateFields = [];
 
+/**
+ * Escape HTML to prevent XSS attacks
+ * @param {string} text - The text to escape
+ * @returns {string} HTML-escaped text
+ */
+function escapeHtml(text) {
+  if (text === null || text === undefined) {
+    return '';
+  }
+  var map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
 function formData() {
   var data = {
     quantity: parseInt($('#quantity').val()) || 1
@@ -112,11 +131,27 @@ function formData() {
   return data;
 }
 
+function updatePrintButtonState() {
+  var allRequiredFieldsFilled = true;
+
+  currentTemplateFields.forEach(function(field) {
+    if (field.required) {
+      var value = $('#field_' + field.name).val();
+      if (!value || value.trim() === '') {
+        allRequiredFieldsFilled = false;
+      }
+    }
+  });
+
+  $('#printButton').prop('disabled', !allRequiredFieldsFilled);
+}
+
+// Consolidate all manual printButton state updates to use updatePrintButtonState
 function onTemplateChange() {
   var templateName = $('#template').val();
   if (!templateName) {
     $('#previewImg').attr('src', '');
-    $('#printButton').prop('disabled', true);
+    updatePrintButtonState();
     return;
   }
 
@@ -132,14 +167,14 @@ function loadTemplateFields(templateName) {
     success: function(response) {
       currentTemplateFields = response.fields || [];
       generateDynamicFields(currentTemplateFields);
-      $('#printButton').prop('disabled', currentTemplateFields.length > 0);
+      updatePrintButtonState();
       // Call preview() after fields are successfully loaded
       preview();
     },
     error: function(xhr, status, error) {
       console.error('Error loading template fields:', error);
       currentTemplateFields = [];
-      $('#printButton').prop('disabled', false);
+      updatePrintButtonState();
       // Still try to load preview even if fields loading fails
       preview();
     }
@@ -151,39 +186,64 @@ function generateDynamicFields(fields) {
   fieldsContainer.empty();
 
   if (fields.length === 0) {
-    $('#printButton').prop('disabled', false);
+    updatePrintButtonState();
     return;
   }
 
-
   fields.forEach(function(field) {
-    var fieldHtml = '<div class="form-group">';
-    fieldHtml += '<label for="field_' + field.name + '">' + field.label;
-    if (field.required) {
-      fieldHtml += ' <span class="text-danger">*</span>';
-    }
-    fieldHtml += ':</label>';
+    // Create form group container
+    var formGroup = $('<div>').addClass('form-group');
 
+    // Create label with escaped text
+    var label = $('<label>')
+      .attr('for', 'field_' + field.name)
+      .text(field.label);
+
+    if (field.required) {
+      label.append(' ').append($('<span>').addClass('text-danger').text('*'));
+    }
+    label.append(':');
+    formGroup.append(label);
+
+    // Create input or textarea
     var inputType = field.type || 'text';
     var placeholder = field.placeholder || '';
+    var input;
 
     if (inputType === 'textarea') {
-      fieldHtml += '<textarea class="form-control" id="field_' + field.name + '" name="' + field.name + '"';
-      if (field.required) fieldHtml += ' required';
-      fieldHtml += ' placeholder="' + placeholder + '" onchange="onFieldChange()" onkeyup="onFieldChange()"></textarea>';
+      input = $('<textarea>')
+        .addClass('form-control')
+        .attr('id', 'field_' + field.name)
+        .attr('name', field.name)
+        .attr('placeholder', placeholder)
+        .on('change', onFieldChange)
+        .on('keyup', onFieldChange);
     } else {
-      fieldHtml += '<input type="' + inputType + '" class="form-control" id="field_' + field.name + '" name="' + field.name + '"';
-      if (field.required) fieldHtml += ' required';
-      fieldHtml += ' placeholder="' + placeholder + '" onchange="onFieldChange()" onkeyup="onFieldChange()">';
+      input = $('<input>')
+        .attr('type', inputType)
+        .addClass('form-control')
+        .attr('id', 'field_' + field.name)
+        .attr('name', field.name)
+        .attr('placeholder', placeholder)
+        .on('change', onFieldChange)
+        .on('keyup', onFieldChange);
     }
 
+    if (field.required) {
+      input.prop('required', true);
+    }
+
+    formGroup.append(input);
+
+    // Add description if present
     if (field.description) {
-      fieldHtml += '<small class="form-text text-muted">' + field.description + '</small>';
+      var description = $('<small>')
+        .addClass('form-text text-muted')
+        .text(field.description);
+      formGroup.append(description);
     }
 
-    fieldHtml += '</div>';
-
-    fieldsContainer.append(fieldHtml);
+    fieldsContainer.append(formGroup);
   });
 
   // Enable/disable print button based on required fields
@@ -197,20 +257,6 @@ function onFieldChange() {
   window.previewTimeout = setTimeout(preview, 300); // Debounce preview updates
 }
 
-function updatePrintButtonState() {
-  var allRequiredFieldsFilled = true;
-
-  currentTemplateFields.forEach(function(field) {
-    if (field.required) {
-      var value = $('#field_' + field.name).val();
-      if (!value || value.trim() === '') {
-        allRequiredFieldsFilled = false;
-      }
-    }
-  });
-
-  $('#printButton').prop('disabled', !allRequiredFieldsFilled);
-}
 
 function buildRequestData(includeFields) {
   /**
@@ -322,11 +368,14 @@ function preview() {
 }
 
 function setStatus(data) {
-  if (data['success'])
+  if (data['success']) {
     $('#statusPanel').html('<div id="statusBox" class="alert alert-success" role="alert"><i class="glyphicon glyphicon-check"></i><span>Printing was successful.</span></div>');
-  else
-    $('#statusPanel').html('<div id="statusBox" class="alert alert-warning" role="alert"><i class="glyphicon glyphicon-alert"></i><span>Printing was unsuccessful:<br />'+data['message']+'</span></div>');
-  $('#printButton').prop('disabled', false);
+  } else {
+    // Escape the error message to prevent XSS
+    var escapedMessage = escapeHtml(data['message']);
+    $('#statusPanel').html('<div id="statusBox" class="alert alert-warning" role="alert"><i class="glyphicon glyphicon-alert"></i><span>Printing was unsuccessful:<br />' + escapedMessage + '</span></div>');
+  }
+  // Only update print button state via updatePrintButtonState
   updatePrintButtonState(); // Restore proper button state
 }
 
