@@ -29,4 +29,4 @@ class ImageUrlElement(elements.ElementBase):
         base = super().get_default_form_elements(element)
         base['type'] = 'url'
         base['description'] = base['description'] or 'URL to image'
-        return base
+        return [base]
