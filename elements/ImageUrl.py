@@ -24,3 +24,11 @@ class ImageUrlElement(elements.ElementBase):
                 print(e.message)
 
         return im
+
+    def get_form_elements(self, element):
+        base = super().get_default_form_elements(element)
+        if base is not None:
+            base['type'] = 'url'
+            base['description'] = base['description'] or 'URL to image'
+            return [base]
+        return None

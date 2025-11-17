@@ -1,0 +1,139 @@
+{
+	"elements": [
+	{
+		"name": "JSON Wrapper",
+		"type": "from_json_payload",
+		"elements": [
+			{
+				"name": "Display Name",
+				"type": "text",
+				"datakey": "Name",
+				"shrink": true,
+				"font_size": 20,
+				"required": true,
+				"horizontal_offset": 130,
+				"vertical_offset": 22
+			},
+			{
+				"type": "text",
+				"key": "WireSize",
+				"datakey": "Name",
+				"font_size": 20,
+				"required": true,
+				"horizontal_offset": 130,
+				"vertical_offset" : 44 
+			},
+			{
+				"type": "text",
+				"key": "InnerDiameter",
+				"datakey": "Name",
+				"font_size": 20,
+				"required": true,
+				"horizontal_offset": 130,
+				"vertical_offset" : 66 
+			},
+			{
+				"type": "text",
+				"key": "Material",
+				"datakey": "Name",
+				"font_size": 20,
+				"required": true,
+				"horizontal_offset": 130,
+				"vertical_offset" : 88 
+			},
+			{
+				"type": "text",
+				"key": "Cut",
+				"datakey": "Name",
+				"required": true,
+				"font_size": 20,
+				"horizontal_offset": 130,
+				"vertical_offset" : 110 
+			},
+			{
+				"type": "text",
+				"key": "Color",
+				"required": true,
+				"datakey": "Name",
+				"font_size": 20,
+				"horizontal_offset": 130,
+				"vertical_offset" : 132
+			},
+			{
+				"type": "text",
+				"key": "AspectRatio",
+				"font_size": 20,
+				"required": true,
+				"horizontal_offset": 130,
+				"vertical_offset" : 154 
+			},
+			{
+				"type": "text",
+				"key": "URL",
+				"font_size": 20,
+				"shrink": false,
+				"required": true,
+				"wrap": 30,
+				"horizontal_offset": 130,
+				"vertical_offset" : 176
+			}
+		]
+	},
+	{
+		"type": "text",
+		"data": "Name:",
+		"font_size": 20,
+		"horizontal_offset": 15,
+		"vertical_offset": 22
+	},
+	{
+		"type": "text",
+		"data": "Wire Size:",
+		"font_size": 20,
+		"horizontal_offset": 15,
+		"vertical_offset": 44
+	},
+	{
+		"type": "text",
+		"data": "ID:",
+		"font_size": 20,
+		"horizontal_offset": 15,
+		"vertical_offset": 66
+	},
+	{
+		"type": "text",
+		"data": "Material:",
+		"font_size": 20,
+		"horizontal_offset": 15,
+		"vertical_offset": 88
+	},
+	{
+		"type": "text",
+		"data": "Cut:",
+		"font_size": 20,
+		"horizontal_offset": 15,
+		"vertical_offset": 110
+	},
+	{
+		"type": "text",
+		"data": "Color:",
+		"font_size": 20,
+		"horizontal_offset": 15,
+		"vertical_offset": 132
+	},
+	{
+		"type": "text",
+		"data": "AR:",
+		"font_size": 20,
+		"horizontal_offset": 15,
+		"vertical_offset": 154
+	},
+	{
+		"type": "text",
+		"data": "URL:",
+		"font_size": 20,
+		"horizontal_offset": 15,
+		"vertical_offset": 176
+	}
+	]
+}

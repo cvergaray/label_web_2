@@ -15,3 +15,9 @@ class BasicElement(elements.ElementBase):
 
         # Return the im object when you're done
         return im
+
+    def get_form_elements(self, element):
+        form = self.get_default_form_elements(element)
+        if form is None:
+            return []
+        return [form]

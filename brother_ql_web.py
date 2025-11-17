@@ -83,6 +83,7 @@ def templatePrint():
 
     return {
         'files': templateFiles,
+        'printers': PRINTERS,
         'website': CONFIG['WEBSITE'],
         'label': CONFIG['LABEL']
     }
@@ -396,6 +397,33 @@ def get_preview_template_image(templatefile):
         response.set_header('Content-type', 'image/png')
         return image_to_png_bytes(im)
 
+@route('/api/template/<templatefile>/fields', method=['GET', 'OPTIONS'])
+@enable_cors
+def get_template_fields(templatefile):
+    """
+    API endpoint to get form fields required by a template
+    Returns a JSON object with field definitions
+    """
+    template_data = get_template_data(templatefile)
+    if not template_data:
+        response.status = 404
+        return {'error': 'Template not found'}
+
+    fields = []
+
+    def extract_fields_from_elements(elements):
+        for element in elements:
+            form_elements = ElementBase.get_form_elements_with_plugins(element)
+            if form_elements is not None:
+                fields.extend(form_elements)
+
+    if 'elements' in template_data:
+        extract_fields_from_elements(template_data['elements'])
+
+    return {
+        'template_name': template_data.get('name', templatefile),
+        'fields': fields
+    }
 
 def image_to_png_bytes(im):
     image_buffer = BytesIO()

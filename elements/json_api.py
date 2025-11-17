@@ -24,7 +24,7 @@ class JsonAPIElement(elements.ElementBase):
         if method is None or method not in ['get', 'post', 'put', 'delete']:
             method = 'get'
 
-        headers = element.get('headers')
+        headers = element.get('headers', {})
         headers = headers | {'accept': 'application/json'}
 
         data = element.get('data', {})
@@ -59,3 +59,4 @@ class JsonAPIElement(elements.ElementBase):
             self.process_with_plugins(sub_element, im, margins, dimensions, payload, **kwargs)
 
         return im
+

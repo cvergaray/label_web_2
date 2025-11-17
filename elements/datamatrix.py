@@ -18,6 +18,9 @@ class DataMatrixElement(elements.ElementBase):
         if data_key is not None and type(data) is dict and data_key in data:
             data = data[data_key]
 
+        if not data:
+            return im
+
         size = element.get('size', 'SquareAuto')
 
         horizontal_offset = element['horizontal_offset']
@@ -32,3 +35,11 @@ class DataMatrixElement(elements.ElementBase):
                   vertical_offset + encoded.height))
 
         return im
+
+    def get_form_elements(self, element):
+        form = self.get_default_form_elements(element)
+        if form is None:
+            return None
+        form['required'] = True
+        form['description'] = form['description'] or 'DataMatrix code to be generated'
+        return [form]

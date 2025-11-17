@@ -153,6 +153,25 @@
 {% block javascript %}
 var text = $('#labelText');
 
+/**
+ * Escape HTML to prevent XSS attacks
+ * @param {string} text - The text to escape
+ * @returns {string} HTML-escaped text
+ */
+function escapeHtml(text) {
+  if (text === null || text === undefined) {
+    return '';
+  }
+  var map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
 function formData() {
   //var text = $('#labelText').val().replace(/\n/g, "%0A");
   var text = $('#labelText').val();
@@ -198,10 +217,13 @@ function preview() {
 }
 
 function setStatus(data) {
-  if (data['success'])
+  if (data['success']) {
     $('#statusPanel').html('<div id="statusBox" class="alert alert-success" role="alert"><i class="glyphicon glyphicon-check"></i><span>Printing was successful.</span></div>');
-  else
-    $('#statusPanel').html('<div id="statusBox" class="alert alert-warning" role="alert"><i class="glyphicon glyphicon-alert"></i><span>Printing was unsuccessful:<br />'+data['message']+'</span></div>');
+  } else {
+    // Escape the error message to prevent XSS
+    var escapedMessage = escapeHtml(data['message']);
+    $('#statusPanel').html('<div id="statusBox" class="alert alert-warning" role="alert"><i class="glyphicon glyphicon-alert"></i><span>Printing was unsuccessful:<br />' + escapedMessage + '</span></div>');
+  }
   $('#printButton').prop('disabled', false);
 }
 
