@@ -38,6 +38,8 @@ class DataMatrixElement(elements.ElementBase):
 
     def get_form_elements(self, element):
         form = self.get_default_form_elements(element)
+        if form is None:
+            return None
         form['required'] = True
         form['description'] = form['description'] or 'DataMatrix code to be generated'
         return [form]
