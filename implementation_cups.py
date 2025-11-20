@@ -62,6 +62,10 @@ class implementation:
         except Exception:
             return None
 
+    def _should_use_cups(self):
+        """Check if CUPS should be used based on configuration flag. Defaults to False."""
+        return self.CONFIG.get('PRINTER', {}).get('USE_CUPS', False)
+
     def _parse_media_name(self, media_name):
         # CUPS media names are often like 'na_index-4x6_4x6in' or 'iso_a4_210x297mm'
         # We'll try to extract the size part for short name, and a readable long name
@@ -96,37 +100,38 @@ class implementation:
         """
         printerName = self._get_printer_name(printerName)
 
-        # Try to get dimensions from CUPS media-size-supported
-        try:
-            conn = self._get_conn()
-            attrs = conn.getPrinterAttributes(printerName,
-                requested_attributes=["media-size-supported", "media-supported"])
+        # Try to get dimensions from CUPS media-size-supported (only if CUPS enabled)
+        if self._should_use_cups():
+            try:
+                conn = self._get_conn()
+                attrs = conn.getPrinterAttributes(printerName,
+                    requested_attributes=["media-size-supported", "media-supported"])
 
-            media_supported = attrs.get("media-supported", [])
-            media_sizes = attrs.get("media-size-supported", [])
+                media_supported = attrs.get("media-supported", [])
+                media_sizes = attrs.get("media-size-supported", [])
 
-            # Find the index of our media in the supported list
-            if media_name in media_supported and media_sizes:
-                try:
-                    media_index = media_supported.index(media_name)
-                    if media_index < len(media_sizes):
-                        # media-size-supported is a list of dicts with x-dimension and y-dimension
-                        # Each dimension is in hundredths of millimeters
-                        size_info = media_sizes[media_index]
-                        if isinstance(size_info, dict):
-                            x_dim = size_info.get('x-dimension', 0)
-                            y_dim = size_info.get('y-dimension', 0)
+                # Find the index of our media in the supported list
+                if media_name in media_supported and media_sizes:
+                    try:
+                        media_index = media_supported.index(media_name)
+                        if media_index < len(media_sizes):
+                            # media-size-supported is a list of dicts with x-dimension and y-dimension
+                            # Each dimension is in hundredths of millimeters
+                            size_info = media_sizes[media_index]
+                            if isinstance(size_info, dict):
+                                x_dim = size_info.get('x-dimension', 0)
+                                y_dim = size_info.get('y-dimension', 0)
 
-                            if x_dim and y_dim:
-                                # Convert from hundredths of mm to inches to pixels
-                                dpi = self._get_printer_dpi(printerName)
-                                width_in = (x_dim / 100.0) / 25.4
-                                height_in = (y_dim / 100.0) / 25.4
-                                return int(width_in * dpi), int(height_in * dpi)
-                except (ValueError, IndexError, KeyError, TypeError):
-                    pass
-        except Exception:
-            pass
+                                if x_dim and y_dim:
+                                    # Convert from hundredths of mm to inches to pixels
+                                    dpi = self._get_printer_dpi(printerName)
+                                    width_in = (x_dim / 100.0) / 25.4
+                                    height_in = (y_dim / 100.0) / 25.4
+                                    return int(width_in * dpi), int(height_in * dpi)
+                    except (ValueError, IndexError, KeyError, TypeError):
+                        pass
+            except Exception:
+                pass
 
         # Fallback: Try to extract dimensions from media name
         import re
@@ -152,6 +157,17 @@ class implementation:
     # For CUPS: full name is used as key (e.g., 'na_index-4x6_4x6in'), long name for display (e.g., '4in x 6in')
     # For config: uses config keys as-is for both key and display
     def get_label_sizes(self, printer_name=None):
+        # Check if CUPS should be used
+        if not self._should_use_cups():
+            # Use config only
+            config_sizes = self.CONFIG.get('PRINTER', {}).get('LABEL_SIZES', {})
+            if isinstance(config_sizes, dict):
+                return [(key, value) for key, value in config_sizes.items()]
+            elif isinstance(config_sizes, list):
+                return config_sizes
+            return []
+
+        # CUPS is enabled, try to query it
         printer_name = self._get_printer_name(printer_name)
         try:
             conn = self._get_conn()
@@ -176,6 +192,12 @@ class implementation:
             return []
 
     def get_default_label_size(self, printerName=None):
+        # Check if CUPS should be used
+        if not self._should_use_cups():
+            # Use config only
+            return self.CONFIG.get('LABEL', {}).get('DEFAULT_SIZE')
+
+        # CUPS is enabled, try to query it
         printerName = self._get_printer_name(printerName)
         try:
             conn = self._get_conn()
@@ -265,6 +287,15 @@ class implementation:
         return offset
 
     def get_printers(self):
+        # Check if CUPS should be used
+        if not self._should_use_cups():
+            # Use config only - return configured printer if available
+            printer = self.CONFIG.get('PRINTER', {}).get('PRINTER')
+            if printer:
+                return [printer]
+            return []
+
+        # CUPS is enabled, try to query it
         try:
             conn = self._get_conn()
             printers = list(conn.getPrinters().keys())
@@ -294,8 +325,8 @@ class implementation:
 
             # Add media size to options if specified in context
             label_size = context.get("label_size")
-            if label_size:
-                # Verify the selected media is available on this printer
+            if label_size and self._should_use_cups():
+                # Verify the selected media is available on this printer (only if CUPS enabled)
                 try:
                     attrs = conn.getPrinterAttributes(printer_name, requested_attributes=["media-supported"])
                     media_supported = attrs.get("media-supported", [])
@@ -308,6 +339,9 @@ class implementation:
                         print(f"Warning: Selected media '{label_size}' not available on printer '{printer_name}'. Using printer default.")
                 except Exception as e:
                     print(f"Warning: Could not verify media availability: {e}. Using printer default.")
+            elif label_size and not self._should_use_cups():
+                # If CUPS is disabled, pass media size directly without verification
+                options["media"] = label_size
 
             print(printer_name, options)
             conn.printFile(printer_name, 'sample-out.png', "grocy", options)
