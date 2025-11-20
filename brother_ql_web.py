@@ -68,10 +68,14 @@ def serve_static(filename):
 @view('labeldesigner.jinja2')
 def labeldesigner():
     font_family_names = sorted(list(FONTS.keys()))
+    default_printer = instance.selected_printer if instance.selected_printer else (PRINTERS[0] if PRINTERS else None)
+    default_orientation = CONFIG['LABEL'].get('DEFAULT_ORIENTATION', 'standard')
     return {'font_family_names': font_family_names,
             'fonts': FONTS,
             'label_sizes': LABEL_SIZES,
             'printers': PRINTERS,
+            'default_printer': default_printer,
+            'default_orientation': default_orientation,
             'website': CONFIG['WEBSITE'],
             'label': CONFIG['LABEL']}
 
@@ -136,8 +140,14 @@ def get_printer_media(printer_name):
 
         # Convert list of tuples to dict for JSON response
         label_sizes_dict = {}
-        for short, long in label_sizes_list:
-            label_sizes_dict[short] = long
+        for item in label_sizes_list:
+            if isinstance(item, tuple) and len(item) == 2:
+                short, long = item
+                label_sizes_dict[short] = long
+            elif isinstance(item, (list, tuple)) and len(item) >= 2:
+                label_sizes_dict[item[0]] = item[1]
+            else:
+                logger.warning(f"Skipping invalid label size entry in API: {item}")
 
         return {
             'success': True,
@@ -577,7 +587,15 @@ def main():
 
     # Get label sizes as list of tuples and convert to dict
     label_sizes_list = instance.get_label_sizes()
-    LABEL_SIZES = {short: long for short, long in label_sizes_list}
+    LABEL_SIZES = {}
+    for item in label_sizes_list:
+        if isinstance(item, tuple) and len(item) == 2:
+            short, long = item
+            LABEL_SIZES[short] = long
+        elif isinstance(item, (list, tuple)) and len(item) >= 2:
+            LABEL_SIZES[item[0]] = item[1]
+        else:
+            logger.warning(f"Skipping invalid label size entry: {item}")
 
     PRINTERS = instance.get_printers()
 

@@ -24,7 +24,7 @@
                   <div class="chooser panel-body">
                       <label for="printer"> Printer:</label>
                       <select class="form-control" id="printer" onChange="onPrinterChange()">
-                          {% for printer in printers %}<option value="{{printer}}" {% if label['DEFAULT_PRINTER'] == printer %}selected{% endif %}>{{printer}}</option>{% endfor %}
+                          {% for printer in printers %}<option value="{{printer}}" {% if default_printer == printer %}selected{% endif %}>{{printer}}</option>{% endfor %}
                       </select>
                   </div> <!-- class="chooser panel-body" -->
               </div>
@@ -172,7 +172,7 @@ function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
-function loadPrinterMedia(printerName) {
+function loadPrinterMedia(printerName, useDefault) {
   if (!printerName) return;
 
   $.ajax({
@@ -182,7 +182,6 @@ function loadPrinterMedia(printerName) {
     success: function(data) {
       if (data.success) {
         // Update label sizes dropdown
-        var currentSelection = $('#labelSize').val();
         $('#labelSize').empty();
 
         for (var key in data.label_sizes) {
@@ -192,10 +191,9 @@ function loadPrinterMedia(printerName) {
           }));
         }
 
-        // Set default or restore previous selection
-        if (currentSelection && data.label_sizes[currentSelection]) {
-          $('#labelSize').val(currentSelection);
-        } else if (data.default_size) {
+        // When switching printers or useDefault is true, always use the printer's default media
+        // This ensures each printer's default is selected when switching
+        if (data.default_size && data.label_sizes[data.default_size]) {
           $('#labelSize').val(data.default_size);
         }
 
@@ -211,7 +209,8 @@ function loadPrinterMedia(printerName) {
 
 function onPrinterChange() {
   var printerName = $('#printer').val();
-  loadPrinterMedia(printerName);
+  // Always use the printer's default when switching printers
+  loadPrinterMedia(printerName, true);
 }
 
 function formData() {
@@ -282,6 +281,16 @@ function print() {
   });
 }
 
-preview()
+// Load media for the initially selected printer on page load
+// This will trigger preview() after media is loaded
+$(document).ready(function() {
+  var initialPrinter = $('#printer').val();
+  if (initialPrinter) {
+    loadPrinterMedia(initialPrinter, true);
+  } else {
+    // If no printer, just preview with current settings
+    preview();
+  }
+});
 
 {% endblock %}

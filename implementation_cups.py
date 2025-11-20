@@ -225,7 +225,7 @@ class implementation:
         return printers
 
     def print_label(self, im, **context):
-        return_dict = {'success': False}
+        return_dict = {'success': False, 'message': ''}
         try:
             print(context)
             im.save('sample-out.png')
