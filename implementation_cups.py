@@ -205,6 +205,14 @@ class implementation:
         """
         printerName = self._get_printer_name(printerName)
 
+        # Helper function to get dimensions from config
+        def get_from_config():
+            if 'PRINTER' in self.CONFIG and 'LABEL_PRINTABLE_AREA' in self.CONFIG['PRINTER']:
+                if label_size in self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA']:
+                    ls = self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA'][label_size]
+                    return tuple(ls)
+            return None
+
         try:
             # Try to get dimensions from CUPS (includes both direct query and name parsing)
             dims = self._media_name_to_dimensions(label_size, printerName)
@@ -212,23 +220,19 @@ class implementation:
                 return dims
 
             # If CUPS method didn't work, try config fallback
-            if 'PRINTER' in self.CONFIG and 'LABEL_PRINTABLE_AREA' in self.CONFIG['PRINTER']:
-                if label_size in self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA']:
-                    ls = self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA'][label_size]
-                    return tuple(ls)
+            dims = get_from_config()
+            if dims:
+                return dims
 
             # If not found anywhere, return a default size
             return (300, 200)
 
         except Exception as e:
             # On any exception, try config fallback
-            try:
-                if 'PRINTER' in self.CONFIG and 'LABEL_PRINTABLE_AREA' in self.CONFIG['PRINTER']:
-                    if label_size in self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA']:
-                        ls = self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA'][label_size]
-                        return tuple(ls)
-            except:
-                pass
+            dims = get_from_config()
+            if dims:
+                return dims
+
             # Return a default size as last resort
             return (300, 200)
 
