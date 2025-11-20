@@ -90,7 +90,45 @@ class implementation:
         return 203  # Default DPI for thermal label printers
 
     def _media_name_to_dimensions(self, media_name, printerName=None):
-        # Try to extract dimensions from media name
+        """
+        Get media dimensions in pixels.
+        Priority: 1) CUPS media-size-supported, 2) Parse from name, 3) Return None
+        """
+        printerName = self._get_printer_name(printerName)
+
+        # Try to get dimensions from CUPS media-size-supported
+        try:
+            conn = self._get_conn()
+            attrs = conn.getPrinterAttributes(printerName,
+                requested_attributes=["media-size-supported", "media-supported"])
+
+            media_supported = attrs.get("media-supported", [])
+            media_sizes = attrs.get("media-size-supported", [])
+
+            # Find the index of our media in the supported list
+            if media_name in media_supported and media_sizes:
+                try:
+                    media_index = media_supported.index(media_name)
+                    if media_index < len(media_sizes):
+                        # media-size-supported is a list of dicts with x-dimension and y-dimension
+                        # Each dimension is in hundredths of millimeters
+                        size_info = media_sizes[media_index]
+                        if isinstance(size_info, dict):
+                            x_dim = size_info.get('x-dimension', 0)
+                            y_dim = size_info.get('y-dimension', 0)
+
+                            if x_dim and y_dim:
+                                # Convert from hundredths of mm to inches to pixels
+                                dpi = self._get_printer_dpi(printerName)
+                                width_in = (x_dim / 100.0) / 25.4
+                                height_in = (y_dim / 100.0) / 25.4
+                                return int(width_in * dpi), int(height_in * dpi)
+                except (ValueError, IndexError, KeyError, TypeError):
+                    pass
+        except Exception:
+            pass
+
+        # Fallback: Try to extract dimensions from media name
         import re
         match = re.search(r'(\d+(?:\.\d+)?)[xX](\d+(?:\.\d+)?)(in|mm)', media_name)
         if match:
@@ -107,6 +145,7 @@ class implementation:
                 w_in = w / 25.4
                 h_in = h / 25.4
                 return int(w_in * dpi), int(h_in * dpi)
+
         return None
 
     # Provides an array of label sizes. Each entry in the array is a tuple of ('full_cups_name', 'long_display_name')
@@ -160,22 +199,29 @@ class implementation:
         return conn.getPrinterAttributes(printerName, requested_attributes=["media-default", "media-supported", "printer-resolution-supported", "printer-resolution-default"])
 
     def get_label_dimensions(self, label_size, printerName=None):
+        """
+        Get label dimensions in pixels for a given media.
+        Priority: 1) CUPS media dimensions, 2) Parse from name, 3) Config fallback, 4) Default size
+        """
         printerName = self._get_printer_name(printerName)
+
         try:
-            # First, try to get dimensions directly from CUPS if label_size is a full CUPS media name
+            # Try to get dimensions from CUPS (includes both direct query and name parsing)
             dims = self._media_name_to_dimensions(label_size, printerName)
             if dims:
                 return dims
 
-            # If that didn't work, fallback to config if available
+            # If CUPS method didn't work, try config fallback
             if 'PRINTER' in self.CONFIG and 'LABEL_PRINTABLE_AREA' in self.CONFIG['PRINTER']:
                 if label_size in self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA']:
                     ls = self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA'][label_size]
                     return tuple(ls)
+
             # If not found anywhere, return a default size
             return (300, 200)
+
         except Exception as e:
-            # fallback to config if available
+            # On any exception, try config fallback
             try:
                 if 'PRINTER' in self.CONFIG and 'LABEL_PRINTABLE_AREA' in self.CONFIG['PRINTER']:
                     if label_size in self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA']:
