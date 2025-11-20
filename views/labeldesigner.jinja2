@@ -23,7 +23,7 @@
               <div id="collapse0" class="panel-collapse collapse">
                   <div class="chooser panel-body">
                       <label for="printer"> Printer:</label>
-                      <select class="form-control" id="printer">
+                      <select class="form-control" id="printer" onChange="onPrinterChange()">
                           {% for printer in printers %}<option value="{{printer}}" {% if label['DEFAULT_PRINTER'] == printer %}selected{% endif %}>{{printer}}</option>{% endfor %}
                       </select>
                   </div> <!-- class="chooser panel-body" -->
@@ -170,6 +170,48 @@ function escapeHtml(text) {
     "'": '&#039;'
   };
   return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+function loadPrinterMedia(printerName) {
+  if (!printerName) return;
+
+  $.ajax({
+    type: 'GET',
+    url: '/api/printer/' + encodeURIComponent(printerName) + '/media',
+    dataType: 'json',
+    success: function(data) {
+      if (data.success) {
+        // Update label sizes dropdown
+        var currentSelection = $('#labelSize').val();
+        $('#labelSize').empty();
+
+        for (var key in data.label_sizes) {
+          $('#labelSize').append($('<option>', {
+            value: key,
+            text: data.label_sizes[key]
+          }));
+        }
+
+        // Set default or restore previous selection
+        if (currentSelection && data.label_sizes[currentSelection]) {
+          $('#labelSize').val(currentSelection);
+        } else if (data.default_size) {
+          $('#labelSize').val(data.default_size);
+        }
+
+        // Update preview with new media
+        preview();
+      }
+    },
+    error: function(xhr, status, error) {
+      console.error('Error loading printer media:', error);
+    }
+  });
+}
+
+function onPrinterChange() {
+  var printerName = $('#printer').val();
+  loadPrinterMedia(printerName);
 }
 
 function formData() {

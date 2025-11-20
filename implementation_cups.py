@@ -1,3 +1,4 @@
+# NOTE: Requires the 'pycups' library. Install with: pip install pycups
 import cups
 
 # Printer-specific settings
@@ -34,74 +35,188 @@ class implementation:
         self.CONFIG = None
         self.logger = None
         self.server_ip = None
+        self.selected_printer = None
 
     def initialize(self, config):
         self.CONFIG = config
         self.server_ip = None
         if 'PRINTER' not in self.CONFIG:
-            return
+            return "No printer configuration found in config file."
         if 'SERVER' in self.CONFIG['PRINTER']:
             self.server_ip = self.CONFIG['PRINTER']['SERVER']
-
         cups.setServer(self.server_ip)
-
+        # Optionally set default printer from config
+        self.selected_printer = self.CONFIG['PRINTER'].get('PRINTER')
         return ''
 
+    def _get_conn(self):
+        return cups.Connection()
+
+    def _get_printer_name(self, printerName=None):
+        if printerName:
+            return printerName
+        if self.selected_printer:
+            return self.selected_printer
+        try:
+            return self._get_conn().getDefault()
+        except Exception:
+            return None
+
+    def _parse_media_name(self, media_name):
+        # CUPS media names are often like 'na_index-4x6_4x6in' or 'iso_a4_210x297mm'
+        # We'll try to extract the size part for short name, and a readable long name
+        import re
+        match = re.search(r'(\d+(?:\.\d+)?)[xX](\d+(?:\.\d+)?)(in|mm)', media_name)
+        if match:
+            w, h, unit = match.groups()
+            short = f"{w}x{h}{unit}"
+            long = f"{w}{unit} x {h}{unit}"
+            return short, long
+        return media_name, media_name
+
+    def _get_printer_dpi(self, printerName=None):
+        """Get the DPI/resolution of the printer, with fallback to 203 DPI"""
+        try:
+            printerName = self._get_printer_name(printerName)
+            conn = self._get_conn()
+            attrs = conn.getPrinterAttributes(printerName, requested_attributes=["printer-resolution-default"])
+            resolution = attrs.get("printer-resolution-default")
+            if resolution:
+                # Resolution is typically (xdpi, ydpi, units) where units is 3 for DPI
+                if isinstance(resolution, tuple) and len(resolution) >= 2:
+                    return resolution[0]  # Return X DPI
+        except:
+            pass
+        return 203  # Default DPI for thermal label printers
+
+    def _media_name_to_dimensions(self, media_name, printerName=None):
+        # Try to extract dimensions from media name
+        import re
+        match = re.search(r'(\d+(?:\.\d+)?)[xX](\d+(?:\.\d+)?)(in|mm)', media_name)
+        if match:
+            w, h, unit = match.groups()
+            w = float(w)
+            h = float(h)
+            dpi = self._get_printer_dpi(printerName)
+
+            if unit == 'in':
+                # Convert inches to pixels using printer DPI
+                return int(w * dpi), int(h * dpi)
+            elif unit == 'mm':
+                # Convert mm to inches, then to pixels
+                w_in = w / 25.4
+                h_in = h / 25.4
+                return int(w_in * dpi), int(h_in * dpi)
+        return None
+
     # Provides an array of label sizes. Each entry in the array is a tuple of ('short name', 'long name')
-    def get_label_sizes(self):
-        return self.CONFIG['PRINTER']['LABEL_SIZES']
-        #return label_sizes
-        
-    def get_default_label_size(self):
-        return self.CONFIG['LABEL']['DEFAULT_SIZE'] #default_size
-        
-    def get_label_kind(self, label_size_description):
+    def get_label_sizes(self, printer_name=None):
+        printer_name = self._get_printer_name(printer_name)
+        try:
+            conn = self._get_conn()
+            attrs = conn.getPrinterAttributes(printer_name, requested_attributes=["media-supported"])
+            media_supported = attrs.get("media-supported", [])
+            sizes = []
+            for media in media_supported:
+                short, long = self._parse_media_name(media)
+                sizes.append((short, long))
+            if sizes:
+                return sizes
+            # If no sizes from CUPS, fall back to config
+            raise Exception("No media-supported found")
+        except Exception as e:
+            # Fallback to config on exception
+            config_sizes = self.CONFIG.get('PRINTER', {}).get('LABEL_SIZES', {})
+            if isinstance(config_sizes, dict):
+                return [(key, value) for key, value in config_sizes.items()]
+            elif isinstance(config_sizes, list):
+                return config_sizes
+            return []
+
+    def get_default_label_size(self, printerName=None):
+        printerName = self._get_printer_name(printerName)
+        try:
+            conn = self._get_conn()
+            attrs = conn.getPrinterAttributes(printerName, requested_attributes=["media-default"])
+            media_default = attrs.get("media-default")
+            if media_default:
+                short, _ = self._parse_media_name(media_default)
+                return short
+        except Exception:
+            pass
+        return self.CONFIG['LABEL'].get('DEFAULT_SIZE')
+
+    def get_label_kind(self, label_size_description, printerName=None):
+        # For CUPS, the label kind is typically the media name
         return label_size_description
 
-    def get_printer_properties(self, printerName):
-        conn = cups.Connection()
-        return conn.getPrinterAttributes(printerName, requestedAttributes=["media-default", "media-supported", "printer-resolution-supported", "printer-resolution-default"])
+    def get_printer_properties(self, printerName=None):
+        printerName = self._get_printer_name(printerName)
+        conn = self._get_conn()
+        return conn.getPrinterAttributes(printerName, requested_attributes=["media-default", "media-supported", "printer-resolution-supported", "printer-resolution-default"])
 
-    def get_label_dimensions(self, label_size):
-        #print(label_size)
+    def get_label_dimensions(self, label_size, printerName=None):
+        printerName = self._get_printer_name(printerName)
         try:
-            ls = self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA'][label_size]
-        except KeyError:
-            raise LookupError("Unknown label_size")
-        return tuple(ls)
-    
+            conn = self._get_conn()
+            attrs = conn.getPrinterAttributes(printerName, requested_attributes=["media-supported"])
+            media_supported = attrs.get("media-supported", [])
+            for media in media_supported:
+                short, _ = self._parse_media_name(media)
+                if short == label_size:
+                    dims = self._media_name_to_dimensions(media, printerName)
+                    if dims:
+                        return dims
+            # fallback to config if available
+            if 'PRINTER' in self.CONFIG and 'LABEL_PRINTABLE_AREA' in self.CONFIG['PRINTER']:
+                if label_size in self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA']:
+                    ls = self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA'][label_size]
+                    return tuple(ls)
+            # If not found anywhere, return a default size
+            return (300, 200)
+        except Exception as e:
+            # fallback to config if available
+            try:
+                if 'PRINTER' in self.CONFIG and 'LABEL_PRINTABLE_AREA' in self.CONFIG['PRINTER']:
+                    if label_size in self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA']:
+                        ls = self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA'][label_size]
+                        return tuple(ls)
+            except:
+                pass
+            # Return a default size as last resort
+            return (300, 200)
+
     def get_label_width_height(self, textsize, **kwargs):
-        label_type = kwargs['kind']
-        width, height = kwargs['width'], kwargs['height']
-        return width, height
-        
-    def get_label_offset(self, **kwargs):
-        label_type = kwargs['kind']
-        if kwargs['orientation'] == 'standard':
-            vertical_offset = kwargs['margin_top']
-            horizontal_offset = max((width - textsize[0])//2, 0)
-        elif kwargs['orientation'] == 'rotated':
-            vertical_offset  = (height - textsize[1])//2
-            vertical_offset += (kwargs['margin_top'] - kwargs['margin_bottom'])//2
-            horizontal_offset = kwargs['margin_left']
-        offset = horizontal_offset, vertical_offset        
-        return offset
-       
+        # Returns the width and height for the label, based on kwargs or textsize fallback
+        width = kwargs.get('width')
+        height = kwargs.get('height')
+        if width is not None and height is not None:
+            return width, height
+        if textsize:
+            return textsize[0], textsize[1]
+        return 0, 0
+
     def get_label_offset(self, calculated_width, calculated_height, textsize, **kwargs):
-        label_type = kwargs['kind']
-        if kwargs['orientation'] == 'standard':
-            vertical_offset = kwargs['margin_top']
-            horizontal_offset = max((calculated_width - textsize[0])//2, 0)
-        elif kwargs['orientation'] == 'rotated':
-            vertical_offset  = (calculated_height - textsize[1])//2
-            vertical_offset += (kwargs['margin_top'] - kwargs['margin_bottom'])//2
-            horizontal_offset = kwargs['margin_left']
-        offset = horizontal_offset, vertical_offset        
+        # Returns the offset for the label, based on orientation and margins
+        orientation = kwargs.get('orientation', 'standard')
+        margin_top = kwargs.get('margin_top', 0)
+        margin_bottom = kwargs.get('margin_bottom', 0)
+        margin_left = kwargs.get('margin_left', 0)
+        horizontal_offset = 0
+        vertical_offset = 0
+        if orientation == 'standard':
+            vertical_offset = margin_top
+            horizontal_offset = max((calculated_width - textsize[0])//2, 0) if textsize else 0
+        elif orientation == 'rotated':
+            vertical_offset  = (calculated_height - textsize[1])//2 if textsize else 0
+            vertical_offset += (margin_top - margin_bottom)//2
+            horizontal_offset = margin_left
+        offset = horizontal_offset, vertical_offset
         return offset
 
     def get_printers(self):
         try:
-            conn = cups.Connection()
+            conn = self._get_conn()
             printers = list(conn.getPrinters().keys())
         except Exception as e:
             print("Error getting list of printers. Verify that CUPS server is running and accessible.")
@@ -113,13 +228,9 @@ class implementation:
         return_dict = {'success': False}
         try:
             print(context)
-
             im.save('sample-out.png')
-
             quantity = context.get("quantity", 1)
-
-            conn = cups.Connection()
-
+            conn = self._get_conn()
             printer_name = context.get("printer")
             if printer_name is None:
                 print("No printer specified in Context")
@@ -130,7 +241,7 @@ class implementation:
             options = {"copies": str(quantity)}
             print(printer_name, options)
             conn.printFile(printer_name, 'sample-out.png', "grocy", options)
-        
+
             return_dict['success'] = True
         except Exception as e:
             return_dict['success'] = False

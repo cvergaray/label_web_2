@@ -31,7 +31,7 @@
                                     <option value="{{ template }}">{{ template }}</option>{% endfor %}
                             </select>
                             <label for="printer"> Printer:</label>
-                            <select class="form-control" id="printer">
+                            <select class="form-control" id="printer" onChange="onPrinterChange()">
                                 {% for printer in printers %}
                                     <option value="{{ printer }}"
                                             {% if label['DEFAULT_PRINTER'] == printer %}selected{% endif %}>{{ printer }}</option>
@@ -110,6 +110,36 @@ function escapeHtml(text) {
     "'": '&#039;'
   };
   return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+function loadPrinterMedia(printerName) {
+  if (!printerName) return;
+
+  $.ajax({
+    type: 'GET',
+    url: '/api/printer/' + encodeURIComponent(printerName) + '/media',
+    dataType: 'json',
+    success: function(data) {
+      if (data.success) {
+        // Store the media information for potential future use
+        // Currently templates may have fixed dimensions, but this allows
+        // for future enhancements where templates could adapt to media size
+        console.log('Loaded media for printer:', printerName, data);
+      }
+    },
+    error: function(xhr, status, error) {
+      console.error('Error loading printer media:', error);
+    }
+  });
+}
+
+function onPrinterChange() {
+  var printerName = $('#printer').val();
+  loadPrinterMedia(printerName);
+  // Refresh preview with new printer
+  if ($('#template').val()) {
+    preview();
+  }
 }
 
 function formData() {
