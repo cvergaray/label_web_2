@@ -14,33 +14,21 @@
       <fieldset class="form-group">
         <div class="panel-group" id="accordion">
           <div class="panel panel-default">
-              <div class="panel-heading">
-                  <h4 class="panel-title">
-                      <a data-toggle="collapse" data-parent="#accordion" href="#collapse0">
-                          <span class="glyphicon glyphicon-print" aria-hidden="true"></span> Printer Settings</a>
-                  </h4>
-              </div>
-              <div id="collapse0" class="panel-collapse collapse">
-                  <div class="chooser panel-body">
-                      <label for="printer"> Printer:</label>
-                      <select class="form-control" id="printer">
-                          {% for printer in printers %}<option value="{{printer}}" {% if label['DEFAULT_PRINTER'] == printer %}selected{% endif %}>{{printer}}</option>{% endfor %}
-                      </select>
-                  </div> <!-- class="chooser panel-body" -->
-              </div>
-          </div>
-          <div class="panel panel-default">
             <div class="panel-heading">
               <h4 class="panel-title">
                 <a data-toggle="collapse" data-parent="#accordion" href="#collapse1">
-                <span class="glyphicon glyphicon-file" aria-hidden="true"></span> Label Size</a>
+                <span class="glyphicon glyphicon-print" aria-hidden="true"></span> Printer Settings</a>
               </h4>
             </div>
             <div id="collapse1" class="panel-collapse collapse">
               <div class="chooser panel-body">
-              <label for="labelSize" style="display: none">Label Size:</label>
+              <label for="printer">Printer:</label>
+              <select class="form-control" id="printer" onChange="onPrinterChange()">
+                {% for printer in printers %}<option value="{{printer}}" {% if default_printer == printer %}selected{% endif %}>{{printer}}</option>{% endfor %}
+              </select>
+              <label for="labelSize">Label Size:</label>
               <select class="form-control" id="labelSize" onChange="preview()">
-                {% for label_size in label_sizes.keys() %}<option value="{{label_size}}" {% if label['DEFAULT_SIZE'] == label_size %}selected{% endif %}>{{label_sizes[label_size]}}</option>{% endfor %}
+                {% for label_size in label_sizes.keys() %}<option value="{{label_size}}" {% if default_size == label_size %}selected{% endif %}>{{label_sizes[label_size]}}</option>{% endfor %}
               </select>
               <label for="orientation" style="margin-top: 10px; margin-bottom: 0">Label Orientation:</label>
               <div class="radio" style="margin-top: 5px;">
@@ -172,6 +160,47 @@ function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
+function loadPrinterMedia(printerName) {
+  if (!printerName) return;
+
+  $.ajax({
+    type: 'GET',
+    url: '/api/printer/' + encodeURIComponent(printerName) + '/media',
+    dataType: 'json',
+    success: function(data) {
+      if (data.success) {
+        // Update label sizes dropdown
+        $('#labelSize').empty();
+
+        for (var key in data.label_sizes) {
+          $('#labelSize').append($('<option>', {
+            value: key,
+            text: data.label_sizes[key]
+          }));
+        }
+
+        // When switching printers, always use the printer's default media
+        // This ensures each printer's default is selected when switching
+        if (data.default_size && data.label_sizes[data.default_size]) {
+          $('#labelSize').val(data.default_size);
+        }
+
+        // Update preview with new media
+        preview();
+      }
+    },
+    error: function(xhr, status, error) {
+      console.error('Error loading printer media:', error);
+    }
+  });
+}
+
+function onPrinterChange() {
+  var printerName = $('#printer').val();
+  // Always use the printer's default when switching printers
+  loadPrinterMedia(printerName, true);
+}
+
 function formData() {
   //var text = $('#labelText').val().replace(/\n/g, "%0A");
   var text = $('#labelText').val();
@@ -240,6 +269,16 @@ function print() {
   });
 }
 
-preview()
+// Load media for the initially selected printer on page load
+// This will trigger preview() after media is loaded
+$(document).ready(function() {
+  var initialPrinter = $('#printer').val();
+  if (initialPrinter) {
+    loadPrinterMedia(initialPrinter, true);
+  } else {
+    // If no printer, just preview with current settings
+    preview();
+  }
+});
 
 {% endblock %}

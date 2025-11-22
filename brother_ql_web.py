@@ -54,6 +54,32 @@ def enable_cors(fn):
     return _enable_cors
 
 
+def label_sizes_list_to_dict(label_sizes_list, logger=None, warn_prefix=""):
+    """
+    Convert a list of label size tuples/lists to a dict.
+    Optionally logs warnings for invalid entries.
+
+    Args:
+        label_sizes_list: List of tuples/lists where each item is (short_name, long_name)
+        logger: Optional logger instance for warnings
+        warn_prefix: Optional prefix for warning messages
+
+    Returns:
+        dict: Dictionary mapping short names to long names
+    """
+    label_sizes_dict = {}
+    for item in label_sizes_list:
+        if isinstance(item, tuple) and len(item) == 2:
+            short, long = item
+            label_sizes_dict[short] = long
+        elif isinstance(item, (list, tuple)) and len(item) >= 2:
+            label_sizes_dict[item[0]] = item[1]
+        else:
+            if logger:
+                logger.warning(f"{warn_prefix}Skipping invalid label size entry: {item}")
+    return label_sizes_dict
+
+
 @route('/')
 def index():
     redirect('/labeldesigner')
@@ -68,10 +94,14 @@ def serve_static(filename):
 @view('labeldesigner.jinja2')
 def labeldesigner():
     font_family_names = sorted(list(FONTS.keys()))
+    default_printer = instance.selected_printer if instance.selected_printer else (PRINTERS[0] if PRINTERS else None)
+    default_orientation = CONFIG['LABEL'].get('DEFAULT_ORIENTATION', 'standard')
     return {'font_family_names': font_family_names,
             'fonts': FONTS,
             'label_sizes': LABEL_SIZES,
             'printers': PRINTERS,
+            'default_printer': default_printer,
+            'default_orientation': default_orientation,
             'website': CONFIG['WEBSITE'],
             'label': CONFIG['LABEL']}
 
@@ -80,10 +110,12 @@ def labeldesigner():
 @view('templateprint.jinja2')
 def templatePrint():
     templateFiles = [os.path.basename(file) for file in glob.glob('/appconfig/*.lbl')]
-
+    default_printer = instance.selected_printer if instance.selected_printer else (PRINTERS[0] if PRINTERS else None)
     return {
         'files': templateFiles,
         'printers': PRINTERS,
+        'default_printer': default_printer,
+        'label_sizes': LABEL_SIZES,
         'website': CONFIG['WEBSITE'],
         'label': CONFIG['LABEL']
     }
@@ -122,6 +154,32 @@ def health():
     response.body = json.dumps({'printers': printers})
     if len(printers) == 0:
         response.status = '500 Internal Server Error'
+
+@route('/api/printer/<printer_name>/media', method=['GET', 'OPTIONS'])
+@enable_cors
+def get_printer_media(printer_name):
+    """
+    API endpoint to get media details for a specific printer
+    Returns label sizes and default size for the printer
+    """
+    try:
+        label_sizes_list = instance.get_label_sizes(printer_name)
+        default_size = instance.get_default_label_size(printer_name)
+
+        # Convert list of tuples to dict for JSON response
+        label_sizes_dict = label_sizes_list_to_dict(label_sizes_list, logger, warn_prefix="API: ")
+
+        return {
+            'success': True,
+            'label_sizes': label_sizes_dict,
+            'default_size': default_size
+        }
+    except Exception as e:
+        response.status = 500
+        return {
+            'success': False,
+            'error': str(e)
+        }
 
 def get_template_data(templatefile):
     """
@@ -175,6 +233,9 @@ def get_label_context(request):
 
     d = request.params.decode()  # UTF-8 decoded form data
 
+    # Get printer name early to use for printer-specific defaults
+    printer_name = d.get('printer', None)
+
     provided_font_family = d.get('font_family')
     if provided_font_family is not None:
         font_family = provided_font_family.rpartition('(')[0].strip()
@@ -189,8 +250,8 @@ def get_label_context(request):
         'font_size': int(d.get('font_size', 40)),
         'font_family': font_family,
         'font_style': font_style,
-        'label_size': d.get('label_size', instance.get_default_label_size()),
-        'kind': instance.get_label_kind(d.get('label_size', instance.get_default_label_size())),
+        'label_size': d.get('label_size', instance.get_default_label_size(printer_name)),
+        'kind': instance.get_label_kind(d.get('label_size', instance.get_default_label_size(printer_name)), printer_name),
         'margin': int(d.get('margin', 10)),
         'threshold': int(d.get('threshold', 70)),
         'align': d.get('align', 'left'),
@@ -202,7 +263,7 @@ def get_label_context(request):
         'grocycode': d.get('grocycode', None),
         'product': d.get('product', None),
         'duedate': d.get('due_date', d.get('duedate', None)),
-        'printer': d.get('printer', None),
+        'printer': printer_name,
         'quantity': d.get('quantity', 1),
     }
     context['margin_top'] = int(context['font_size'] * context['margin_top'])
@@ -226,7 +287,9 @@ def get_label_context(request):
 
     context['font_path'] = get_font_path(context['font_family'], context['font_style'])
 
-    width, height = instance.get_label_dimensions(context['label_size'])
+    # Get label dimensions for the specific printer
+    printer_name = context.get('printer')
+    width, height = instance.get_label_dimensions(context['label_size'], printer_name)
     #print(width, ' ', height)
     if height > width: width, height = height, width
     if context['orientation'] == 'rotated': height, width = width, height
@@ -542,11 +605,17 @@ def main():
     if len(initialization_errors) > 0:
         parser.error(initialization_errors)
 
-    LABEL_SIZES = instance.get_label_sizes()
+    # Get label sizes as list of tuples and convert to dict
+    label_sizes_list = instance.get_label_sizes()
+    LABEL_SIZES = label_sizes_list_to_dict(label_sizes_list, logger)
 
     PRINTERS = instance.get_printers()
 
-    if CONFIG['LABEL']['DEFAULT_SIZE'] not in LABEL_SIZES.keys():
+    # Get default size from printer first, then fall back to config
+    default_size = instance.get_default_label_size()
+    if default_size and default_size in LABEL_SIZES.keys():
+        CONFIG['LABEL']['DEFAULT_SIZE'] = default_size
+    elif CONFIG['LABEL']['DEFAULT_SIZE'] not in LABEL_SIZES.keys():
         parser.error(
             "Invalid --default-label-size. Please choose one of the following:\n:" + " ".join(list(LABEL_SIZES.keys())))
 
