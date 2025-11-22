@@ -231,8 +231,8 @@ class implementation:
         def get_from_config():
             if 'PRINTER' in self.CONFIG and 'LABEL_PRINTABLE_AREA' in self.CONFIG['PRINTER']:
                 if label_size in self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA']:
-                    ls = self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA'][label_size]
-                    return tuple(ls)
+                    printable_area = self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA'][label_size]
+                    return tuple(printable_area)
             return None
 
         try:

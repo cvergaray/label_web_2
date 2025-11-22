@@ -28,7 +28,7 @@
               </select>
               <label for="labelSize">Label Size:</label>
               <select class="form-control" id="labelSize" onChange="preview()">
-                {% for label_size in label_sizes.keys() %}<option value="{{label_size}}" {% if label['DEFAULT_SIZE'] == label_size %}selected{% endif %}>{{label_sizes[label_size]}}</option>{% endfor %}
+                {% for label_size in label_sizes.keys() %}<option value="{{label_size}}" {% if default_size == label_size %}selected{% endif %}>{{label_sizes[label_size]}}</option>{% endfor %}
               </select>
               <label for="orientation" style="margin-top: 10px; margin-bottom: 0">Label Orientation:</label>
               <div class="radio" style="margin-top: 5px;">
@@ -160,7 +160,7 @@ function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
-function loadPrinterMedia(printerName, useDefault) {
+function loadPrinterMedia(printerName) {
   if (!printerName) return;
 
   $.ajax({
@@ -179,7 +179,7 @@ function loadPrinterMedia(printerName, useDefault) {
           }));
         }
 
-        // When switching printers or useDefault is true, always use the printer's default media
+        // When switching printers, always use the printer's default media
         // This ensures each printer's default is selected when switching
         if (data.default_size && data.label_sizes[data.default_size]) {
           $('#labelSize').val(data.default_size);

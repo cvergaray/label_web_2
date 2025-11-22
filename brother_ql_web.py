@@ -54,6 +54,32 @@ def enable_cors(fn):
     return _enable_cors
 
 
+def label_sizes_list_to_dict(label_sizes_list, logger=None, warn_prefix=""):
+    """
+    Convert a list of label size tuples/lists to a dict.
+    Optionally logs warnings for invalid entries.
+
+    Args:
+        label_sizes_list: List of tuples/lists where each item is (short_name, long_name)
+        logger: Optional logger instance for warnings
+        warn_prefix: Optional prefix for warning messages
+
+    Returns:
+        dict: Dictionary mapping short names to long names
+    """
+    label_sizes_dict = {}
+    for item in label_sizes_list:
+        if isinstance(item, tuple) and len(item) == 2:
+            short, long = item
+            label_sizes_dict[short] = long
+        elif isinstance(item, (list, tuple)) and len(item) >= 2:
+            label_sizes_dict[item[0]] = item[1]
+        else:
+            if logger:
+                logger.warning(f"{warn_prefix}Skipping invalid label size entry: {item}")
+    return label_sizes_dict
+
+
 @route('/')
 def index():
     redirect('/labeldesigner')
@@ -141,15 +167,7 @@ def get_printer_media(printer_name):
         default_size = instance.get_default_label_size(printer_name)
 
         # Convert list of tuples to dict for JSON response
-        label_sizes_dict = {}
-        for item in label_sizes_list:
-            if isinstance(item, tuple) and len(item) == 2:
-                short, long = item
-                label_sizes_dict[short] = long
-            elif isinstance(item, (list, tuple)) and len(item) >= 2:
-                label_sizes_dict[item[0]] = item[1]
-            else:
-                logger.warning(f"Skipping invalid label size entry in API: {item}")
+        label_sizes_dict = label_sizes_list_to_dict(label_sizes_list, logger, warn_prefix="API: ")
 
         return {
             'success': True,
@@ -589,15 +607,7 @@ def main():
 
     # Get label sizes as list of tuples and convert to dict
     label_sizes_list = instance.get_label_sizes()
-    LABEL_SIZES = {}
-    for item in label_sizes_list:
-        if isinstance(item, tuple) and len(item) == 2:
-            short, long = item
-            LABEL_SIZES[short] = long
-        elif isinstance(item, (list, tuple)) and len(item) >= 2:
-            LABEL_SIZES[item[0]] = item[1]
-        else:
-            logger.warning(f"Skipping invalid label size entry: {item}")
+    LABEL_SIZES = label_sizes_list_to_dict(label_sizes_list, logger)
 
     PRINTERS = instance.get_printers()
 
