@@ -84,10 +84,12 @@ def labeldesigner():
 @view('templateprint.jinja2')
 def templatePrint():
     templateFiles = [os.path.basename(file) for file in glob.glob('/appconfig/*.lbl')]
-
+    default_printer = instance.selected_printer if instance.selected_printer else (PRINTERS[0] if PRINTERS else None)
     return {
         'files': templateFiles,
         'printers': PRINTERS,
+        'default_printer': default_printer,
+        'label_sizes': LABEL_SIZES,
         'website': CONFIG['WEBSITE'],
         'label': CONFIG['LABEL']
     }

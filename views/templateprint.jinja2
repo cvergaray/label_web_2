@@ -37,6 +37,10 @@
                                             {% if label['DEFAULT_PRINTER'] == printer %}selected{% endif %}>{{ printer }}</option>
                                 {% endfor %}
                             </select>
+                            <label for="labelSize">Label Size:</label>
+                            <select class="form-control" id="labelSize" onChange="onLabelSizeChange()">
+                                {% for label_size in label_sizes.keys() %}<option value="{{label_size}}" {% if label['DEFAULT_SIZE'] == label_size %}selected{% endif %}>{{label_sizes[label_size]}}</option>{% endfor %}
+                            </select>
                             <label for="quantity">Quantity:</label>
                             <input id="quantity" class="form-control" type="number" min="1" value="1" required>
                         </div>
@@ -121,10 +125,26 @@ function loadPrinterMedia(printerName) {
     dataType: 'json',
     success: function(data) {
       if (data.success) {
-        // Store the media information for potential future use
-        // Currently templates may have fixed dimensions, but this allows
-        // for future enhancements where templates could adapt to media size
-        console.log('Loaded media for printer:', printerName, data);
+        // Update label sizes dropdown
+        $('#labelSize').empty();
+
+        for (var key in data.label_sizes) {
+          $('#labelSize').append($('<option>', {
+            value: key,
+            text: data.label_sizes[key]
+          }));
+        }
+
+        // When switching printers, always use the printer's default media
+        // This ensures each printer's default is selected when switching
+        if (data.default_size && data.label_sizes[data.default_size]) {
+          $('#labelSize').val(data.default_size);
+        }
+
+        // Update preview with new media
+        if ($('#template').val()) {
+          preview();
+        }
       }
     },
     error: function(xhr, status, error) {
@@ -135,8 +155,12 @@ function loadPrinterMedia(printerName) {
 
 function onPrinterChange() {
   var printerName = $('#printer').val();
+  // Load media for the selected printer
   loadPrinterMedia(printerName);
-  // Refresh preview with new printer
+}
+
+function onLabelSizeChange() {
+  // Update preview when label size changes
   if ($('#template').val()) {
     preview();
   }
@@ -326,6 +350,9 @@ function buildRequestData(includeFields) {
     }
   }
 
+  // Always include label size
+  regularData['label_size'] = $('#labelSize').val();
+
   return {
     regularData: regularData,
     jsonPayload: jsonPayload
@@ -437,5 +464,13 @@ function print() {
     error: setStatus
   });
 }
+
+// Load media for the initially selected printer on page load
+$(document).ready(function() {
+  var initialPrinter = $('#printer').val();
+  if (initialPrinter) {
+    loadPrinterMedia(initialPrinter);
+  }
+});
 
 {% endblock %}
