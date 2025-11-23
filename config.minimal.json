@@ -1,0 +1,23 @@
+{
+  "SERVER": {
+    "HOST": "0.0.0.0",
+    "LOGLEVEL": "INFO"
+  },
+  "PRINTER": {
+    "USE_CUPS": true,
+    "SERVER": "192.168.1.176"
+  },
+  "LABEL": {
+    "DEFAULT_ORIENTATION": "standard",
+    "DEFAULT_FONT_SIZE": 70,
+    "DEFAULT_FONTS": [
+      {"family": "DejaVu Sans", "style": "Book"}
+    ]
+  },
+  "WEBSITE": {
+    "HTML_TITLE": "Label Designer",
+    "PAGE_TITLE": "Label Designer",
+    "PAGE_HEADLINE": "Design and print labels"
+  }
+}
+

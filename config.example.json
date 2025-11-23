@@ -5,6 +5,7 @@
     "ADDITIONAL_FONT_FOLDER": false
   },
   "PRINTER": {
+    "USE_CUPS": false,
     "SERVER": "192.168.1.176",
     "PRINTER": "Zebra-LP2844",
     "LABEL_SIZES": {

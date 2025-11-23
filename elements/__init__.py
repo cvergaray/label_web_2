@@ -1,4 +1,3 @@
-
 import os
 import traceback
 from importlib import util
@@ -28,14 +27,65 @@ class ElementBase:
                 instance.process_element(element, im, margins, dimensions, payload, **kwargs)
 
     @staticmethod
+    def get_form_elements_with_plugins(element):
+        element_type = element['type']
+        # print('Attempting to process element with type {}'.format(element_type))
+        for handler in ElementBase.plugins:
+            if handler.can_process(element):
+                instance = handler()
+                if hasattr(instance, 'get_form_elements'):
+                    form_elements = instance.get_form_elements(element)
+                else:
+                    form_elements = ElementBase.get_default_form_elements(element)
+
+                # Each plugin is responsible for returning a list of fields
+                # If no fields, return empty list
+                if form_elements is None:
+                    return None
+
+                # Plugins are expected to return a list of form elements.
+                # For backward compatibility, if a plugin returns a single item (not a list),
+                # it will be wrapped in a list here. Plugin authors should prefer returning a list,
+                # even if it contains only one element.
+                if not isinstance(form_elements, list):
+                    return [form_elements]
+
+                return form_elements
+        # If no plugin found, return default form elements
+        return ElementBase.get_default_form_elements(element)
+
+    @staticmethod
+    def get_default_form_elements(element):
+        key = element.get('key')
+        datakey = element.get('datakey')
+
+        # Generate form field if element has key OR datakey (indicating it expects input data)
+        if key is None and datakey is None:
+            return None
+
+        # Use key if available, otherwise use datakey as the field name
+        field_name = key if key is not None else datakey
+
+        field_info = {
+            'name': field_name,
+            'label': element.get('name') or field_name.replace('_', ' ').title(),
+            'type': element.get('form_type', 'text'),
+            'required': element.get('required', False),
+            'element_type': element.get('type', ''),
+            'description': element.get('description', ''),
+            'placeholder': element.get('placeholder', ''),
+        }
+        return field_info
+
+    @staticmethod
     def get_value(template, kwargs, keyname, default=None):
         return template.get(keyname, kwargs.get(keyname, default))
 
     @staticmethod
     def adjust_font_to_fit(draw, font, max_font_size, text, label_size, min_size=2, horizontal_offset=0,
-                           vertical_offset=0):
+                           vertical_offset=0, align='left'):
         if min_size >= max_font_size or ElementBase.font_fits(draw, font, max_font_size, text, label_size, horizontal_offset,
-                                                  vertical_offset):
+                                                  vertical_offset, align):
             return max_font_size
         high = max_font_size
         low = min_size
@@ -44,23 +94,23 @@ class ElementBase:
             available_range = high - low
             mid = (available_range // 2) + low
             # print('Finding Largest Possible Font between [', low, ',', high, '] with offset of [', horizontal_offset, ',', vertical_offset, '] - Trying: ', mid)
-            fits = ElementBase.font_fits(draw, font, mid, text, label_size, horizontal_offset, vertical_offset)
+            fits = ElementBase.font_fits(draw, font, mid, text, label_size, horizontal_offset, vertical_offset, align)
 
             if fits:
                 low = mid + 1
             else:
                 high = mid
 
-        if not ElementBase.font_fits(draw, font, mid, text, label_size, horizontal_offset, vertical_offset):
+        if not ElementBase.font_fits(draw, font, mid, text, label_size, horizontal_offset, vertical_offset, align):
             mid -= 1
 
         # print('Largest font size: ', mid)
         return mid
 
     @staticmethod
-    def font_fits(draw, font, font_size, text, label_size, horizontal_offset, vertical_offset):
+    def font_fits(draw, font, font_size, text, label_size, horizontal_offset, vertical_offset, align):
         im_font = ImageFont.truetype(font, font_size)
-        textsize = draw.multiline_textbbox((0, 0), text, font=im_font)
+        textsize = draw.multiline_textbbox((0, 0), text, font=im_font, align=align)
         textsize = (textsize[2], textsize[3])
         fits = (textsize[0] + horizontal_offset) < label_size[0] and (textsize[1] + vertical_offset) < label_size[1]
         return fits

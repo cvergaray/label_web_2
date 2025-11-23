@@ -9,93 +9,468 @@
 {% endblock %}
 
 {% block content %}
-<div class="row">
-<div class="col-md-4">
+    <div class="row">
+        <!-- First Column: Template File Picker -->
+        <div class="col-md-4">
+            <fieldset class="form-group">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h4 class="panel-title">
+                            <a data-toggle="collapse" href="#collapseTemplateFile" aria-expanded="true"
+                               aria-controls="collapseTemplateFile">
+                                <span class="glyphicon glyphicon-print"></span> Template File
+                            </a>
+                        </h4>
+                    </div>
+                    <div id="collapseTemplateFile" class="panel-collapse collapse in">
+                        <div class="panel-body">
+                            <label for="template"> Template:</label>
+                            <select class="form-control" id="template" onChange="onTemplateChange()">
+                                <option value="">Select a template...</option>
+                                {% for template in files %}
+                                    <option value="{{ template }}">{{ template }}</option>{% endfor %}
+                            </select>
+                            <label for="printer"> Printer:</label>
+                            <select class="form-control" id="printer" onChange="onPrinterChange()">
+                                {% for printer in printers %}
+                                    <option value="{{ printer }}"
+                                            {% if label['DEFAULT_PRINTER'] == printer %}selected{% endif %}>{{ printer }}</option>
+                                {% endfor %}
+                            </select>
+                            <label for="labelSize">Label Size:</label>
+                            <select class="form-control" id="labelSize" onChange="onLabelSizeChange()">
+                                {% for label_size in label_sizes.keys() %}<option value="{{label_size}}" {% if label['DEFAULT_SIZE'] == label_size %}selected{% endif %}>{{label_sizes[label_size]}}</option>{% endfor %}
+                            </select>
+                            <label for="quantity">Quantity:</label>
+                            <input id="quantity" class="form-control" type="number" min="1" value="1" required>
+                        </div>
+                    </div>
+                </div>
+            </fieldset>
+        </div>
+
+  <!-- Second Column: Dynamic Template Fields -->
+  <div class="col-md-4">
     <fieldset class="form-group">
-        <div class="panel-group" id="accordion">
-          <div class="panel panel-default">
-              <div class="panel-heading">
-                  <h4 class="panel-title">
-                      <a data-toggle="collapse" data-parent="#accordion" href="#collapse0">
-                          <span class="glyphicon glyphicon-print"></span> Template File</a>
-                  </h4>
-              </div>
-              <div id="collapse0" class="panel-collapse collapse in" aria-expanded="true">
-                  <div class="chooser panel-body">
-                      <label for="template"> Template:</label>
-                      <select class="form-control" id="template" onChange="preview()">
-                          {% for template in files %}<option value="{{template}}">{{template }}</option>{% endfor %}
-                      </select>
-                      <label for="quantity" >Quantity:</label>
-                      <input id="quantity" class="form-control" type="number" min="1" value="1" required>
-                  </div> <!-- class="chooser panel-body" -->
-              </div>
+      <div class="panel panel-default" id="dynamicFieldsPanel">
+        <div class="panel-heading">
+          <h4 class="panel-title">
+            <a data-toggle="collapse" href="#collapseTemplateData" aria-expanded="true" aria-controls="collapseTemplateData">
+              <span class="glyphicon glyphicon-edit"></span> Template Data
+            </a>
+          </h4>
+        </div>
+        <div id="collapseTemplateData" class="panel-collapse collapse in">
+          <div class="panel-body">
+            <div id="dynamicFields">
+              <!-- Dynamic form fields will be inserted here -->
+            </div>
           </div>
         </div>
-    </fieldset>
-</div>
-    <div class="col-md-4">
-      <fieldset class="form-group">
-        <label for="previewImg">Label Preview:</label><br />
-        <img id="previewImg" style="border: 1px solid #444; max-height: 350px; width: auto; max-width: 100%; margin-bottom: 10px;"/>
-        <p>Printed size w/o margins: <span id="labelWidth">?</span> cm x <span id="labelHeight">?</span> cm</p>
-        <button id="printButton" type="button" class="btn btn-primary btn-block btn-lg" onClick="print()">
-          <span class="glyphicon glyphicon-print" aria-hidden="true"></span> Print
-        </button>
-      </fieldset>
-      <div class="panel panel-default">
-        <div class="panel-heading">
-          <h3 class="panel-title"><span class="glyphicon glyphicon-console" aria-hidden="true" style="margin-right: 0.3em"></span> Status</h3>
-        </div>
-        <div id="statusPanel" class="panel-body">
-          - undefined -
-        </div>
       </div>
+    </fieldset>
+  </div>
+
+  <!-- Third Column: Preview Image and Controls -->
+  <div class="col-md-4">
+    <fieldset class="form-group">
+      <label for="previewImg">Label Preview:</label><br />
+      <img id="previewImg" alt="Label preview" style="border: 1px solid #444; max-height: 350px; width: auto; max-width: 100%; margin-bottom: 10px;"/>
+      <p>Printed size w/o margins: <span id="labelWidth">?</span> cm x <span id="labelHeight">?</span> cm</p>
+      <button id="printButton" type="button" class="btn btn-primary btn-block btn-lg" onClick="print()" disabled>
+        <span class="glyphicon glyphicon-print" aria-hidden="true"></span> Print
+      </button>
+    </fieldset>
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h3 class="panel-title"><span class="glyphicon glyphicon-console" aria-hidden="true" style="margin-right: 0.3em"></span> Status</h3>
+      </div>
+      <div id="statusPanel" class="panel-body">
+        - undefined -
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
 {% block javascript %}
 
-function formData() {
-  return {
-    printer:       $('#printer').val(),
-    quantity:      $('#quantity').val()
+var currentTemplateFields = [];
+
+/**
+ * Escape HTML to prevent XSS attacks
+ * @param {string} text - The text to escape
+ * @returns {string} HTML-escaped text
+ */
+function escapeHtml(text) {
+  if (text === null || text === undefined) {
+    return '';
+  }
+  var map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+function loadPrinterMedia(printerName) {
+  if (!printerName) return;
+
+  $.ajax({
+    type: 'GET',
+    url: '/api/printer/' + encodeURIComponent(printerName) + '/media',
+    dataType: 'json',
+    success: function(data) {
+      if (data.success) {
+        // Update label sizes dropdown
+        $('#labelSize').empty();
+
+        for (var key in data.label_sizes) {
+          $('#labelSize').append($('<option>', {
+            value: key,
+            text: data.label_sizes[key]
+          }));
+        }
+
+        // When switching printers, always use the printer's default media
+        // This ensures each printer's default is selected when switching
+        if (data.default_size && data.label_sizes[data.default_size]) {
+          $('#labelSize').val(data.default_size);
+        }
+
+        // Update preview with new media
+        if ($('#template').val()) {
+          preview();
+        }
+      }
+    },
+    error: function(xhr, status, error) {
+      console.error('Error loading printer media:', error);
+    }
+  });
+}
+
+function onPrinterChange() {
+  var printerName = $('#printer').val();
+  // Load media for the selected printer
+  loadPrinterMedia(printerName);
+}
+
+function onLabelSizeChange() {
+  // Update preview when label size changes
+  if ($('#template').val()) {
+    preview();
   }
 }
 
+function formData() {
+  var data = {
+    quantity: parseInt($('#quantity').val()) || 1
+  };
+
+  // Add dynamic field values
+  currentTemplateFields.forEach(function(field) {
+    var value = $('#field_' + field.name).val();
+    // Always submit required fields, even if empty
+    if (field.required) {
+      data[field.name] = value !== undefined && value !== null ? value : '';
+    } else if (value) {
+      data[field.name] = value;
+    }
+  });
+
+  return data;
+}
+
+function updatePrintButtonState() {
+  var allRequiredFieldsFilled = true;
+
+  currentTemplateFields.forEach(function(field) {
+    if (field.required) {
+      var value = $('#field_' + field.name).val();
+      if (!value || value.trim() === '') {
+        allRequiredFieldsFilled = false;
+      }
+    }
+  });
+
+  $('#printButton').prop('disabled', !allRequiredFieldsFilled);
+}
+
+// Consolidate all manual printButton state updates to use updatePrintButtonState
+function onTemplateChange() {
+  var templateName = $('#template').val();
+  if (!templateName) {
+    $('#previewImg').attr('src', '');
+    updatePrintButtonState();
+    return;
+  }
+
+  loadTemplateFields(templateName);
+  // Don't call preview() here - it will be called after fields are loaded
+}
+
+function loadTemplateFields(templateName) {
+  $.ajax({
+    url: '/api/template/' + templateName + '/fields',
+    type: 'GET',
+    dataType: 'json',
+    success: function(response) {
+      currentTemplateFields = response.fields || [];
+      generateDynamicFields(currentTemplateFields);
+      updatePrintButtonState();
+      // Call preview() after fields are successfully loaded
+      preview();
+    },
+    error: function(xhr, status, error) {
+      console.error('Error loading template fields:', error);
+      currentTemplateFields = [];
+      updatePrintButtonState();
+      // Still try to load preview even if fields loading fails
+      preview();
+    }
+  });
+}
+
+function generateDynamicFields(fields) {
+  var fieldsContainer = $('#dynamicFields');
+  fieldsContainer.empty();
+
+  if (fields.length === 0) {
+    updatePrintButtonState();
+    return;
+  }
+
+  fields.forEach(function(field) {
+    // Create form group container
+    var formGroup = $('<div>').addClass('form-group');
+
+    // Create label with escaped text
+    var label = $('<label>')
+      .attr('for', 'field_' + field.name)
+      .text(field.label);
+
+    if (field.required) {
+      label.append(' ').append($('<span>').addClass('text-danger').text('*'));
+    }
+    label.append(':');
+    formGroup.append(label);
+
+    // Create input or textarea
+    var inputType = field.type || 'text';
+    var placeholder = field.placeholder || '';
+    var input;
+
+    if (inputType === 'textarea') {
+      input = $('<textarea>')
+        .addClass('form-control')
+        .attr('id', 'field_' + field.name)
+        .attr('name', field.name)
+        .attr('placeholder', placeholder)
+        .on('change', onFieldChange)
+        .on('keyup', onFieldChange);
+    } else {
+      input = $('<input>')
+        .attr('type', inputType)
+        .addClass('form-control')
+        .attr('id', 'field_' + field.name)
+        .attr('name', field.name)
+        .attr('placeholder', placeholder)
+        .on('change', onFieldChange)
+        .on('keyup', onFieldChange);
+    }
+
+    if (field.required) {
+      input.prop('required', true);
+    }
+
+    formGroup.append(input);
+
+    // Add description if present
+    if (field.description) {
+      var description = $('<small>')
+        .addClass('form-text text-muted')
+        .text(field.description);
+      formGroup.append(description);
+    }
+
+    fieldsContainer.append(formGroup);
+  });
+
+  // Enable/disable print button based on required fields
+  updatePrintButtonState();
+}
+
+function onFieldChange() {
+  updatePrintButtonState();
+  // Update preview when fields change
+  clearTimeout(window.previewTimeout);
+  window.previewTimeout = setTimeout(preview, 300); // Debounce preview updates
+}
+
+
+function buildRequestData(includeFields) {
+  /**
+   * Build request data by separating regular form data from JSON payload fields.
+   * @param {Object} includeFields - Additional fields to include in regularData (e.g., {quantity: 1, printer: 'main'})
+   * @returns {Object} Object containing regularData and jsonPayload
+   */
+  var regularData = {};
+  var jsonPayload = {};
+  var formDataObj = formData();
+
+  // Process template fields
+  currentTemplateFields.forEach(function(field) {
+    var value = $('#field_' + field.name).val();
+    // Always submit required fields, even if empty
+    if (field.required) {
+      var fieldValue = value !== undefined && value !== null ? value : '';
+      if (field.json_payload) {
+        jsonPayload[field.name] = fieldValue;
+      } else {
+        regularData[field.name] = fieldValue;
+      }
+    } else if (value) {
+      // Only submit non-required fields if they have a value
+      if (field.json_payload) {
+        jsonPayload[field.name] = value;
+      } else {
+        regularData[field.name] = value;
+      }
+    }
+  });
+
+  // Add additional fields to regular data
+  if (includeFields) {
+    for (var key in includeFields) {
+      regularData[key] = includeFields[key];
+    }
+  }
+
+  // Always include label size
+  regularData['label_size'] = $('#labelSize').val();
+
+  return {
+    regularData: regularData,
+    jsonPayload: jsonPayload
+  };
+}
+
+function buildUrlWithParams(baseUrl, params) {
+  /**
+   * Build URL with query parameters.
+   * @param {string} baseUrl - The base URL
+   * @param {Object} params - Parameters to add as query string
+   * @returns {string} URL with query parameters
+   */
+  var queryParams = [];
+  for (var key in params) {
+    queryParams.push(encodeURIComponent(key) + '=' + encodeURIComponent(params[key]));
+  }
+
+  if (queryParams.length > 0) {
+    return baseUrl + '?' + queryParams.join('&');
+  }
+  return baseUrl;
+}
+
 function preview() {
-  url = '/api/preview/template/' + $('#template').val();
-  $('#previewImg').attr('src', url);
-  var img = $('#previewImg')[0];
-  img.onload = function() {
-    $('#labelWidth').html( (img.naturalWidth /300*2.54).toFixed(1));
-    $('#labelHeight').html((img.naturalHeight/300*2.54).toFixed(1));
-    };
+  var templateName = $('#template').val();
+  if (!templateName) return;
+
+  var formDataObj = formData();
+  var baseUrl = '/api/preview/template/' + templateName;
+
+  // Build request data
+  var requestData = buildRequestData({
+    quantity: formDataObj.quantity
+  });
+
+  // Build URL with query parameters
+  var url = buildUrlWithParams(baseUrl, requestData.regularData);
+
+  // Use POST request with JSON payload
+  $.ajax({
+    url: url,
+    type: 'POST',
+    data: JSON.stringify(requestData.jsonPayload),
+    contentType: 'application/json',
+    xhrFields: {
+      responseType: 'blob'
+    },
+    success: function(imageData) {
+      var imageUrl = URL.createObjectURL(imageData);
+      $('#previewImg').attr('src', imageUrl);
+      var img = $('#previewImg')[0];
+      img.onload = function() {
+        $('#labelWidth').html((img.naturalWidth / 300 * 2.54).toFixed(1));
+        $('#labelHeight').html((img.naturalHeight / 300 * 2.54).toFixed(1));
+        URL.revokeObjectURL(imageUrl);
+      };
+    },
+    error: function(xhr, status, error) {
+      console.error('Error loading preview:', error);
+      // Fallback to GET request
+      $('#previewImg').attr('src', url);
+      var img = $('#previewImg')[0];
+      img.onload = function() {
+        $('#labelWidth').html((img.naturalWidth / 300 * 2.54).toFixed(1));
+        $('#labelHeight').html((img.naturalHeight / 300 * 2.54).toFixed(1));
+      };
+    }
+  });
 }
 
 function setStatus(data) {
-  if (data['success'])
+  if (data['success']) {
     $('#statusPanel').html('<div id="statusBox" class="alert alert-success" role="alert"><i class="glyphicon glyphicon-check"></i><span>Printing was successful.</span></div>');
-  else
-    $('#statusPanel').html('<div id="statusBox" class="alert alert-warning" role="alert"><i class="glyphicon glyphicon-alert"></i><span>Printing was unsuccessful:<br />'+data['message']+'</span></div>');
-  $('#printButton').prop('disabled', false);
+  } else {
+    // Escape the error message to prevent XSS
+    var escapedMessage = escapeHtml(data['message']);
+    $('#statusPanel').html('<div id="statusBox" class="alert alert-warning" role="alert"><i class="glyphicon glyphicon-alert"></i><span>Printing was unsuccessful:<br />' + escapedMessage + '</span></div>');
+  }
+  // Only update print button state via updatePrintButtonState
+  updatePrintButtonState(); // Restore proper button state
 }
 
 function print() {
   $('#printButton').prop('disabled', true);
   $('#statusPanel').html('<div id="statusBox" class="alert alert-info" role="alert"><i class="glyphicon glyphicon-hourglass"></i><span>Processing print request...</span></div>');
-  urlstring = '/api/print/template/' + $('#template').val();
+
+  var templateName = $('#template').val();
+  var formDataObj = formData();
+  var baseUrl = '/api/print/template/' + templateName;
+
+  // Build request data
+  var requestData = buildRequestData({
+    quantity: formDataObj.quantity,
+    printer: $('#printer').val()
+  });
+
+  // Build URL with query parameters
+  var url = buildUrlWithParams(baseUrl, requestData.regularData);
+
+  // Use POST request with JSON payload
   $.ajax({
-    type:     'POST',
+    url: url,
+    type: 'POST',
+    data: JSON.stringify(requestData.jsonPayload),
+    contentType: 'application/json',
     dataType: 'json',
-    data:     formData(),
-    url:      urlstring,
-    success:  setStatus,
-    error:    setStatus
+    success: setStatus,
+    error: setStatus
   });
 }
 
-preview()
-
+// Load media for the initially selected printer on page load
+$(document).ready(function() {
+  var initialPrinter = $('#printer').val();
+  if (initialPrinter) {
+    loadPrinterMedia(initialPrinter);
+  }
+});
 
 {% endblock %}

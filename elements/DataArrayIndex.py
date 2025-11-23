@@ -21,3 +21,11 @@ class DataArrayIndexElement(elements.ElementBase):
                 im = self.process_with_plugins(sub_element, im, margins, dimensions, payload, **kwargs)
 
         return im
+
+
+    def get_form_elements(self, element):
+        """
+        TODO: Add form elements for data array by index
+        """
+        form_elements = []
+        return form_elements
