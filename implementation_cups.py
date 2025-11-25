@@ -122,8 +122,8 @@ class implementation:
         width_mm = (width_px / dpi) * 25.4
         height_mm = (height_px / dpi) * 25.4
 
-        # Format as CUPS custom media name
-        cups_media_name = f"Custom.{width_mm:.2f}x{height_mm:.2f}mm"
+        # Format as CUPS custom media name (use integer mm values for compatibility)
+        cups_media_name = f"Custom.{int(round(width_mm))}x{int(round(height_mm))}mm"
 
         return cups_media_name
 
