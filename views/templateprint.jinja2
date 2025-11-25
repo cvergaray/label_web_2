@@ -175,7 +175,7 @@ function formData() {
   currentTemplateFields.forEach(function(field) {
     var value = $('#field_' + field.name).val();
     // Always submit required fields, even if empty
-    if (field.required) {
+    if(field.required) {
       data[field.name] = value !== undefined && value !== null ? value : '';
     } else if (value) {
       data[field.name] = value;

@@ -93,6 +93,41 @@ class implementation:
             pass
         return 203  # Default DPI for thermal label printers
 
+    def _convert_to_cups_media_format(self, label_size, printerName=None, dpi=None):
+        """
+        Convert a custom label size to CUPS-compatible media format.
+        If the size is already in CUPS format (e.g., 'Custom.4x6in'), return as-is.
+        Otherwise, look up dimensions from config and convert to 'Custom.WxHmm' format.
+
+        Returns the CUPS-compatible media name, or the original if conversion fails.
+        """
+        # Check if already in CUPS custom format
+        if label_size.startswith('Custom.') and ('in' in label_size or 'mm' in label_size):
+            return label_size
+
+        # Try to get dimensions from config
+        if 'PRINTER' not in self.CONFIG or 'LABEL_PRINTABLE_AREA' not in self.CONFIG['PRINTER']:
+            return label_size
+
+        if label_size not in self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA']:
+            return label_size
+
+        # Get pixel dimensions from config
+        width_px, height_px = self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA'][label_size]
+
+        # Get printer DPI
+        if dpi is None:
+            dpi = self._get_printer_dpi(printerName)
+
+        # Convert pixels to millimeters
+        width_mm = (width_px / dpi) * 25.4
+        height_mm = (height_px / dpi) * 25.4
+
+        # Format as CUPS custom media name (use integer mm values for compatibility)
+        cups_media_name = f"Custom.{int(round(width_mm))}x{int(round(height_mm))}mm"
+
+        return cups_media_name
+
     def _media_name_to_dimensions(self, media_name, printerName=None):
         """
         Get media dimensions in pixels.
@@ -156,6 +191,8 @@ class implementation:
     # Provides an array of label sizes. Each entry in the array is a tuple of ('full_cups_name', 'long_display_name')
     # For CUPS: full name is used as key (e.g., 'na_index-4x6_4x6in'), long name for display (e.g., '4in x 6in')
     # For config: uses config keys as-is for both key and display
+    # When CUPS is enabled, this merges CUPS media (including custom CUPS sizes) with config custom sizes
+
     def get_label_sizes(self, printer_name=None):
         # Check if CUPS should be used
         if not self._should_use_cups():
@@ -167,29 +204,46 @@ class implementation:
                 return config_sizes
             return []
 
-        # CUPS is enabled, try to query it
+        # CUPS is enabled, query it and merge with custom sizes from config
         printer_name = self._get_printer_name(printer_name)
+        cups_sizes = []
+
         try:
             conn = self._get_conn()
+            # Get all supported media from CUPS (includes standard and custom CUPS sizes)
             attrs = conn.getPrinterAttributes(printer_name, requested_attributes=["media-supported"])
             media_supported = attrs.get("media-supported", [])
-            sizes = []
+
             for media in media_supported:
                 short, long = self._parse_media_name(media)
                 # Use full CUPS media name as key, long name as display value
-                sizes.append((media, long))
-            if sizes:
-                return sizes
-            # If no sizes from CUPS, fall back to config
-            raise Exception("No media-supported found")
+                cups_sizes.append((media, long))
         except Exception as e:
-            # Fallback to config on exception
-            config_sizes = self.CONFIG.get('PRINTER', {}).get('LABEL_SIZES', {})
-            if isinstance(config_sizes, dict):
-                return [(key, value) for key, value in config_sizes.items()]
-            elif isinstance(config_sizes, list):
-                return config_sizes
-            return []
+            print(f"Warning: Could not retrieve CUPS media sizes: {e}")
+
+        # Get custom sizes from config
+        config_sizes = self.CONFIG.get('PRINTER', {}).get('LABEL_SIZES', {})
+        custom_sizes = []
+
+        dpi = self._get_printer_dpi(printerName)
+
+        if isinstance(config_sizes, dict):
+            custom_sizes = [(self._convert_to_cups_media_format(key, printer_name, dpi), value) for key, value in config_sizes.items()]
+        elif isinstance(config_sizes, list):
+            custom_sizes = [(self._convert_to_cups_media_format(size[0], printer_name, dpi), size[1]) for size in config_sizes]
+
+        # Merge CUPS sizes with custom config sizes, avoiding duplicates
+        # CUPS sizes take precedence - only add config sizes if key doesn't exist in CUPS
+        cups_keys = {size[0] for size in cups_sizes}
+        merged_sizes = cups_sizes.copy()
+
+        for custom_size in custom_sizes:
+            if custom_size[0] not in cups_keys:
+                merged_sizes.append(custom_size)
+
+        # Return merged list, or config-only if CUPS query failed and returned nothing
+        return merged_sizes if merged_sizes else custom_sizes
+
 
     def get_default_label_size(self, printerName=None):
         # Check if CUPS should be used
@@ -232,6 +286,8 @@ class implementation:
             if 'PRINTER' in self.CONFIG and 'LABEL_PRINTABLE_AREA' in self.CONFIG['PRINTER']:
                 if label_size in self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA']:
                     printable_area = self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA'][label_size]
+                    print(f"Info: Using dimensions from config for '{label_size}': {printable_area}")
+
                     return tuple(printable_area)
             return None
 
@@ -239,6 +295,7 @@ class implementation:
             # Try to get dimensions from CUPS (includes both direct query and name parsing)
             dims = self._media_name_to_dimensions(label_size, printerName)
             if dims:
+                print(f"Info: Using dimensions from CUPS for '{label_size}': {dims}")
                 return dims
 
             # If CUPS method didn't work, try config fallback
@@ -247,15 +304,18 @@ class implementation:
                 return dims
 
             # If not found anywhere, return a default size
+            print(f"Warning: No dimensions found for '{label_size}', using default (300, 200)")
             return (300, 200)
 
         except Exception as e:
             # On any exception, try config fallback
+            print(f"Warning: Exception getting dimensions for '{label_size}': {e}")
             dims = get_from_config()
             if dims:
                 return dims
 
             # Return a default size as last resort
+            print(f"Warning: Using default dimensions (300, 200) for '{label_size}'")
             return (300, 200)
 
     def get_label_width_height(self, textsize, **kwargs):
@@ -325,23 +385,45 @@ class implementation:
 
             # Add media size to options if specified in context
             label_size = context.get("label_size")
-            if label_size and self._should_use_cups():
-                # Verify the selected media is available on this printer (only if CUPS enabled)
-                try:
-                    attrs = conn.getPrinterAttributes(printer_name, requested_attributes=["media-supported"])
-                    media_supported = attrs.get("media-supported", [])
+            if label_size:
+                should_add_media = False
+                cups_media_name = label_size  # Default to the original label size
 
-                    # Check if the selected media is in the supported list
-                    if label_size in media_supported:
-                        # Media is available, pass it as-is (already the full CUPS name)
-                        options["media"] = label_size
-                    else:
-                        print(f"Warning: Selected media '{label_size}' not available on printer '{printer_name}'. Using printer default.")
-                except Exception as e:
-                    print(f"Warning: Could not verify media availability: {e}. Using printer default.")
-            elif label_size and not self._should_use_cups():
-                # If CUPS is disabled, pass media size directly without verification
-                options["media"] = label_size
+                if self._should_use_cups():
+                    # Verify the selected media is available on this printer (only if CUPS enabled)
+                    try:
+                        attrs = conn.getPrinterAttributes(printer_name, requested_attributes=["media-supported"])
+                        media_supported = attrs.get("media-supported", [])
+
+                        # Check if the selected media is in the CUPS supported list
+                        if label_size in media_supported:
+                            # Media is available in CUPS, pass it as-is
+                            should_add_media = True
+                        else:
+                            # Check if it's a custom size from config
+                            config_sizes = self.CONFIG.get('PRINTER', {}).get('LABEL_SIZES', {})
+                            if isinstance(config_sizes, dict) and label_size in config_sizes:
+                                # It's a custom config size, convert it to CUPS format
+                                cups_media_name = self._convert_to_cups_media_format(label_size, printer_name)
+                                should_add_media = True
+                                print(f"Info: Using custom config size '{label_size}' (converted to '{cups_media_name}') for printer '{printer_name}'.")
+                            elif isinstance(config_sizes, list) and any(size[0] == label_size for size in config_sizes):
+                                # It's in the config list format, convert it
+                                cups_media_name = self._convert_to_cups_media_format(label_size, printer_name)
+                                should_add_media = True
+                                print(f"Info: Using custom config size '{label_size}' (converted to '{cups_media_name}') for printer '{printer_name}'.")
+                            else:
+                                print(f"Warning: Selected media '{label_size}' not available on printer '{printer_name}'. Attempting to use selected size anyway.")
+                                should_add_media = True
+                    except Exception as e:
+                        print(f"Warning: Could not verify media availability: {e}. Attempting to use selected size anyway.")
+                        should_add_media = True
+                else:
+                    # CUPS is disabled, pass media size directly without verification
+                    should_add_media = True
+
+                if should_add_media:
+                    options["media"] = cups_media_name
 
             print(printer_name, options)
             conn.printFile(printer_name, 'sample-out.png', "grocy", options)
