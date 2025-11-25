@@ -192,6 +192,7 @@ class implementation:
     # For CUPS: full name is used as key (e.g., 'na_index-4x6_4x6in'), long name for display (e.g., '4in x 6in')
     # For config: uses config keys as-is for both key and display
     # When CUPS is enabled, this merges CUPS media (including custom CUPS sizes) with config custom sizes
+
     def get_label_sizes(self, printer_name=None):
         # Check if CUPS should be used
         if not self._should_use_cups():
@@ -243,6 +244,7 @@ class implementation:
         # Return merged list, or config-only if CUPS query failed and returned nothing
         return merged_sizes if merged_sizes else custom_sizes
 
+
     def get_default_label_size(self, printerName=None):
         # Check if CUPS should be used
         if not self._should_use_cups():
@@ -285,6 +287,7 @@ class implementation:
                 if label_size in self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA']:
                     printable_area = self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA'][label_size]
                     print(f"Info: Using dimensions from config for '{label_size}': {printable_area}")
+
                     return tuple(printable_area)
             return None
 
