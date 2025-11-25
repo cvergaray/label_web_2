@@ -407,7 +407,7 @@ class implementation:
                                 should_add_media = True
                                 print(f"Info: Using custom config size '{label_size}' (converted to '{cups_media_name}') for printer '{printer_name}'.")
                             else:
-                                print(f"Warning: Selected media '{label_size}' not available on printer '{printer_name}' Attempting to use selected size anyway.")
+                                print(f"Warning: Selected media '{label_size}' not available on printer '{printer_name}'. Attempting to use selected size anyway.")
                                 should_add_media = True
                     except Exception as e:
                         print(f"Warning: Could not verify media availability: {e}. Attempting to use selected size anyway.")
