@@ -93,7 +93,7 @@ class implementation:
             pass
         return 203  # Default DPI for thermal label printers
 
-    def _convert_to_cups_media_format(self, label_size, printerName=None):
+    def _convert_to_cups_media_format(self, label_size, printerName=None, dpi=None):
         """
         Convert a custom label size to CUPS-compatible media format.
         If the size is already in CUPS format (e.g., 'Custom.4x6in'), return as-is.
@@ -116,7 +116,8 @@ class implementation:
         width_px, height_px = self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA'][label_size]
 
         # Get printer DPI
-        dpi = self._get_printer_dpi(printerName)
+        if dpi is None:
+            dpi = self._get_printer_dpi(printerName)
 
         # Convert pixels to millimeters
         width_mm = (width_px / dpi) * 25.4
@@ -223,10 +224,12 @@ class implementation:
         config_sizes = self.CONFIG.get('PRINTER', {}).get('LABEL_SIZES', {})
         custom_sizes = []
 
+        dpi = self._get_printer_dpi(printerName)
+
         if isinstance(config_sizes, dict):
-            custom_sizes = [(self._convert_to_cups_media_format(key, printer_name), value) for key, value in config_sizes.items()]
+            custom_sizes = [(self._convert_to_cups_media_format(key, printer_name, dpi), value) for key, value in config_sizes.items()]
         elif isinstance(config_sizes, list):
-            custom_sizes = [(self._convert_to_cups_media_format(size[0], printer_name), size[1]) for size in config_sizes]
+            custom_sizes = [(self._convert_to_cups_media_format(size[0], printer_name, dpi), size[1]) for size in config_sizes]
 
         # Merge CUPS sizes with custom config sizes, avoiding duplicates
         # CUPS sizes take precedence - only add config sizes if key doesn't exist in CUPS
