@@ -22,16 +22,18 @@ class DataMatrixElement(elements.ElementBase):
         if not data:
             return im
 
-        # This is the libdmtx *symbol* size ("SquareAuto", "10x10", "12x12", ...)
-        dm_size = element.get('dm_size', 'SquareAuto')
+        # BACKWARD COMPATIBILITY:
+        # "size" is still the libdmtx symbol size as before (e.g. "SquareAuto", "10x10", ...)
+        dm_size = element.get('size', 'SquareAuto')
 
-        # This is the desired *pixel* size of the final image, e.g. "120x120" or 120
-        target_size = element.get('size', None)
+        # NEW:
+        # "img_size" is the desired pixel size of the final image (e.g. "120x120" or 120)
+        img_size = element.get('img_size', None)
 
-        horizontal_offset = element['horizontal_offset']
-        vertical_offset = element['vertical_offset']
+        horizontal_offset = element.get('horizontal_offset', 0)
+        vertical_offset = element.get('vertical_offset', 0)
 
-        # Generate DataMatrix with automatic symbol size
+        # Generate DataMatrix with the configured symbol size
         encoded = encode(data.encode('utf8'), size=dm_size)
 
         datamatrix = Image.frombytes(
@@ -40,18 +42,18 @@ class DataMatrixElement(elements.ElementBase):
             encoded.pixels
         )
 
-        # --- Scale the DataMatrix image to a fixed pixel size -----------------
-        if target_size is not None:
-            # allow "120x120", "150x100" or just 120
-            if isinstance(target_size, str) and 'x' in target_size.lower():
-                w_str, h_str = target_size.lower().split('x', 1)
+        # --- Optional: scale to requested image size (pixels) -----------------
+        if img_size is not None:
+            # Allow "120x120", "150x100" or just 120
+            if isinstance(img_size, str) and 'x' in img_size.lower():
+                w_str, h_str = img_size.lower().split('x', 1)
                 target_w = int(w_str)
                 target_h = int(h_str)
             else:
-                # single value: make it square
-                target_w = target_h = int(target_size)
+                # Single value: make it square
+                target_w = target_h = int(img_size)
 
-            # NEAREST keeps the blocks sharp (no blur between black & white)
+            # NEAREST keeps the modules sharp
             datamatrix = datamatrix.resize(
                 (target_w, target_h),
                 resample=Image.NEAREST
