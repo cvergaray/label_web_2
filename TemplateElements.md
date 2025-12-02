@@ -59,7 +59,8 @@ Datamatrix elements encode the data into a datamatrix code for use with 3D barco
 | data              | grcy:p:130:x65a70d139b122 | The hard-coded text value to be rendered or data source for `datakey`.                                                     | true IF 'key' is not included  | N/A           |
 | key               | grocycode                 | The key identifying the property from the HTML request that will be set as the `data` property                             | true IF 'data' is not included | N/A           |
 | datakey           | grocycode                 | The key identifying the property from the `data` to be used as the `data`                                                  | false                          | N/A           |
-| size              | ShapeAuto                 | the desired size of the generated datamatrix element. Must be one of the sizes defined by ENCODING_SIZE_NAMES in pylibdtmx | false                          | SquareAuto    |
+| size              | SquareAuto                | The desired modulesize of datamatrix element. SquareAuto or RectAuto or one defined by ENCODING_SIZE_NAMES in pylibdtmx    | false                          | SquareAuto    |
+| img_size          | 100                       | The real Datamatrix size on the label 100 = 100x100 px or set both by 100x50 but get shure you set RectAuto if not square  | false                          | N/A           |
 | horizontal_offset | 15                        | The number of pixels to offset the element from the left of the label.                                                     | true                           | N/A           |
 | vertical_offset   | 130                       | The number of pixels to offset the element from the top of the label                                                       | true                           | N/A           |
 ```javascript
