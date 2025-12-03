@@ -49,22 +49,27 @@
             </fieldset>
         </div>
 
-  <!-- Second Column: Dynamic Template Fields -->
+  <!-- Second Column: Template Source Editor -->
   <div class="col-md-4">
     <fieldset class="form-group">
-      <div class="panel panel-default" id="dynamicFieldsPanel">
+      <div class="panel panel-default" id="templateSourcePanel">
+
         <div class="panel-heading">
           <h4 class="panel-title">
-            <a data-toggle="collapse" href="#collapseTemplateData" aria-expanded="true" aria-controls="collapseTemplateData">
-              <span class="glyphicon glyphicon-edit"></span> Template Data
+            <a data-toggle="collapse" href="#collapseTemplateSource" aria-expanded="true" aria-controls="collapseTemplateSource">
+              <span class="glyphicon glyphicon-file"></span> Template Source (.lbl)
             </a>
           </h4>
         </div>
-        <div id="collapseTemplateData" class="panel-collapse collapse in">
+        <div id="collapseTemplateSource" class="panel-collapse collapse in">
           <div class="panel-body">
-            <div id="dynamicFields">
-              <!-- Dynamic form fields will be inserted here -->
+            <textarea id="templateSource" class="form-control" rows="12" style="font-family: monospace;" placeholder="Template source will appear here after selecting a template."></textarea>
+            <div class="text-right" style="margin-top: 8px;">
+              <button id="saveTemplateSourceButton" type="button" class="btn btn-sm btn-primary" onclick="saveTemplateSource()">
+                <span class="glyphicon glyphicon-floppy-disk"></span> Save &amp; Preview
+              </button>
             </div>
+            <div id="templateSourceStatus" class="text-muted small" style="min-height: 1.2em;"></div>
           </div>
         </div>
       </div>
@@ -212,11 +217,14 @@ function onTemplateChange() {
     $('#previewImg').hide().attr('src', '');
     $('#previewPlaceholder').text('Please select label').show();
     $('#previewStatus').text('');
+    $('#templateSource').val('');
+    $('#templateSourceStatus').text('');
     updatePrintButtonState();
     return;
   }
 
   loadTemplateFields(templateName);
+  loadTemplateSource(templateName);
   // Don't call preview() here - it will be called after fields are loaded
 }
 
@@ -238,6 +246,26 @@ function loadTemplateFields(templateName) {
       updatePrintButtonState();
       // Still try to load preview even if fields loading fails
       preview();
+    }
+  });
+}
+
+function loadTemplateSource(templateName) {
+  if (!templateName) return;
+
+  $('#templateSourceStatus').text('Loading template source...');
+  $.ajax({
+    url: '/api/template/' + templateName + '/raw',
+    type: 'GET',
+    dataType: 'text',
+    success: function(data) {
+      $('#templateSource').val(data);
+      $('#templateSourceStatus').text('');
+    },
+    error: function(xhr, status, error) {
+      console.error('Error loading template source:', error);
+      $('#templateSource').val('');
+      $('#templateSourceStatus').text('Error loading template source');
     }
   });
 }
@@ -318,7 +346,6 @@ function onFieldChange() {
   window.previewTimeout = setTimeout(preview, 300); // Debounce preview updates
 }
 
-
 function buildRequestData(includeFields) {
   /**
    * Build request data by separating regular form data from JSON payload fields.
@@ -382,6 +409,34 @@ function buildUrlWithParams(baseUrl, params) {
     return baseUrl + '?' + queryParams.join('&');
   }
   return baseUrl;
+}
+
+function saveTemplateSource() {
+  var templateName = $('#template').val();
+  if (!templateName) {
+    $('#templateSourceStatus').text('Please select a template first.');
+    return;
+  }
+
+  var content = $('#templateSource').val();
+  $('#templateSourceStatus').text('Saving template...');
+
+  $.ajax({
+    url: '/api/template/' + templateName + '/raw',
+    type: 'POST',
+    data: content,
+    contentType: 'text/plain; charset=utf-8',
+    success: function(data) {
+      $('#templateSourceStatus').text('Template saved. Regenerating preview...');
+      // After saving, reload fields (in case structure changed) and preview
+      loadTemplateFields(templateName);
+      // loadTemplateFields will call preview() once fields are loaded
+    },
+    error: function(xhr, status, error) {
+      console.error('Error saving template source:', error);
+      $('#templateSourceStatus').text('Error saving template source');
+    }
+  });
 }
 
 function preview() {
