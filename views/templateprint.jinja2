@@ -75,7 +75,11 @@
   <div class="col-md-4">
     <fieldset class="form-group">
       <label for="previewImg">Label Preview:</label><br />
-      <img id="previewImg" alt="Label preview" style="border: 1px solid #444; max-height: 350px; width: auto; max-width: 100%; margin-bottom: 10px;"/>
+      <div id="previewWrapper" style="border: 1px solid #444; max-height: 350px; width: 100%; max-width: 100%; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; background-color: #f8f8f8;">
+        <div id="previewPlaceholder" class="text-muted small">Please select label</div>
+        <img id="previewImg" alt="Label preview" style="display: none; max-height: 350px; width: auto; max-width: 100%;"/>
+      </div>
+      <div id="previewStatus" class="text-muted small" style="min-height: 1.2em;"></div>
       <p>Printed size w/o margins: <span id="labelWidth">?</span> cm x <span id="labelHeight">?</span> cm</p>
       <button id="printButton" type="button" class="btn btn-primary btn-block btn-lg" onClick="print()" disabled>
         <span class="glyphicon glyphicon-print" aria-hidden="true"></span> Print
@@ -204,7 +208,10 @@ function updatePrintButtonState() {
 function onTemplateChange() {
   var templateName = $('#template').val();
   if (!templateName) {
-    $('#previewImg').attr('src', '');
+    // No template selected: reset preview to initial state
+    $('#previewImg').hide().attr('src', '');
+    $('#previewPlaceholder').text('Please select label').show();
+    $('#previewStatus').text('');
     updatePrintButtonState();
     return;
   }
@@ -392,6 +399,12 @@ function preview() {
   // Build URL with query parameters
   var url = buildUrlWithParams(baseUrl, requestData.regularData);
 
+  // Show loading status while preview is being generated
+  $('#previewStatus').text('Generating preview...');
+  // Show placeholder box and hide the actual image while loading
+  $('#previewPlaceholder').text('Generating preview...').show();
+  $('#previewImg').hide().attr('src', '');
+
   // Use POST request with JSON payload
   $.ajax({
     url: url,
@@ -409,17 +422,18 @@ function preview() {
         $('#labelWidth').html((img.naturalWidth / 300 * 2.54).toFixed(1));
         $('#labelHeight').html((img.naturalHeight / 300 * 2.54).toFixed(1));
         URL.revokeObjectURL(imageUrl);
+        // Hide placeholder and show the loaded image
+        $('#previewPlaceholder').hide();
+        $('#previewImg').show();
+        $('#previewStatus').text('');
       };
     },
     error: function(xhr, status, error) {
       console.error('Error loading preview:', error);
-      // Fallback to GET request
-      $('#previewImg').attr('src', url);
-      var img = $('#previewImg')[0];
-      img.onload = function() {
-        $('#labelWidth').html((img.naturalWidth / 300 * 2.54).toFixed(1));
-        $('#labelHeight').html((img.naturalHeight / 300 * 2.54).toFixed(1));
-      };
+      // On error, keep showing the placeholder and hide the image
+      $('#previewImg').hide().attr('src', '');
+      $('#previewPlaceholder').text('Error loading preview').show();
+      $('#previewStatus').text('Error loading preview');
     }
   });
 }
