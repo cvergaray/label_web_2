@@ -225,7 +225,7 @@ class implementation:
         config_sizes = self.CONFIG.get('PRINTER', {}).get('LABEL_SIZES', {})
         custom_sizes = []
 
-        dpi = self._get_printer_dpi(printerName)
+        dpi = self._get_printer_dpi(printer_name)
 
         if isinstance(config_sizes, dict):
             custom_sizes = [(self._convert_to_cups_media_format(key, printer_name, dpi), value) for key, value in config_sizes.items()]
