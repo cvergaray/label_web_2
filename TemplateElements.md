@@ -113,8 +113,40 @@ elements:
     vertical_offset: 22
 ```
 ### Code
-Datamatrix elements encode the data into a datamatrix code for use with 3D barcode scanners.
+Code Element to create 2D and 3D Codes like code39, code128, qrcode etc.
 
+| Property Key      | Example Value             | Description                                                                                                                | Required                       | Default Value |
+|-------------------|---------------------------|----------------------------------------------------------------------------------------------------------------------------|--------------------------------|---------------|
+| name              | code1                     | A value to describe the element                                                                                            | false                          | N/A           |
+| type              | qrcode                    | The codetype to be created                                                                                                 | true                           | N/A           |
+| data              | "ABC12345"                | The data of the code element                                                                                               | true                           | N/A           |
+| img_size          | 200x200                   | The real Code size on the label 100 = 100x100 px or set both by 100x50                                                     | false                          | N/A           |
+| horizontal_offset | 15                        | The number of pixels to offset the element from the left of the label.                                                     | true                           | N/A           |
+| vertical_offset   | 130                       | The number of pixels to offset the element from the top of the label                                                       | true                           | N/A           |
+
+```javascript
+{
+    "elements": [
+        {
+            "name": "code1",
+            "type": "qrcode",
+            "data": "ABC12345",
+            "img_size": "200x200",
+            "horizontal_offset": 15,
+            "vertical_offset": 22
+        }
+    ]
+}
+```
+```yaml
+elements:
+  - name: code1
+    type: qrcode
+    data: "ABC12345"
+    img_size: 200x200
+    horizontal_offset: 15
+    vertical_offset: 22
+```
 ### Text
 
 Text elements render raw text. In addition to being useful for printing data provided in the request, when using a hardcoded value, this could be used as a label.
