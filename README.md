@@ -90,9 +90,7 @@ These plugins are built-in, but please feel free to request additional ones or d
   - [x] Datamatrix
   - [x] Image File
   - [x] Image URL
-  - [ ] QR Code
-  - [ ] Code39
-  - [ ] Code128
+  - [x] Over 100 Code Types (Code39, Code12 QR Code etc. https://github.com/bwipp/postscriptbarcode/wiki/Symbologies-Reference)
   - [ ] Line
   - [ ] Rectangle
   - [ ] Circle
@@ -113,6 +111,8 @@ Parts of this package are redistributed software products from 3rd parties. They
 * [Bootstrap](https://github.com/twbs/bootstrap), MIT License
 * [Glyphicons](https://getbootstrap.com/docs/3.3/components/#glyphicons), MIT License (as part of Bootstrap 3.3)
 * [jQuery](https://github.com/jquery/jquery), MIT License
+* [treepoem](https://github.com/weinbusch/treepoem), MIT License
+* [Ghostscript](https://ghostscript.com/licensing/), AGPL/GPL
 
 Plugin architecture based on [example code provided](https://gist.github.com/dorneanu/cce1cd6711969d581873a88e0257e312) 
 by GitHub user [Victor Dorneau](https://gist.github.com/dorneanu)

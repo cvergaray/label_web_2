@@ -3,6 +3,7 @@
 * [Template File](#template-file)
   * [Rendering Elements](#rendering-elements)
     * [DataMatrix](#datamatrix)
+    * [Code](#code)
     * [Text](#text)
     * [Image](#image)
   * [Non-Rendering Elements](#non-rendering-elements)
@@ -111,6 +112,8 @@ elements:
     horizontal_offset: 15
     vertical_offset: 22
 ```
+### Code
+Datamatrix elements encode the data into a datamatrix code for use with 3D barcode scanners.
 
 ### Text
 
