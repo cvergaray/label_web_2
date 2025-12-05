@@ -672,3 +672,33 @@ may consider it more useful to permit linking proprietary applications with
 the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <http://www.gnu.org/philosophy/why-not-lgpl.html>.
+
+## Third-Party Licenses
+
+This project is licensed under the **GNU General Public License, version 3 (GPLv3)**.  
+In addition, it uses the following third-party components:
+
+### treepoem
+
+- **Project**: https://github.com/weinbusch/treepoem  
+- **Purpose**: Barcode and QR code generation in Python (wrapper around Ghostscript/BWIPP).  
+- **License**: MIT License
+
+
+### Ghostscript
+
+- **Project**: https://ghostscript.com/  
+- **Purpose**: Rendering backend used indirectly by treepoem for barcode generation.  
+- **License**: GNU Affero General Public License (AGPL) / GNU General Public License (GPL),  
+  or a commercial license from Artifex Software, Inc.
+
+This project uses the Ghostscript version provided by the operating system
+distribution under its free software license (AGPL/GPL). Use of this software
+in combination with Ghostscript is intended to comply with the terms of the
+AGPL/GPL by distributing the complete corresponding source code of this
+application under GPLv3.
+
+For details about Ghostscript licensing, see:
+https://ghostscript.com/licensing/
+
+
