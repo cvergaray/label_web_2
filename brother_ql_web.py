@@ -296,9 +296,9 @@ def get_label_context(request):
     context['width'], context['height'] = width, height
 
     # Add any extra parameters from the request that are not already in context
-    for k, v in d.items():
-        if k not in context:
-            context[k] = v
+    for param_name, param_value in d.items():
+        if param_name not in context:
+            context[param_name] = param_value
 
     return context
 
