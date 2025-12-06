@@ -295,6 +295,11 @@ def get_label_context(request):
     if context['orientation'] == 'rotated': height, width = width, height
     context['width'], context['height'] = width, height
 
+    # Add any extra parameters from the request that are not already in context
+    for k, v in d.items():
+        if k not in context:
+            context[k] = v
+
     return context
 
 
