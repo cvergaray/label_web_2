@@ -47,11 +47,21 @@ There are some printer-specific settings to include in config.json:
 - `PRINTER`, the name of the default printer to be used as exposed by CUPS
 - `DEFAULT_SIZE`, the key of the size from the `LABEL_SIZES` that should be used by default.
 
+## Documentation
+
+Comprehensive documentation is available in the `docs/` folder:
+
+- **[Template File Elements Documentation](docs/TemplateElements.md)** - Complete reference for all template elements, form field customization, and data handling
+- **[Minimal Configuration Guide](docs/MINIMAL_CONFIG_GUIDE.md)** - Quick start guide for configuration with minimal required settings
+- **[Custom Label Sizes Guide](docs/CUSTOM_SIZES_GUIDE.md)** - Instructions for configuring custom label sizes for your printers
+- **[Manual Installation Guide](docs/ManualInstall.md)** - Step-by-step guide for installing without Docker
+- **[Plugin Development Guide](docs/PluginDevelopmentGuide.md)** - Guide for developing custom element plugins
+
 ## Template File
 
 Labels are defined in template files. The templates are specific to how you want the label to look, which 
 depends on the printer/media available and what data you would like on the label. An in-depth description of the label
-template elements can be found in the documentation [Template File Elements Documentation](TemplateElements.md) file.
+template elements can be found in the [Template File Elements Documentation](docs/TemplateElements.md).
 
 ## Usage
 

@@ -23,7 +23,7 @@ fontconfig using [`brew install fontconfig`](http://brewformulas.org/Fontconfig)
 
 ## Configuration
 
-Details regarding the configuration file are the same as [the main documentation](./README.md#configuration-file).
+Details regarding the configuration file are the same as [the main documentation](../README.md#configuration-file).
 
 ## Startup
 
