@@ -10,7 +10,7 @@ docs/
 
 # Configuration files
 config.json
-config.minimal.json
+config.example.json
 
 # Label template files (developers can add these via volumes)
 *.lbl
@@ -25,10 +25,6 @@ dist/
 build/
 .Python
 
-# IDE
-.idea/
-.vscode/
-
 # OS
 .DS_Store
 Thumbs.db
@@ -37,11 +33,6 @@ Thumbs.db
 docker-compose.yml
 Dockerfile
 .dockerignore
-
-# Repository
-.git/
-.gitignore
-.github/
 
 # Testing and development
 .tox/
@@ -54,7 +45,4 @@ Pipfile
 Pipfile.lock
 README.md
 LICENSE
-ManualInstall.md
-PluginDevelopmentGuide.md
-MINIMAL_CONFIG_GUIDE.md
 
