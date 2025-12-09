@@ -146,7 +146,7 @@ Code Element to create 2D and 3D Codes like code39, code128, qrcode etc.
 elements:
   - name: code1
     type: code
-	code_type: qrcode
+    code_type: qrcode
     data: ABC12345
     img_size: 200x200
     horizontal_offset: 15
