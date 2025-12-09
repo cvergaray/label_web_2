@@ -1,6 +1,9 @@
 # Template File
 <!-- TOC -->
 * [Template File](#template-file)
+  * [Form Field Customization](#form-field-customization)
+    * [Default Form Field Properties](#default-form-field-properties)
+    * [Example: Customized Form Field](#example-customized-form-field)
   * [Rendering Elements](#rendering-elements)
     * [DataMatrix](#datamatrix)
     * [Code](#code)
@@ -41,6 +44,64 @@ There are two types of elements: Rendering and non-rendering elements.
 - Rendering elements will result in something getting added to the generated label.
 - Non-rendering elements transform data and pass it to child elements.
 
+The example elements in this document include one hard-coded and one key-based element.
+
+## Form Field Customization
+
+Elements that accept input data (those with `key` or `datakey` properties) can automatically generate form fields for user input. You can customize how these form fields are displayed by adding special properties to your element definition.
+
+### Default Form Field Properties
+
+When an element has a `key` or `datakey` property, a form field will automatically be generated with these configurable properties:
+
+| Property Key | Example Value     | Description                                                                                        | Default Value                                        |
+|--------------|-------------------|----------------------------------------------------------------------------------------------------|------------------------------------------------------|
+| name         | Product Name      | A descriptive name for the element (also used as form label if no explicit label is provided)      | The element's `name` property                        |
+| key          | product           | The field name used for form submission                                                            | Required if element expects input                    |
+| datakey      | product_name      | Alternative to `key`, used when extracting from nested data                                        | N/A                                                  |
+| form_type    | text              | The HTML input type for the form field (text, url, number, etc.)                                   | text                                                 |
+| required     | true              | Whether the field is required for form submission                                                  | false                                                |
+| description  | Enter product     | Help text displayed with the form field                                                            | Empty string                                         |
+| placeholder  | e.g., Milk        | Placeholder text shown in the input field                                                          | Empty string                                         |
+
+### Example: Customized Form Field
+
+```javascript
+{
+    "elements": [
+        {
+            "name": "Product Name",
+            "type": "text",
+            "key": "product",
+            "form_type": "text",
+            "required": true,
+            "description": "Enter the name of the product to print on the label",
+            "placeholder": "e.g., Organic Milk",
+            "shrink": true,
+            "wrap": 24,
+            "horizontal_offset": 15,
+            "vertical_offset": 130
+        }
+    ]
+}
+```
+
+```yaml
+elements:
+  - name: Product Name
+    type: text
+    key: product
+    form_type: text
+    required: true
+    description: Enter the name of the product to print on the label
+    placeholder: e.g., Organic Milk
+    shrink: true
+    wrap: 24
+    horizontal_offset: 15
+    vertical_offset: 130
+```
+
+
 ## Rendering Elements
 
 Rendering elements can include data in a few ways:
@@ -52,6 +113,13 @@ The example elements in this document include one hard-coded and one key-based e
 
 ### DataMatrix
 Datamatrix elements encode the data into a datamatrix code for use with 3D barcode scanners.
+
+#### Form Field Behavior
+When using the `key` or `datakey` property to accept input:
+- Automatically sets `required: true` for the form field
+- Sets description to "DataMatrix code to be generated" if not provided
+
+#### Properties
 
 | Property Key      | Example Value             | Description                                                                                                                | Required                       | Default Value |
 |-------------------|---------------------------|----------------------------------------------------------------------------------------------------------------------------|--------------------------------|---------------|
@@ -115,11 +183,18 @@ elements:
 ### Code
 Code Element to create 2D and 3D Codes like code39, code128, qrcode etc.
 
+#### Form Field Behavior
+When using the `key` or `datakey` property to accept input:
+- Automatically sets `required: true` for the form field
+- Sets a default description based on the `code_type` (e.g., "qrcode barcode to be generated")
+
+#### Properties
+
 | Property Key      | Example Value             | Description                                                                                                                | Required                       | Default Value |
 |-------------------|---------------------------|----------------------------------------------------------------------------------------------------------------------------|--------------------------------|---------------|
 | name              | code1                     | A value to describe the element                                                                                            | false                          | N/A           |
 | type              | code                      | Type of the element                                                                                                        | true                           | N/A           |
-| code_type         | qrcode                    | The codetype to be created                                                                                                 | true                           | N/A           |
+| code_type         | qrcode                    | The codetype to be created                                                                                                 | false                          | code39        |
 | data              | ABC12345                  | The data of the code element                                                                                               | true IF 'key' is not included  | N/A           |
 | key               | grocycode                 | The key identifying the property from the HTML request that will be set as the `data` property                             | true IF 'data' is not included | N/A           |
 | datakey           | grocycode                 | The key identifying the property from the `data` to be used as the `data`                                                  | false                          | N/A           |
@@ -236,6 +311,13 @@ elements:
 ### Image
 
 Image elements render Images either from a local file or downloaded from a URL.
+
+#### Form Field Behavior
+When using `type: image_url` with the `url` property accepting input via `key`:
+- Automatically sets `form_type: url` for proper URL validation
+- Sets description to "URL to image" if not provided
+
+#### Properties
 
 | Property Key | Example Value                                       | Description                                                                                                                                     | Required                                                                              | Default Value |
 |--------------|-----------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|---------------|
@@ -495,6 +577,15 @@ elements:
 
 JSON Payload elements will pull data from JSON submitted with the web request calling for the label to be rendered and then assign requested object to the `data` property of children elements. If no key is provided, the entire JSON payload is provided to children elements.
 This means that anything provided in the `data` property of the child elements will be ignored and replaced with the retrieved value.
+
+#### Form Field Behavior
+When generating form fields from nested elements:
+- Automatically marks form fields with `json_payload: true` to indicate they should be submitted as JSON
+- Recursively processes nested elements to generate form fields for the entire JSON structure.
+  (currently only supports a _single level_ of JSON.)
+
+
+#### Properties
 
 | Property Key | Example Value                                | Description                                                                                            | Required | Default Value |
 |--------------|----------------------------------------------|--------------------------------------------------------------------------------------------------------|----------|---------------|
