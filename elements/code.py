@@ -88,5 +88,5 @@ class CodeElement(elements.ElementBase):
         if form is None:
             return None
         form['required'] = True
-        form['description'] = form['description'] or 'Barcode to be generated via treepoem (type in code_type)'
+        form['description'] = form['description'] or element.get('code_type', 'code39') + ' barcode to be generated'
         return [form]
