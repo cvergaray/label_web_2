@@ -47,11 +47,21 @@ There are some printer-specific settings to include in config.json:
 - `PRINTER`, the name of the default printer to be used as exposed by CUPS
 - `DEFAULT_SIZE`, the key of the size from the `LABEL_SIZES` that should be used by default.
 
+## Documentation
+
+Comprehensive documentation is available in the `docs/` folder:
+
+- **[Template File Elements Documentation](docs/TemplateElements.md)** - Complete reference for all template elements, form field customization, and data handling
+- **[Minimal Configuration Guide](docs/MINIMAL_CONFIG_GUIDE.md)** - Quick start guide for configuration with minimal required settings
+- **[Custom Label Sizes Guide](docs/CUSTOM_SIZES_GUIDE.md)** - Instructions for configuring custom label sizes for your printers
+- **[Manual Installation Guide](docs/ManualInstall.md)** - Step-by-step guide for installing without Docker
+- **[Plugin Development Guide](docs/PluginDevelopmentGuide.md)** - Guide for developing custom element plugins
+
 ## Template File
 
 Labels are defined in template files. The templates are specific to how you want the label to look, which 
 depends on the printer/media available and what data you would like on the label. An in-depth description of the label
-template elements can be found in the documentation [Template File Elements Documentation](TemplateElements.md) file.
+template elements can be found in the [Template File Elements Documentation](docs/TemplateElements.md).
 
 ## Usage
 
@@ -90,9 +100,7 @@ These plugins are built-in, but please feel free to request additional ones or d
   - [x] Datamatrix
   - [x] Image File
   - [x] Image URL
-  - [ ] QR Code
-  - [ ] Code39
-  - [ ] Code128
+  - [x] Over 100 Code Types (Code39, Code12 QR Code etc. https://github.com/bwipp/postscriptbarcode/wiki/Symbologies-Reference)
   - [ ] Line
   - [ ] Rectangle
   - [ ] Circle
@@ -113,6 +121,8 @@ Parts of this package are redistributed software products from 3rd parties. They
 * [Bootstrap](https://github.com/twbs/bootstrap), MIT License
 * [Glyphicons](https://getbootstrap.com/docs/3.3/components/#glyphicons), MIT License (as part of Bootstrap 3.3)
 * [jQuery](https://github.com/jquery/jquery), MIT License
+* [treepoem](https://github.com/weinbusch/treepoem), MIT License
+* [Ghostscript](https://ghostscript.com/licensing/), AGPL/GPL
 
 Plugin architecture based on [example code provided](https://gist.github.com/dorneanu/cce1cd6711969d581873a88e0257e312) 
 by GitHub user [Victor Dorneau](https://gist.github.com/dorneanu)

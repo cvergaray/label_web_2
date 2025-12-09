@@ -3,14 +3,22 @@ LABEL authors="chris"
 
 WORKDIR /app
 
-RUN apt-get update
-RUN apt-get -y install python3-dev libcups2-dev gcc fontconfig libdmtx-dev
+# System dependencies for CUPS, fonts, libdmtx and treepoem (requires ghostscript)
+RUN apt-get update \
+    && apt-get -y install --no-install-recommends \
+        python3-dev \
+        libcups2-dev \
+        gcc \
+        fontconfig \
+        libdmtx-dev \
+        ghostscript \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt requirements.txt
 
 RUN pip3 install -r requirements.txt
 
-COPY -exclude=*.lbl -exclude=*.md -exclude=*ignore . .
+COPY . .
 
 EXPOSE 8013
 

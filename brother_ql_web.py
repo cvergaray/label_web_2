@@ -31,9 +31,9 @@ try:
         CONFIG = json.load(fh)
         print("loaded config from /appconfig/config.json")
 except FileNotFoundError as e:
-    with open('config.example.json', encoding='utf-8') as fh:
+    with open('config.minimal.json', encoding='utf-8') as fh:
         CONFIG = json.load(fh)
-        print("loaded config from config.example.json")
+        print("loaded config from config.minimal.json")
 
 PRINTERS = None
 LABEL_SIZES = None
@@ -181,6 +181,56 @@ def get_printer_media(printer_name):
             'error': str(e)
         }
 
+
+@route('/api/template/<templatefile>/raw', method=['GET', 'OPTIONS'])
+@enable_cors
+def get_template_raw(templatefile):
+    """Return the raw contents of a template file as plain text.
+
+    The file is read from /appconfig/<templatefile> inside the container.
+    """
+    try:
+        path = os.path.join('/appconfig', templatefile)
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        response.content_type = 'text/plain; charset=utf-8'
+        return content
+    except FileNotFoundError:
+        response.status = 404
+        return 'Template not found'
+    except Exception as e:
+        response.status = 500
+        return f'Error reading template: {e}'
+
+
+@post('/api/template/<templatefile>/raw')
+@enable_cors
+def save_template_raw(templatefile):
+    """Overwrite the raw contents of a template file with the request body.
+
+    Expects the new template content as text/plain in the request body.
+    """
+    try:
+        path = os.path.join('/appconfig', templatefile)
+
+        # Read entire request body as UTF-8 text
+        body = request.body.read()
+        try:
+            content = body.decode('utf-8')
+        except AttributeError:
+            # In case body is already str (older bottle versions)
+            content = body
+
+        with open(path, 'w', encoding='utf-8', newline='\n') as f:
+            f.write(content)
+
+        response.content_type = 'application/json'
+        return json.dumps({'success': True})
+    except Exception as e:
+        response.status = 500
+        response.content_type = 'application/json'
+        return json.dumps({'success': False, 'error': str(e)})
+
 def get_template_data(templatefile):
     """
     Deserialize data from a template file that may contain either JSON or YAML content.
@@ -294,6 +344,11 @@ def get_label_context(request):
     if height > width: width, height = height, width
     if context['orientation'] == 'rotated': height, width = width, height
     context['width'], context['height'] = width, height
+
+    # Add any extra parameters from the request that are not already in context
+    for param_name, param_value in d.items():
+        if param_name not in context:
+            context[param_name] = param_value
 
     return context
 

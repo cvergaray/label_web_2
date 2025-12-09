@@ -1,0 +1,48 @@
+# Documentation
+docs/
+
+# Development files
+.git/
+.gitignore
+.github/
+.idea/
+.vscode/
+
+# Configuration files
+config.json
+config.example.json
+
+# Label template files (developers can add these via volumes)
+*.lbl
+
+# Python development
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.Python
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# Testing and development
+.tox/
+.coverage
+htmlcov/
+pytest_cache/
+
+# Misc
+Pipfile
+Pipfile.lock
+README.md
+LICENSE
+
