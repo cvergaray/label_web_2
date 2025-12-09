@@ -118,8 +118,11 @@ Code Element to create 2D and 3D Codes like code39, code128, qrcode etc.
 | Property Key      | Example Value             | Description                                                                                                                | Required                       | Default Value |
 |-------------------|---------------------------|----------------------------------------------------------------------------------------------------------------------------|--------------------------------|---------------|
 | name              | code1                     | A value to describe the element                                                                                            | false                          | N/A           |
-| type              | qrcode                    | The codetype to be created                                                                                                 | true                           | N/A           |
-| data              | ABC12345                  | The data of the code element                                                                                               | true                           | N/A           |
+| type              | code                      | Type of the element                                                                                                        | true                           | N/A           |
+| code_type         | qrcode                    | The codetype to be created                                                                                                 | true                           | N/A           |
+| data              | ABC12345                  | The data of the code element                                                                                               | true IF 'key' is not included  | N/A           |
+| key               | grocycode                 | The key identifying the property from the HTML request that will be set as the `data` property                             | true IF 'data' is not included | N/A           |
+| datakey           | grocycode                 | The key identifying the property from the `data` to be used as the `data`                                                  | false                          | N/A           |
 | img_size          | 200x200                   | The real Code size on the label 100 = 100x100 px or set both by 100x50                                                     | false                          | N/A           |
 | horizontal_offset | 15                        | The number of pixels to offset the element from the left of the label.                                                     | true                           | N/A           |
 | vertical_offset   | 130                       | The number of pixels to offset the element from the top of the label                                                       | true                           | N/A           |
@@ -129,7 +132,8 @@ Code Element to create 2D and 3D Codes like code39, code128, qrcode etc.
     "elements": [
         {
             "name": "code1",
-            "type": "qrcode",
+            "type": "code",
+			"code_type": qrcode
             "data": "ABC12345",
             "img_size": "200x200",
             "horizontal_offset": 15,
@@ -141,7 +145,8 @@ Code Element to create 2D and 3D Codes like code39, code128, qrcode etc.
 ```yaml
 elements:
   - name: code1
-    type: qrcode
+    type: code
+	code_type: qrcode
     data: ABC12345
     img_size: 200x200
     horizontal_offset: 15
