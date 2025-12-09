@@ -31,9 +31,9 @@ try:
         CONFIG = json.load(fh)
         print("loaded config from /appconfig/config.json")
 except FileNotFoundError as e:
-    with open('config.example.json', encoding='utf-8') as fh:
+    with open('config.minimal.json', encoding='utf-8') as fh:
         CONFIG = json.load(fh)
-        print("loaded config from config.example.json")
+        print("loaded config from config.minimal.json")
 
 PRINTERS = None
 LABEL_SIZES = None
