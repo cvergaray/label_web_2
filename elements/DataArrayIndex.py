@@ -8,7 +8,7 @@ class DataArrayIndexElement(elements.ElementBase):
 
     @staticmethod
     def can_process(element):
-        return element['type'] == 'data_array_index'
+        return element['type'] == 'data_array_index1'
 
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
         data = element.get('data')
