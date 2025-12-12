@@ -70,13 +70,13 @@ class GrocyEntryElement(elements.ElementBase):
         if grocycode_type == 'p':  # Product
             product_url = f"{server}/api/stock/products/{typeid}"
 
+            headers = element.get('headers', {})
+            headers = headers | {"GROCY-API-KEY": api_key, "accept": "application/json"}
+
             # When a stock entry id is present, merge product + entry data
             if len(grocycode) > 3:
                 stock_id = grocycode[3]
                 entries_url = f"{product_url}/entries?query%5B%5D=stock_id%3D{stock_id}"
-
-                headers = element.get('headers', {})
-                headers = headers | {"GROCY-API-KEY": api_key, "accept": "application/json"}
 
                 # First: product overview
                 product_response = requests.get(product_url, headers=headers)
@@ -100,27 +100,50 @@ class GrocyEntryElement(elements.ElementBase):
                 for entry in entries:
                     # Attach full product object for templates that want product.name etc.
                     entry.setdefault('product', product_obj)
+
+                    # Also copy all product fields to the top-level entry (without
+                    # overwriting existing entry keys) so templates can use simple
+                    # datakey lookups like "name", "description", etc.
+                    if isinstance(product_obj, dict):
+                        for k, v in product_obj.items():
+                            entry.setdefault(k, v)
+
                     # Convenience copies of some common fields (only if not already set)
                     if 'next_due_date' not in entry and 'next_due_date' in product_data:
                         entry['next_due_date'] = product_data['next_due_date']
 
                 # Emulate json_api behavior: provide the merged data directly
                 response_data = entries
+            else:
+                # Pure product Grocycode (no stock entry id): only product overview
+                product_response = requests.get(product_url, headers=headers)
+                product_response.raise_for_status()
+                product_data = product_response.json()
+
+                # For backward compatibility with the old json_api delegation,
+                # use the top-level product object if present, otherwise the full
+                # response dict.
+                response_data = product_data.get('product', product_data)
+
+                # If the template uses a data_array_index element here, wrap the
+                # product dict into a single-element list so that it can be indexed
+                # like an entries list without changing DataArrayIndex.
                 sub_elements = element.get('elements', [])
-                for sub_element in sub_elements:
-                    sub_element_key = sub_element.get('key')
-                    # json_api only does key-based extraction when the response is a dict;
-                    # here we always pass the full list (as it would be for the entries endpoint).
-                    if isinstance(response_data, dict) and sub_element_key is not None and sub_element_key in response_data:
-                        sub_element['data'] = response_data[sub_element_key]
-                    else:
-                        sub_element['data'] = response_data
-                    self.process_with_plugins(sub_element, im, margins, dimensions, payload, **kwargs)
+                has_array_index = any(se.get('type') == 'data_array_index' for se in sub_elements)
+                if has_array_index and isinstance(response_data, dict):
+                    response_data = [response_data]
 
-                return im
+            # Process sub-elements similarly to JsonAPIElement
+            sub_elements = element.get('elements', [])
+            for sub_element in sub_elements:
+                sub_element_key = sub_element.get('key')
+                if isinstance(response_data, dict) and sub_element_key is not None and sub_element_key in response_data:
+                    sub_element['data'] = response_data[sub_element_key]
+                else:
+                    sub_element['data'] = response_data
+                self.process_with_plugins(sub_element, im, margins, dimensions, payload, **kwargs)
 
-            # No stock entry id: keep old behavior (product overview)
-            server = product_url
+            return im
 
         elif grocycode_type == 'c':  # Chore
             server = f"{server}/api/chores/{typeid}"
@@ -133,6 +156,6 @@ class GrocyEntryElement(elements.ElementBase):
         headers = element.get('headers', {})
         element['headers'] = headers | {"GROCY-API-KEY": api_key}
 
-        im = self.process_with_plugins(element, im, margins, dimensions, **kwargs)
+        im = self.process_with_plugins(element, im, margins, dimensions, payload, **kwargs)
 
         return im
