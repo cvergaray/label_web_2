@@ -13,7 +13,14 @@ class GrocyEntryElement(elements.ElementBase):
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
         server = element.get('endpoint')
         api_key = element.get('api_key')
-        grocycode = element.get('grocycode', kwargs.get('grocycode')).split(':')
+        raw_grocycode = element.get('grocycode', payload.get('grocycode', kwargs.get('grocycode')))
+        if raw_grocycode is None:
+            print('No grocycode found!')
+            return im
+        grocycode = raw_grocycode.split(':')
+        if len(grocycode) < 3:
+            print("Invalid grocycode format! Expected format: 'grcy:TYPE:ID[:STOCK_ID]', got '{}'".format(raw_grocycode))
+            return im
         grocycode_type = grocycode[1]
         typeid = grocycode[2]
         if grocycode_type == 'p':  # Product
@@ -30,6 +37,6 @@ class GrocyEntryElement(elements.ElementBase):
         headers = element.get('headers', {})
         element['headers'] = headers | {"GROCY-API-KEY": api_key}
 
-        im = self.process_with_plugins(element, im, margins, dimensions, **kwargs)
+        im = self.process_with_plugins(element, im, margins, dimensions, payload, **kwargs)
 
         return im
