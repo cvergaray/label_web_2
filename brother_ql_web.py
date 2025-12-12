@@ -138,7 +138,7 @@ def printtemplate(templatefile):
     try:
         payload = request.json
     except json.JSONDecodeError as e:
-        payload = None
+        payload = {}
 
     im = create_label_from_template(template_data, payload, **context)
     if DEBUG:
@@ -503,7 +503,7 @@ def get_preview_template_image(templatefile):
     try:
         payload = request.json
     except json.JSONDecodeError as e:
-        payload = None
+        payload = {}
 
     im = create_label_from_template(template_data, payload, **context)
     return_format = request.query.get('return_format', 'png')
