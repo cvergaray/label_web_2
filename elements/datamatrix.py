@@ -19,6 +19,14 @@ class DataMatrixElement(elements.ElementBase):
         if data_key is not None and isinstance(data, dict) and data_key in data:
             data = data[data_key]
 
+        # If this element has a key, also expose the resolved data into the shared
+        # payload dict so that other elements with the same key can reuse it
+        # (e.g. grocy_entry). This works because payload is passed unchanged
+        # through create_label_from_template.
+        key = element.get('key')
+        if key is not None and data is not None and isinstance(payload, dict) and key not in payload:
+            payload[key] = data
+
         if not data:
             return im
 
