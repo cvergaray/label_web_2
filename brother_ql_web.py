@@ -257,6 +257,11 @@ def get_template_data(templatefile):
         return None
 
 def create_label_from_template(template, payload, **kwargs):
+    # Ensure payload is always a mutable dict so elements can use it to share data
+    # between each other (e.g., datamatrix providing a value that grocy_entry reuses).
+    if payload is None:
+        payload = {}
+
     width, height = instance.get_label_width_height(ElementBase.get_value(template, kwargs, 'font_path'), **kwargs)
     width = template.get('width', width)
     height = template.get('height', height)

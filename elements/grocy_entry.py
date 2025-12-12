@@ -14,7 +14,55 @@ class GrocyEntryElement(elements.ElementBase):
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
         server = element.get('endpoint')
         api_key = element.get('api_key')
-        grocycode = element.get('grocycode', kwargs.get('grocycode')).split(':')
+        # Determine the Grocycode value.
+        # Priority:
+        #   1. Value from kwargs['grocycode'] (passed directly in the request context).
+        #   2. Value passed via kwargs using this element's key (same pattern as text/code/datamatrix).
+        #   3. Value from the shared payload dict ('grocycode' or key-based).
+        #   4. Explicit grocycode on this element.
+        #   5. Fallback to element["data"].
+        key = element.get('key')
+        grocycode_value = None
+        grocycode_source = None
+
+        # 1) Direct request/context value
+        if 'grocycode' in kwargs and kwargs.get('grocycode') is not None:
+            grocycode_value = kwargs.get('grocycode')
+            grocycode_source = "kwargs['grocycode']"
+
+        # 2) Element key-based value from kwargs (same pattern as other elements)
+        if not grocycode_value and key is not None:
+            if key in kwargs:
+                grocycode_value = kwargs.get(key)
+                grocycode_source = f"kwargs['{key}']"
+        # 3) From shared payload dict
+        if not grocycode_value and isinstance(payload, dict):
+            if 'grocycode' in payload and payload.get('grocycode') is not None:
+                grocycode_value = payload.get('grocycode')
+                grocycode_source = "payload['grocycode']"
+            elif key is not None and key in payload:
+                grocycode_value = payload.get(key)
+                grocycode_source = f"payload['{key}']"
+
+        # 4) Explicit grocycode field on this element
+        if not grocycode_value:
+            if element.get('grocycode') is not None:
+                grocycode_value = element.get('grocycode')
+                grocycode_source = "element['grocycode']"
+
+        # 5) Fallback to element['data']
+        if not grocycode_value:
+            if element.get('data') is not None:
+                grocycode_value = element.get('data')
+                grocycode_source = "element['data']"
+
+        if not grocycode_value:
+            payload_keys = list(payload.keys()) if isinstance(payload, dict) else None
+            print('[GrocyEntry] No grocycode found (key=', key, ', kwargs keys=', list(kwargs.keys()), ', payload keys=', payload_keys, ')')
+            return im
+
+        print('[GrocyEntry] Using grocycode from', grocycode_source, 'value =', repr(grocycode_value))
+        grocycode = str(grocycode_value).split(':')
         grocycode_type = grocycode[1]
         typeid = grocycode[2]
 
