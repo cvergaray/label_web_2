@@ -15,6 +15,7 @@
     * [JSON API](#json-api)
     * [JSON Payload](#json-payload)
     * [Grocy Entry API](#grocy-entry-api)
+    * [Inject Data](#inject-data)
 <!-- TOC -->
 
 Label templates are JSON files or YAML files in the running directory with the extension of lbl. An example YAML file can be found at grocy-test.lbl<br/>
@@ -715,3 +716,151 @@ elements:
             wrap: 24
 
 ```
+
+### Inject Data
+
+Injects a value into a specified target: the global payload, the kwargs passed during processing, or directly into child element definitions.
+This is useful to set defaults, compute or pass-through values, or enrich child elements before they are processed.
+
+#### Properties
+
+| Property Key | Example Value               | Description                                                                                                                                     | Required | Default Value |
+|--------------|-----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|----------|---------------|
+| name         | Set Defaults                | A value to describe the element                                                                                                                 | false    | N/A           |
+| type         | inject_data                 | Indicates that this is an InjectData element                                                                                                    | true     | N/A           |
+| key          | foo                         | The key to inject                                                                                                                               | true     | N/A           |
+| data         | bar                         | The value to inject                                                                                                                             | true     | N/A           |
+| target       | payload / kwargs / children | Where to inject the data. 'payload' sets on the global payload dict; 'kwargs' sets on kwargs; 'children' sets on each child element definition. | false    | payload       |
+| override     | true                        | When true, override the existing value if present; when false, only set if not already present                                                  | false    | false         |
+| elements     | < SEE OTHER ELEMENTS >      | A collection of the child elements to render or transform (only used when target is 'children')                                                 | false    | N/A           |
+
+#### Examples
+
+Inject into the payload (global data shared across elements):
+
+```javascript
+{
+  "elements": [
+    {
+      "name": "Set global default",
+      "type": "inject_data",
+      "key": "grocycode",
+      "data": "bar",
+      "target": "payload",
+      "override": false
+    },
+    {
+      "name": "Use global default",
+      "type": "text",
+      "datakey": "grocycode",
+      "horizontal_offset": 15,
+      "vertical_offset": 30
+    }
+  ]
+}
+```
+```yaml
+elements:
+  - name: Set global default
+    type: inject_data
+    key: grocycode
+    data: bar
+    target: payload
+    override: false
+  - name: Use global default
+    type: text
+    datakey: grocycode
+    horizontal_offset: 15
+    vertical_offset: 30
+```
+
+Inject into kwargs (transient values available during processing):
+
+```javascript
+{
+  "elements": [
+    {
+      "name": "Set processing hint",
+      "type": "inject_data",
+      "key": "hint",
+      "data": "use_small_font",
+      "target": "kwargs",
+      "override": true
+    },
+    {
+      "name": "Render with hint",
+      "type": "text",
+      "data": "Hello",
+      "horizontal_offset": 15,
+      "vertical_offset": 60
+    }
+  ]
+}
+```
+```yaml
+elements:
+  - name: Set processing hint
+    type: inject_data
+    key: hint
+    data: use_small_font
+    target: kwargs
+    override: true
+  - name: Render with hint
+    type: text
+    data: Hello
+    horizontal_offset: 15
+    vertical_offset: 60
+```
+
+Inject into child element definitions (modifies each child before processing):
+
+```javascript
+{
+  "elements": [
+    {
+      "name": "Enrich children with default datakey",
+      "type": "inject_data",
+      "key": "datakey",
+      "data": "title",
+      "target": "children",
+      "override": false,
+      "elements": [
+        {
+          "name": "Title from data",
+          "type": "text",
+          "horizontal_offset": 15,
+          "vertical_offset": 130
+        },
+        {
+          "name": "Another title",
+          "type": "text",
+          "horizontal_offset": 15,
+          "vertical_offset": 30
+        }
+      ]
+    }
+  ]
+}
+```
+```yaml
+elements:
+  - name: Enrich children with default datakey
+    type: inject_data
+    key: datakey
+    data: title
+    target: children
+    override: false
+    elements:
+      - name: Title from data
+        type: text
+        horizontal_offset: 15
+        vertical_offset: 130
+      - name: Another title
+        type: text
+        horizontal_offset: 15
+        vertical_offset: 30
+```
+
+Notes:
+- When target is 'children', only dictionary-like child element definitions are modified; non-dict items are left untouched.
+- The element will process its children after injection so subsequent elements receive updated definitions.
