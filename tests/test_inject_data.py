@@ -22,7 +22,7 @@ class TestInjectData(unittest.TestCase):
     def test_inject_payload_no_override(self):
         element = {
             'type': 'inject_data',
-            'key': 'foo',
+            'target_key': 'foo',
             'data': 'bar',
             'target': 'payload',
             'override': False
@@ -40,7 +40,7 @@ class TestInjectData(unittest.TestCase):
         # Ensure the injector runs without error when targeting kwargs
         element = {
             'type': 'inject_data',
-            'key': 'font_size',
+            'target_key': 'font_size',
             'data': 12,
             'target': 'kwargs',
             'override': True
@@ -58,7 +58,7 @@ class TestInjectData(unittest.TestCase):
         ]
         element = {
             'type': 'inject_data',
-            'key': 'datakey',
+            'target_key': 'datakey',
             'data': 'title',
             'target': 'children',
             'override': False,
@@ -81,7 +81,7 @@ class TestInjectData(unittest.TestCase):
         ]
         element = {
             'type': 'inject_data',
-            'key': 'datakey',
+            'target_key': 'datakey',
             'data': 'new_value',
             'target': 'children',
             'override': True,
@@ -97,7 +97,7 @@ class TestInjectData(unittest.TestCase):
     def test_unknown_target_no_crash(self):
         element = {
             'type': 'inject_data',
-            'key': 'foo',
+            'target_key': 'foo',
             'data': 'bar',
             'target': 'unknown_target',
             'override': False,
@@ -132,7 +132,7 @@ class TestInjectData(unittest.TestCase):
         # Inject into kwargs then process controlled element as a child to receive modified kwargs
         inject_kwargs_element = {
             'type': 'inject_data',
-            'key': 'sample',
+            'target_key': 'sample',
             'data': 'from_kwargs',
             'target': 'kwargs',
             'override': True,

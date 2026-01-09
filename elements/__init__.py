@@ -115,6 +115,40 @@ class ElementBase:
         fits = (textsize[0] + horizontal_offset) < label_size[0] and (textsize[1] + vertical_offset) < label_size[1]
         return fits
 
+    @staticmethod
+    def resolve_data(element, kwargs, payload=None, default=None, base_key='data'):
+        """Resolve element data using data/key/datakey semantics.
+
+        Priority:
+        1) Start with element.get(data_key) as the base value.
+        2) If key is provided, prefer kwargs[key]; fallback to payload[key] if present.
+        3) If datakey is provided and the resolved data is a dict, return data[datakey]; otherwise return default.
+        4) If no datakey, return the resolved data (or default if None).
+
+        Args:
+            element: Element definition dict
+            kwargs: Keyword arguments dict to check for 'key' values
+            payload: Optional payload dict to check for 'key' values as fallback
+            default: Value to return if data cannot be resolved
+            base_key: Name of the element property holding main data to be retrieved (default: 'data')
+        """
+        data = element.get(base_key)
+        key = element.get('key')
+        datakey = element.get('datakey')
+
+        if key is not None:
+            if key in kwargs:
+                data = kwargs.get(key)
+            elif payload is not None and key in payload:
+                data = payload.get(key)
+
+        if datakey is not None:
+            if isinstance(data, dict) and datakey in data:
+                return data[datakey]
+            return default
+
+        return data if data is not None else default
+
 
 # Small utility to automatically load modules
 def load_module(load_from_path):
