@@ -1,0 +1,77 @@
+name: Unit Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+      - '*.x'
+  push:
+    branches:
+      - main
+      - develop
+      - '*.x'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libcups2-dev \
+            libdmtx-dev \
+            ghostscript \
+            fontconfig
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run unit tests
+        run: |
+          python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Generate test report
+        if: always()
+        run: |
+          python -m unittest discover -s tests -p "test_*.py" 2>&1 | tee test-results.txt
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results-python-${{ matrix.python-version }}
+          path: test-results.txt
+          retention-days: 30
+
+  test-summary:
+    needs: test
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Check test results
+        run: |
+          if [ "${{ needs.test.result }}" = "failure" ]; then
+            echo "❌ Tests failed"
+            exit 1
+          else
+            echo "✅ All tests passed"
+          fi
+
