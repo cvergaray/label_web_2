@@ -116,24 +116,59 @@ class ElementBase:
         return fits
 
     @staticmethod
-    def resolve_data(element, kwargs, payload=None, default=None, base_key='data'):
+    def resolve_data(element, kwargs, payload=None, default=None, base_key='data', kwarg_payload_key='key'):
         """Resolve element data using data/key/datakey semantics.
 
+        This method provides a standardized way to retrieve data from element definitions,
+        supporting multiple data source strategies:
+        - Direct data from element property
+        - Lookup by key from kwargs/payload
+        - Nested extraction from dict using datakey
+
         Priority:
-        1) Start with element.get(data_key) as the base value.
-        2) If key is provided, prefer kwargs[key]; fallback to payload[key] if present.
-        3) If datakey is provided and the resolved data is a dict, return data[datakey]; otherwise return default.
-        4) If no datakey, return the resolved data (or default if None).
+        1) Start with element.get(base_key) as the base value.
+        2) If kwarg_payload_key property exists in element, use its value as a lookup key:
+           - First try to get value from kwargs[key]
+           - If not found and payload is provided, try payload[key]
+           - If found, use the retrieved value as the base data
+        3) If datakey property exists and the resolved data is a dict:
+           - Extract and return data[datakey]
+           - Otherwise return the default value
+        4) If no datakey, return the resolved data (or default if data is None).
 
         Args:
-            element: Element definition dict
-            kwargs: Keyword arguments dict to check for 'key' values
-            payload: Optional payload dict to check for 'key' values as fallback
-            default: Value to return if data cannot be resolved
+            element: Element definition dict containing data configuration
+            kwargs: Keyword arguments dict to check for values using kwarg_payload_key
+            payload: Optional payload dict to check for values as fallback when key not in kwargs
+            default: Value to return if data cannot be resolved (default: None)
             base_key: Name of the element property holding main data to be retrieved (default: 'data')
+                      Allows specifying alternative property names like 'datakey' or 'custom_field'
+            kwarg_payload_key: Name of the element property specifying which key to look up in kwargs/payload
+                              (default: 'key'). Allows customizing the lookup property name for flexibility.
+
+        Returns:
+            The resolved data value, or the default if resolution fails.
+
+        Examples:
+            # Simple data retrieval
+            element = {'data': 'Hello World'}
+            resolve_data(element, {}, {})  # Returns: 'Hello World'
+
+            # Key-based lookup from kwargs
+            element = {'key': 'username'}
+            resolve_data(element, {'username': 'John'}, {})  # Returns: 'John'
+
+            # Nested dict extraction with datakey
+            element = {'data': {'first': 'John', 'last': 'Doe'}, 'datakey': 'first'}
+            resolve_data(element, {}, {})  # Returns: 'John'
+
+            # Custom kwarg_payload_key
+            element = {'lookup_key': 'product_id'}
+            resolve_data(element, {'product_id': 'ABC123'}, {}, kwarg_payload_key='lookup_key')
+            # Returns: 'ABC123'
         """
         data = element.get(base_key)
-        key = element.get('key')
+        key = element.get(kwarg_payload_key)
         datakey = element.get('datakey')
 
         if key is not None:
