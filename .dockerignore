@@ -39,6 +39,7 @@ Dockerfile
 .coverage
 htmlcov/
 pytest_cache/
+tests/
 
 # Misc
 Pipfile
