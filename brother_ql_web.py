@@ -138,7 +138,7 @@ def printtemplate(templatefile):
     try:
         payload = request.json
     except json.JSONDecodeError as e:
-        payload = None
+        payload = {}
 
     im = create_label_from_template(template_data, payload, **context)
     if DEBUG:
@@ -352,7 +352,6 @@ def get_label_context(request):
 
     return context
 
-
 def create_label_im(text, **kwargs):
     im_font = ImageFont.truetype(kwargs['font_path'], kwargs['font_size'])
     im = Image.new('L', (20, 20), 'white')
@@ -380,110 +379,12 @@ def create_label_im(text, **kwargs):
     draw.multiline_text(offset, text, kwargs['fill_color'], font=im_font, align=kwargs['align'])
     return im
 
-
-def create_label_grocy(text, **kwargs):
-    product = kwargs['product']
-    duedate = kwargs['duedate']
-    grocycode = kwargs['grocycode']
-    margin_left = 15  #kwargs['margin_left']
-    margin_top = 22  #kwargs['margin_top']
-    margin_right = margin_left  #kwargs['margin_right']
-    margin_bottom = margin_top  #kwargs['margin_bottom']
-
-    wrapper = textwrap.TextWrapper(width=25)
-    product = "\n".join(wrapper.wrap(text=product))
-
-    # prepare grocycode datamatrix
-    from pylibdmtx.pylibdmtx import encode
-    encoded = encode(grocycode.encode('utf8'),
-                     size="SquareAuto")  # adjusted for 300x300 dpi - results in DM code roughly 5x5mm
-    datamatrix = Image.frombytes('RGB', (encoded.width, encoded.height), encoded.pixels)
-    datamatrix.save('/tmp/dmtx.png')
-
-    product_font = ImageFont.truetype(kwargs['font_path'], kwargs['font_size'])
-    duedate_font = ImageFont.truetype(kwargs['font_path'], int(kwargs['font_size'] * 0.6))
-
-    width, height = instance.get_label_width_height(product_font, **kwargs)
-
-    if kwargs['orientation'] == 'rotated':
-        tw = width
-        width = height
-        height = tw
-
-    im = Image.new('RGB', (width, height), 'white')
-    draw = ImageDraw.Draw(im)
-    horizontal_offset = 0
-    vertical_offset = 0
-    if kwargs['orientation'] == 'standard':
-        vertical_offset = margin_top
-        horizontal_offset = margin_left
-    elif kwargs['orientation'] == 'rotated':
-        vertical_offset = margin_top
-        horizontal_offset = margin_left
-        datamatrix.transpose(Image.ROTATE_270)
-
-    im.paste(datamatrix,
-             (horizontal_offset, vertical_offset, horizontal_offset + encoded.width, vertical_offset + encoded.height))
-
-    if kwargs['orientation'] == 'standard':
-        vertical_offset += -10
-        horizontal_offset = encoded.width + 40
-    elif kwargs['orientation'] == 'rotated':
-        vertical_offset += encoded.width + 40
-        horizontal_offset += -10
-
-    textoffset = horizontal_offset, vertical_offset
-    adjusted_product_font_size = ElementBase.adjust_font_to_fit(draw, kwargs['font_path'], kwargs['font_size'], product,
-                                                    (width, height), 2, horizontal_offset + margin_right,
-                                                    vertical_offset + margin_bottom)
-    if kwargs['font_size'] != adjusted_product_font_size:
-        product_font = ImageFont.truetype(kwargs['font_path'], adjusted_product_font_size)
-
-    draw.text(textoffset, product, kwargs['fill_color'], font=product_font)
-
-    if duedate is not None:
-        additional_offset = draw.multiline_textbbox((0, 0), product, font=product_font)[3] + 10
-
-        if kwargs['orientation'] == 'standard':
-            vertical_offset += additional_offset
-            #horizontal_offset = margin_left
-        elif kwargs['orientation'] == 'rotated':
-            #vertical_offset = margin_left
-            horizontal_offset += additional_offset
-        textoffset = horizontal_offset, vertical_offset
-
-        adjusted_duedate_font_size = ElementBase.adjust_font_to_fit(draw, kwargs['font_path'], kwargs['font_size'], duedate,
-                                                        (width, height), 2, horizontal_offset + margin_right,
-                                                        vertical_offset + margin_bottom)
-        duedate_font = ImageFont.truetype(kwargs['font_path'], adjusted_duedate_font_size)
-
-        draw.text(textoffset, duedate, kwargs['fill_color'], font=duedate_font)
-
-    return im
-
-
 @get('/api/preview/text')
 @post('/api/preview/text')
 @enable_cors
 def get_preview_image():
     context = get_label_context(request)
     im = create_label_im(**context)
-    return_format = request.query.get('return_format', 'png')
-    if return_format == 'base64':
-        import base64
-        response.set_header('Content-type', 'text/plain')
-        return base64.b64encode(image_to_png_bytes(im))
-    else:
-        response.set_header('Content-type', 'image/png')
-        return image_to_png_bytes(im)
-
-
-@get('/api/preview/grocy')
-@post('/api/preview/grocy')
-@enable_cors
-def get_preview_grocy_image():
-    context = get_label_context(request)
-    im = create_label_grocy(**context)
     return_format = request.query.get('return_format', 'png')
     if return_format == 'base64':
         import base64
@@ -503,7 +404,7 @@ def get_preview_template_image(templatefile):
     try:
         payload = request.json
     except json.JSONDecodeError as e:
-        payload = None
+        payload = {}
 
     im = create_label_from_template(template_data, payload, **context)
     return_format = request.query.get('return_format', 'png')
@@ -548,33 +449,6 @@ def image_to_png_bytes(im):
     im.save(image_buffer, format="PNG")
     image_buffer.seek(0)
     return image_buffer.read()
-
-
-@post('/api/print/grocy')
-@get('/api/print/grocy')
-def print_grocy():
-    """
-    API endpoint to consume the grocy label webhook.
-
-    returns; JSON
-    """
-    return_dict = {'success': False}
-
-    try:
-        context = get_label_context(request)
-    except LookupError as e:
-        return_dict['error'] = e.message
-        return return_dict
-
-    if context['product'] is None:
-        return_dict['error'] = 'Please provide the product for the label'
-        return return_dict
-
-    im = create_label_grocy(**context)
-    if DEBUG:
-        im.save('sample-out.png')
-
-    return instance.print_label(im, **context)
 
 
 @post('/api/print/text')
