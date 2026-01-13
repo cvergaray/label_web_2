@@ -4,39 +4,34 @@ elements:
     key: grocycode
     horizontal_offset: 15
     vertical_offset: 22
-  - name: duedate
-    type: text
-    key: duedate
-    shrink: true
-    wrap: 24
-    horizontal_offset: 130
-    vertical_offset: 50
-  - name: duedate
-    type: text
-    key: due_date
-    shrink: true
-    wrap: 24
-    horizontal_offset: 130
-    vertical_offset: 50
-  - name: product
-    type: text
-    key: product
-    shrink: true
-    wrap: 24
-    horizontal_offset: 15
-    vertical_offset: 130
+
   - name: GROCY ProductAPI
     type: grocy_entry
-    api_key: YOUR_API_KEY_HERE
-    endpoint: http://YOUR_IP_HERE:9283
+    api_key: <YOUR API KEY>
+    endpoint: <YOUR GROCY URL>
+    key: grocycode
     elements:
       - type: data_array_index
         index: 0
         elements:
-          - name: Note
+          - name: product name
             type: text
             horizontal_offset: 130
-            datakey: note
+            vertical_offset: 20
+            datakey: name
             shrink: true
-            vertical_offset: 70
+            wrap: 24
+          - name: best before date
+            type: text
+            horizontal_offset: 130
+            vertical_offset: 60
+            datakey: best_before_date
+            shrink: true
+            wrap: 24
+          - name: purchased date
+            type: text
+            horizontal_offset: 130
+            vertical_offset: 95
+            datakey: purchased_date
+            shrink: true
             wrap: 24
