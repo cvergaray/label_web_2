@@ -126,30 +126,34 @@ class TestInjectData(unittest.TestCase):
                 # Assert inside processing; in a real plugin, we'd perhaps write to payload
                 assert value == expected, f"Expected {expected}, got {value}"
                 return im
-        # Register the test plugin
-        elements.ElementBase.plugins.append(KwargsReader)
-
-        # Inject into kwargs then process controlled element as a child to receive modified kwargs
-        inject_kwargs_element = {
-            'type': 'inject_data',
-            'target_key': 'sample',
-            'data': 'from_kwargs',
-            'target': 'kwargs',
-            'override': True,
-            'elements': [
-                {
-                    'type': 'kwargs_reader',
-                    'read_key': 'sample',
-                    'expected': 'from_kwargs'
-                }
-            ]
-        }
-        payload = {}
-        kwargs = {}
-        # Run injector which will also process its child with modified kwargs
-        self.injector.process_element(inject_kwargs_element, self.im, self.margins, self.dimensions, payload, **kwargs)
-        # Ensure the downstream element was processed
-        self.assertTrue(called_flag['called'], "Downstream kwargs_reader element was not processed")
-
+        # Register the test plugin temporarily
+        plugins = elements.ElementBase.plugins
+        plugins.append(KwargsReader)
+        try:
+            # Inject into kwargs then process controlled element as a child to receive modified kwargs
+            inject_kwargs_element = {
+                'type': 'inject_data',
+                'target_key': 'sample',
+                'data': 'from_kwargs',
+                'target': 'kwargs',
+                'override': True,
+                'elements': [
+                    {
+                        'type': 'kwargs_reader',
+                        'read_key': 'sample',
+                        'expected': 'from_kwargs'
+                    }
+                ]
+            }
+            payload = {}
+            kwargs = {}
+            # Run injector which will also process its child with modified kwargs
+            self.injector.process_element(inject_kwargs_element, self.im, self.margins, self.dimensions, payload, **kwargs)
+            # Ensure the downstream element was processed
+            self.assertTrue(called_flag['called'], "Downstream kwargs_reader element was not processed")
+        finally:
+            # Ensure the test plugin does not pollute the global plugin registry
+            if KwargsReader in plugins:
+                plugins.remove(KwargsReader)
 if __name__ == '__main__':
     unittest.main()

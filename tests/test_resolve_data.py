@@ -7,7 +7,7 @@ class TestResolveData(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
-        self.base = elements.ElementBase()
+        self.base = elements.ElementBase
 
     def test_resolve_data_with_simple_data(self):
         """Test resolving data when only 'data' property is provided"""
