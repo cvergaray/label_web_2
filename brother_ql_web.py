@@ -194,6 +194,7 @@ def config_to_settings_format(config):
             'printer': config.get('PRINTER', {}).get('PRINTER', ''),
             'enabledSizes': config.get('PRINTER', {}).get('ENABLED_SIZES', {}),
             'labelSizes': label_sizes_map,
+            'labelPrintableArea': config.get('PRINTER', {}).get('LABEL_PRINTABLE_AREA', {}),
             'printersInclude': config.get('PRINTER', {}).get('PRINTERS_INCLUDE', []),
             'printersExclude': config.get('PRINTER', {}).get('PRINTERS_EXCLUDE', []),
         },
@@ -216,6 +217,7 @@ def settings_format_to_config(settings):
     """Convert frontend settings format back to CONFIG structure."""
     # Normalize custom sizes back to CONFIG format (dict)
     label_sizes_map = settings.get('printer', {}).get('labelSizes', {}) or {}
+    label_printable_area = settings.get('printer', {}).get('labelPrintableArea', {}) or {}
 
     config = {
         'SERVER': {
@@ -250,16 +252,17 @@ def settings_format_to_config(settings):
         }
     }
 
+    # Add LABEL_PRINTABLE_AREA if there are custom dimensions
+    if label_printable_area:
+        config['PRINTER']['LABEL_PRINTABLE_AREA'] = label_printable_area
+
     # Preserve any existing config sections not managed by settings UI
-    if 'LABEL_SIZES' in CONFIG.get('PRINTER', {}):
-        # merge existing with new (new wins)
-        old = CONFIG['PRINTER']['LABEL_SIZES']
-        if isinstance(old, dict):
-            merged = dict(old)
-            merged.update(label_sizes_map)
-            config['PRINTER']['LABEL_SIZES'] = merged
+    # Note: LABEL_SIZES is now managed by the UI and should not be merged
+    # Deletions are handled by sending the complete new set from frontend
     if 'LABEL_PRINTABLE_AREA' in CONFIG.get('PRINTER', {}):
-        config['PRINTER']['LABEL_PRINTABLE_AREA'] = CONFIG['PRINTER']['LABEL_PRINTABLE_AREA']
+        # If the user didn't provide custom dimensions, preserve existing ones
+        if not label_printable_area:
+            config['PRINTER']['LABEL_PRINTABLE_AREA'] = CONFIG['PRINTER']['LABEL_PRINTABLE_AREA']
 
     return config
 
@@ -952,13 +955,21 @@ def get_settings_printers():
     """Get list of printers with their available media sizes. Optional refresh from CUPS."""
     try:
         refresh = request.query.get('refresh')
+        use_cups_param = request.query.get('use_cups')
+
+        # Allow temporary override of CUPS setting for preview
+        temp_config = CONFIG.copy()
+        if use_cups_param is not None:
+            temp_config['PRINTER']['USE_CUPS'] = use_cups_param == '1'
+
         if refresh:
-            # Reinitialize to force fresh CUPS data
-            instance.CONFIG = CONFIG
+            # Reinitialize to force fresh CUPS data with potentially new CUPS setting
+            instance.CONFIG = temp_config
             try:
-                instance.initialize(CONFIG)
+                instance.initialize(temp_config)
             except Exception as init_err:
                 logger.warning(f"Reinitialize during printer refresh failed: {init_err}")
+
         printers = instance.get_printers() or []
         all_media_sizes = {}
 

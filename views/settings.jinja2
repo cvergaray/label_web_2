@@ -103,23 +103,6 @@
               <div class="panel-body">
                 <div class="form-horizontal">
                   <div class="form-group">
-                    <label class="col-sm-3 control-label">Use CUPS</label>
-                    <div class="col-sm-9">
-                      <div class="checkbox" style="margin-bottom:10px;">
-                        <label>
-                          <input type="checkbox" id="printerUseCups"> Enable CUPS for media retrieval
-                        </label>
-                      </div>
-                      <button id="reloadMediaBtn" class="btn btn-sm btn-info" type="button">
-                        <span class="glyphicon glyphicon-repeat" aria-hidden="true"></span> Reload media sizes from CUPS
-                      </button>
-                      <div id="cups-status" class="alert alert-info" style="margin-top: 10px;">
-                        Loading CUPS status...
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="form-group">
                     <label class="col-sm-3 control-label">CUPS Server</label>
                     <div class="col-sm-9">
                       <p class="help-block" style="margin-top: 0;">CUPS server address. Use 'localhost' for local CUPS, or IP address for remote.</p>
@@ -134,6 +117,25 @@
                       <div id="cupsValidateStatus" class="text-muted" style="margin-top:5px;"></div>
                     </div>
                   </div>
+
+                  <div class="form-group">
+                    <label class="col-sm-3 control-label">Use CUPS</label>
+                    <div class="col-sm-9">
+                      <div class="checkbox" style="margin-bottom:10px;">
+                        <label>
+                          <input type="checkbox" id="printerUseCups"> Enable CUPS for printer and media retrieval
+                        </label>
+                      </div>
+                      <p class="help-block" style="margin-top: 5px;">Indicates if printers and media sizes should be retrieved from the CUPS server.</p>
+                      <button id="reloadMediaBtn" class="btn btn-sm btn-info" type="button">
+                        <span class="glyphicon glyphicon-repeat" aria-hidden="true"></span> Reload from CUPS
+                      </button>
+                      <div id="cups-status" class="alert alert-info" style="margin-top: 10px;">
+                        Loading CUPS status...
+                      </div>
+                    </div>
+                  </div>
+
                   <div class="form-group">
                     <label class="col-sm-3 control-label">Default Printer</label>
                     <div class="col-sm-9">
@@ -165,13 +167,20 @@
 
                   <hr>
                   <h5><strong>Custom Media Sizes (global)</strong></h5>
-                  <p class="text-muted small">Add custom size key and display label. "Custom." will be automatically prepended to the key.</p>
+                  <p class="text-muted small">Add custom size key and display label. Size key will use "Custom." prefix (e.g., "4x6in" becomes "Custom.4x6in"). Optionally specify pixel dimensions for precise control. If dimensions are not provided, they will be auto-calculated from parseable names like "4x6in" or "100x50mm". If they are not parseable, dimensions must be provided.</p>
                   <div class="custom-size-input-group" style="margin-bottom:10px;">
-                    <input type="text" class="form-control" id="customSizeKey" placeholder="size key (e.g., 100x150mm)" style="width:40%; margin-right:10px; display:inline-block;">
-                    <input type="text" class="form-control" id="customSizeLabel" placeholder="Display label (e.g., 4in x 6in)" style="width:40%; margin-right:10px; display:inline-block;">
-                    <button id="addCustomSizeBtn" type="button" class="btn btn-default" style="display:inline-block;">
-                      <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> Add
-                    </button>
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
+                      <input type="text" class="form-control" id="customSizeKey" placeholder="Size key (e.g., 4x6in or 100x50mm)" style="flex: 1; min-width: 200px;">
+                      <input type="text" class="form-control" id="customSizeLabel" placeholder="Display label (e.g., 4in x 6in)" style="flex: 1; min-width: 200px;">
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
+                      <input type="number" class="form-control" id="customSizeWidth" placeholder="Width (pixels, optional)" style="flex: 1; min-width: 150px; min-height: 34px;">
+                      <input type="number" class="form-control" id="customSizeHeight" placeholder="Height (pixels, optional)" style="flex: 1; min-width: 150px; min-height: 34px;">
+                      <button id="addCustomSizeBtn" type="button" class="btn btn-default" style="white-space: nowrap; display: inline-block;">
+                        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> Add
+                      </button>
+                    </div>
+                    <div id="customSizeError" class="text-danger" style="display: none; margin-bottom: 10px; font-size: 12px;"></div>
                   </div>
                   <div id="customSizesList" class="list-group" style="margin-bottom: 15px;"></div>
 
@@ -187,12 +196,22 @@
                         <label>Display Label</label>
                         <input type="text" class="form-control" id="editSizeLabel">
                       </div>
+                      <div class="form-group">
+                        <label>Width (pixels, optional)</label>
+                        <input type="number" class="form-control" id="editSizeWidth" placeholder="Leave empty for auto-calculation">
+                      </div>
+                      <div class="form-group">
+                        <label>Height (pixels, optional)</label>
+                        <input type="number" class="form-control" id="editSizeHeight" placeholder="Leave empty for auto-calculation">
+                      </div>
+                      <div id="editSizeError" class="text-danger" style="display: none; margin-bottom: 10px; font-size: 12px;"></div>
                       <button class="btn btn-primary" onclick="saveEditedSize()">Save</button>
                       <button class="btn btn-default" onclick="closeEditModal()">Cancel</button>
                     </div>
                   </div>
 
                   <hr>
+
                   <h5><strong>Enabled Media Sizes Per Printer</strong></h5>
                   <p class="text-muted small">Select media sizes that should be enabled for each printer. All other sizes will be disabled by default.</p>
                   <div id="printers-container">
@@ -337,6 +356,7 @@
         printer: '',
         enabledSizes: {},   // { printer_name: [size1, ...] }
         labelSizes: {},     // global custom sizes map
+        labelPrintableArea: {}, // { size_key: [width, height] in pixels }
         printersInclude: [],
         printersExclude: []
       },
@@ -563,10 +583,58 @@
       list.innerHTML = html;
     }
 
+    // Validate that a size can be parsed into dimensions
+    function validateCustomSize(sizeKey, width, height) {
+      const errorDiv = document.getElementById('customSizeError') || document.getElementById('editSizeError');
+      if (!errorDiv) return true;
+
+      errorDiv.style.display = 'none';
+      errorDiv.textContent = '';
+
+      // If explicit dimensions provided, they must be valid numbers
+      if (width !== '' || height !== '') {
+        if (width === '' || height === '') {
+          errorDiv.textContent = 'If you provide dimensions, both width and height are required.';
+          errorDiv.style.display = 'block';
+          return false;
+        }
+        const w = parseInt(width);
+        const h = parseInt(height);
+        if (isNaN(w) || isNaN(h) || w <= 0 || h <= 0) {
+          errorDiv.textContent = 'Width and height must be positive numbers (pixels).';
+          errorDiv.style.display = 'block';
+          return false;
+        }
+        return true;
+      }
+
+      // If no explicit dimensions, key must be parseable
+      // Check for patterns like "4x6in", "100x50mm", etc.
+      const parseablePattern = /^(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*(in|mm|cm)?$/i;
+      if (!parseablePattern.test(sizeKey)) {
+        errorDiv.textContent = 'Size key must be parseable (e.g., "4x6in", "100x50mm") or you must provide explicit pixel dimensions.';
+        errorDiv.style.display = 'block';
+        return false;
+      }
+
+      return true;
+    }
+
     function addCustomSize() {
       let key = document.getElementById('customSizeKey').value.trim();
       const label = document.getElementById('customSizeLabel').value.trim();
-      if (!key || !label) { showStatus('Please enter both size key and label', 'warning'); return; }
+      const width = document.getElementById('customSizeWidth').value.trim();
+      const height = document.getElementById('customSizeHeight').value.trim();
+
+      if (!key || !label) {
+        showStatus('Please enter both size key and label', 'warning');
+        return;
+      }
+
+      // Validate the size can be parsed/defined
+      if (!validateCustomSize(key, width, height)) {
+        return;
+      }
 
       // Automatically prepend "Custom." if not already present
       if (!key.startsWith('Custom.')) {
@@ -574,9 +642,30 @@
       }
 
       if (!settingsState.printer.labelSizes) settingsState.printer.labelSizes = {};
+
+      // Store custom size metadata if dimensions provided
+      const sizeData = { label: label };
+      if (width && height) {
+        sizeData.width = parseInt(width);
+        sizeData.height = parseInt(height);
+      }
+
       settingsState.printer.labelSizes[key] = label;
+
+      // Store dimensions separately if provided
+      if (width && height) {
+        if (!settingsState.printer.labelPrintableArea) {
+          settingsState.printer.labelPrintableArea = {};
+        }
+        settingsState.printer.labelPrintableArea[key] = [parseInt(width), parseInt(height)];
+      }
+
       document.getElementById('customSizeKey').value = '';
       document.getElementById('customSizeLabel').value = '';
+      document.getElementById('customSizeWidth').value = '';
+      document.getElementById('customSizeHeight').value = '';
+      document.getElementById('customSizeError').style.display = 'none';
+
       renderCustomSizes();
       markAsChanged(); // Mark as unsaved
       // Refresh printers list to include new size in UI
@@ -587,15 +676,52 @@
       if (!settingsState.printer.labelSizes || !(key in settingsState.printer.labelSizes)) return;
       document.getElementById('editSizeKey').value = key;
       document.getElementById('editSizeLabel').value = settingsState.printer.labelSizes[key];
+
+      // Load dimensions if they exist
+      const dimensions = settingsState.printer.labelPrintableArea ? settingsState.printer.labelPrintableArea[key] : null;
+      if (dimensions && dimensions.length === 2) {
+        document.getElementById('editSizeWidth').value = dimensions[0];
+        document.getElementById('editSizeHeight').value = dimensions[1];
+      } else {
+        document.getElementById('editSizeWidth').value = '';
+        document.getElementById('editSizeHeight').value = '';
+      }
+      document.getElementById('editSizeError').style.display = 'none';
       document.getElementById('editSizeModal').style.display = 'block';
     }
 
     function saveEditedSize() {
       const key = document.getElementById('editSizeKey').value;
       const label = document.getElementById('editSizeLabel').value.trim();
-      if (!label) { showStatus('Please enter a display label', 'warning'); return; }
+      const width = document.getElementById('editSizeWidth').value.trim();
+      const height = document.getElementById('editSizeHeight').value.trim();
+
+      if (!label) {
+        showStatus('Please enter a display label', 'warning');
+        return;
+      }
+
+      // Validate the size can be parsed/defined
+      if (!validateCustomSize(key, width, height)) {
+        return;
+      }
+
       if (!settingsState.printer.labelSizes) settingsState.printer.labelSizes = {};
       settingsState.printer.labelSizes[key] = label;
+
+      // Update or remove dimensions
+      if (width && height) {
+        if (!settingsState.printer.labelPrintableArea) {
+          settingsState.printer.labelPrintableArea = {};
+        }
+        settingsState.printer.labelPrintableArea[key] = [parseInt(width), parseInt(height)];
+      } else {
+        // Remove dimensions if they were cleared
+        if (settingsState.printer.labelPrintableArea && key in settingsState.printer.labelPrintableArea) {
+          delete settingsState.printer.labelPrintableArea[key];
+        }
+      }
+
       closeEditModal();
       renderCustomSizes();
       markAsChanged(); // Mark as unsaved
@@ -646,7 +772,7 @@
         const escapedPrinter = escapeHtml(printer);
         const escapedAttr = escapeHtmlAttr(printer);
         const isInCups = printers.includes(printer);
-        const suffix = isInCups ? '' : ' (not in CUPS)';
+        const suffix = isInCups ? '' : ' (not configured)';
         const selected = printer === currentPrinter ? 'selected' : '';
         optionsHtml += `<option value="${escapedAttr}" ${selected}>${escapedPrinter}${suffix}</option>`;
       });
@@ -666,7 +792,7 @@
         const escapedAttr = escapeHtmlAttr(printer);
         const isInCups = printers.includes(printer);
         const labelStyle = isInCups ? '' : 'color: #666; font-style: italic;';
-        const labelSuffix = isInCups ? '' : ' <small>(not in CUPS)</small>';
+        const labelSuffix = isInCups ? '' : ' <small>(not configured)</small>';
 
         includeHtml += `
           <div class="checkbox" style="margin: 5px 0;">
@@ -726,8 +852,16 @@
     }
 
     // Load printers and their media sizes
-    function loadPrinters(forceRefresh = false) {
-      const url = forceRefresh ? '/api/settings/printers?refresh=1' : '/api/settings/printers';
+    function loadPrinters(forceRefresh = false, useCupsOverride = null) {
+      // Build URL with parameters
+      let url = '/api/settings/printers';
+      const params = [];
+      if (forceRefresh) params.push('refresh=1');
+      // Allow override of CUPS setting for immediate preview before saving
+      const useCups = useCupsOverride !== null ? useCupsOverride : settingsState.printer.useCups;
+      params.push(`use_cups=${useCups ? '1' : '0'}`);
+      if (params.length > 0) url += '?' + params.join('&');
+
       fetch(url)
         .then(response => response.json())
         .then(data => {
@@ -763,6 +897,13 @@
         const collapserId = `collapse_${index}`;
         const headingId = `heading_${index}`;
 
+        // Calculate total available and enabled counts
+        const totalAvailable = mediaSizes.length;
+        const totalEnabled = enabledForPrinter.length;
+        const unavailableEnabledCount = enabledForPrinter.filter(sizeKey =>
+          !mediaSizes.some(item => item[0] === sizeKey)
+        ).length;
+
         html += `
           <div class="panel panel-default" style="margin-bottom: 15px;">
             <div class="panel-heading" style="cursor: pointer;" data-toggle="collapse" data-target="#${collapserId}" aria-expanded="false" aria-controls="${collapserId}">
@@ -773,7 +914,12 @@
                   ${escapeHtml(printer)}
                 </h5>
                 <span class="counter-${escapeHtml(printer)}" style="font-size: 13px; margin-right: 10px; color: #333; font-weight: 500;">
-                  ${mediaSizes.length > 0 ? `${enabledForPrinter.length}/${mediaSizes.length} enabled` : 'No sizes'}
+                  ${totalAvailable > 0
+                    ? (unavailableEnabledCount > 0
+                      ? `${totalEnabled} enabled (${unavailableEnabledCount} unavailable)`
+                      : `${totalEnabled}/${totalAvailable} enabled`)
+                    : (totalEnabled > 0 ? `${totalEnabled} enabled (all unavailable)` : 'No sizes')
+                  }
                 </span>
               </div>
             </div>
@@ -782,7 +928,33 @@
         `;
 
         if (mediaSizes.length === 0) {
-          html += '<p class="text-muted">No media sizes available for this printer</p>';
+          // Check if there are any previously enabled sizes to preserve
+          if (enabledForPrinter.length > 0) {
+            html += `
+              <div class="alert alert-warning" style="margin-bottom: 15px;">
+                <p class="text-muted" style="margin-bottom: 0;">
+                  <small><strong>Note:</strong> The following sizes were previously enabled but are no longer available. They are preserved to prevent data loss. Uncheck any you want to remove.</small>
+                </p>
+              </div>
+              <div class="list-group" style="margin-bottom: 10px;">
+            `;
+            enabledForPrinter.forEach(sizeKey => {
+              const checkboxId = `size_${escapeHtml(printer)}_${escapeHtml(sizeKey)}`;
+              html += `
+                <label class="list-group-item" style="border-radius: 4px; margin-bottom: 5px; background-color: #f5f5f5; opacity: 0.7;">
+                  <input type="checkbox" id="${checkboxId}"
+                         data-printer="${printer}"
+                         data-size="${sizeKey}"
+                         checked
+                         onchange="updateEnabledSize(this)" />
+                  <span class="text-muted">(Unavailable)</span> ${escapeHtml(sizeKey)}
+                </label>
+              `;
+            });
+            html += '</div>';
+          } else {
+            html += '<p class="text-muted">No media sizes available for this printer</p>';
+          }
         } else {
           html += `
             <div style="margin-bottom: 15px;">
@@ -796,6 +968,8 @@
           `;
 
           html += '<div class="list-group" style="margin-bottom: 10px;">';
+
+          // Show all available sizes
           mediaSizes.forEach(size => {
             const sizeKey = size[0];
             const sizeLabel = size[1];
@@ -813,6 +987,33 @@
               </label>
             `;
           });
+
+          // Also show any enabled sizes that are no longer available (to preserve data)
+          const unavailableEnabledSizes = enabledForPrinter.filter(sizeKey =>
+            !mediaSizes.some(item => item[0] === sizeKey)
+          );
+
+          if (unavailableEnabledSizes.length > 0) {
+            html += `
+              <div class="alert alert-info" style="margin-top: 10px; margin-bottom: 0; padding: 8px 12px;">
+                <small class="text-muted"><strong>Preserved sizes:</strong> The following sizes are no longer available but remain enabled to prevent data loss.</small>
+              </div>
+            `;
+            unavailableEnabledSizes.forEach(sizeKey => {
+              const checkboxId = `size_${escapeHtml(printer)}_${escapeHtml(sizeKey)}`;
+              html += `
+                <label class="list-group-item" style="border-radius: 4px; margin-bottom: 5px; background-color: #f5f5f5; opacity: 0.7; margin-top: 5px;">
+                  <input type="checkbox" id="${checkboxId}"
+                         data-printer="${printer}"
+                         data-size="${sizeKey}"
+                         checked
+                         onchange="updateEnabledSize(this)" />
+                  <span class="text-muted">(Unavailable)</span> ${escapeHtml(sizeKey)}
+                </label>
+              `;
+            });
+          }
+
           html += '</div>';
         }
 
@@ -865,18 +1066,73 @@
     function updatePrinterCounter(printer) {
       const counterElement = document.querySelector(`.counter-${escapeHtml(printer)}`);
       if (counterElement) {
-        const checkboxes = document.querySelectorAll(`input[data-printer="${printer}"]`);
-        const total = checkboxes.length;
-        const enabled = settingsState.printer.enabledSizes[printer] ? settingsState.printer.enabledSizes[printer].length : 0;
-        const disabled = total - enabled;
-        counterElement.textContent = `${disabled}/${total} disabled`;
+        // Get current enabled sizes for this printer
+        const enabledSizes = settingsState.printer.enabledSizes[printer] || [];
+
+        // Get current media sizes from the page (only available sizes)
+        // We need to calculate this from the current data state
+        // Find the printers data from the last render
+        const container = document.getElementById('printers-container');
+
+        // Count only checkboxes that are NOT marked as unavailable
+        // Unavailable checkboxes are in list-group-items with background-color: #f5f5f5
+        const availableCheckboxes = Array.from(
+          container.querySelectorAll(`input[data-printer="${printer}"]`)
+        ).filter(checkbox => {
+          // Check if this checkbox is in an unavailable item (has specific background)
+          const label = checkbox.closest('label');
+          return label && !label.style.backgroundColor.includes('f5f5f5');
+        });
+
+        const totalAvailable = availableCheckboxes.length;
+        const totalEnabled = enabledSizes.length;
+
+        // Count unavailable enabled sizes
+        const unavailableEnabledCount = enabledSizes.filter(sizeKey => {
+          // A size is unavailable if it has no checkbox in available items
+          return !availableCheckboxes.some(cb => cb.dataset.size === sizeKey);
+        }).length;
+
+        // Format the display text
+        let displayText;
+        const availableEnabled = totalEnabled - unavailableEnabledCount;
+
+        if (totalAvailable > 0) {
+          if (unavailableEnabledCount > 0) {
+            // Show both available and unavailable in the ratio
+            displayText = `${totalEnabled}/${totalAvailable} enabled (${unavailableEnabledCount} unavailable)`;
+          } else {
+            displayText = `${totalEnabled}/${totalAvailable} enabled`;
+          }
+        } else {
+          displayText = totalEnabled > 0 ? `${totalEnabled} enabled (all unavailable)` : 'No sizes';
+        }
+
+        counterElement.textContent = displayText;
       }
     }
 
-    // Update CUPS toggle
+    // Update CUPS toggle - reload all CUPS data when changed
     document.getElementById('printerUseCups').addEventListener('change', function() {
-      settingsState.printer.useCups = this.checked;
+      const newCupsState = this.checked;
+      settingsState.printer.useCups = newCupsState;
       updateCupsStatus();
+
+      // Reload all CUPS-related data when toggling
+      if (newCupsState) {
+        showStatus('Enabling CUPS - Loading printers and media sizes...', 'info');
+      } else {
+        showStatus('Disabling CUPS - Configuration-only mode', 'info');
+      }
+
+      // Reload printers list with the new CUPS state, include/exclude lists, and media sizes
+      loadPrinters(true, newCupsState);
+
+      // Reload label sizes for the default printer
+      loadLabelSizes();
+
+      // Mark as changed
+      markAsChanged();
     });
 
     // Reload media sizes from CUPS (no changes to enabled/disabled state)
@@ -920,10 +1176,10 @@
       const statusDiv = document.getElementById('cups-status');
       if (settingsState.printer.useCups) {
         statusDiv.className = 'alert alert-success';
-        statusDiv.innerHTML = '<strong>✓ CUPS media retrieval is enabled</strong><br>Media sizes will be retrieved from the CUPS print server.';
+        statusDiv.innerHTML = '<strong>✓ CUPS media retrieval is enabled</strong><br>Printers and Media sizes will be retrieved from the CUPS print server.';
       } else {
         statusDiv.className = 'alert alert-warning';
-        statusDiv.innerHTML = '<strong>✗ CUPS media retrieval is disabled</strong><br>Only configuration-defined media sizes will be used.';
+        statusDiv.innerHTML = '<strong>✗ CUPS media retrieval is disabled</strong><br>Only configuration-defined printers and media sizes will be used.';
       }
     }
 
@@ -942,6 +1198,7 @@
           printer: document.getElementById('printerName').value.trim(),
           enabledSizes: settingsState.printer.enabledSizes,
           labelSizes: settingsState.printer.labelSizes,
+          labelPrintableArea: settingsState.printer.labelPrintableArea || {},
           printersInclude: settingsState.printer.printersInclude || [],
           printersExclude: settingsState.printer.printersExclude || []
         },

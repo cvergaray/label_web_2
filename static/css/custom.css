@@ -15,3 +15,30 @@
 textarea#labelText {
   resize: none;
 }
+
+/* Configuration Errors Indicator - visible on all screen sizes */
+#configErrorsIndicator {
+  position: absolute;
+  right: 15px;
+  top: 15px;
+  z-index: 1070;
+}
+
+@media (max-width: 768px) {
+  #configErrorsIndicator {
+    position: absolute;
+    right: 60px;
+    top: 8px;
+    z-index: 1070;
+  }
+
+  #configErrorsIndicator a {
+    font-size: 11px !important;
+    padding: 6px 10px !important;
+  }
+
+  #configErrorsIndicator strong {
+    font-size: 11px !important;
+  }
+}
+

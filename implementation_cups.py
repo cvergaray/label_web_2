@@ -208,18 +208,26 @@ class implementation:
         printer_name = self._get_printer_name(printer_name)
         cups_sizes = []
 
-        try:
-            conn = self._get_conn()
-            # Get all supported media from CUPS (includes standard and custom CUPS sizes)
-            attrs = conn.getPrinterAttributes(printer_name, requested_attributes=["media-supported"])
-            media_supported = attrs.get("media-supported", [])
+        # Only attempt CUPS query if we have a valid printer name
+        if printer_name:
+            try:
+                conn = self._get_conn()
+                # Get all supported media from CUPS (includes standard and custom CUPS sizes)
+                attrs = conn.getPrinterAttributes(printer_name, requested_attributes=["media-supported"])
+                media_supported = attrs.get("media-supported", [])
 
-            for media in media_supported:
-                short, long = self._parse_media_name(media)
-                # Use full CUPS media name as key, long name as display value
-                cups_sizes.append((media, long))
-        except Exception as e:
-            print(f"Warning: Could not retrieve CUPS media sizes: {e}")
+                for media in media_supported:
+                    # Ensure media is a string (it might be bytes in some cases)
+                    if isinstance(media, bytes):
+                        media = media.decode('utf-8')
+                    elif not isinstance(media, str):
+                        media = str(media)
+
+                    short, long = self._parse_media_name(media)
+                    # Use full CUPS media name as key, long name as display value
+                    cups_sizes.append((media, long))
+            except Exception as e:
+                print(f"Warning: Could not retrieve CUPS media sizes: {e}")
 
         # Get custom sizes from config
         config_sizes = self.CONFIG.get('PRINTER', {}).get('LABEL_SIZES', {})
