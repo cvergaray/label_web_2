@@ -1,0 +1,743 @@
+{% extends "base.jinja2" %}
+
+{% block jumbotron %}
+  <h1>{{ website['PAGE_TITLE'] }}</h1>
+  <p>Application Settings</p>
+{% endblock %}
+
+{% block content %}
+  <div class="container">
+    <div class="row">
+      <div class="col-md-10 col-md-offset-1">
+
+        <!-- Action Buttons (Top) -->
+        <div style="margin-bottom: 20px;">
+          <button id="saveButton" class="btn btn-primary btn-lg">
+            <span class="glyphicon glyphicon-floppy-disk" aria-hidden="true"></span> Save All Settings
+          </button>
+          <button id="resetButton" class="btn btn-default btn-lg">
+            <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Reload Settings
+          </button>
+          <div id="statusMessage" style="display: inline-block; margin-left: 20px;"></div>
+        </div>
+
+        <!-- Settings Accordion -->
+        <div class="panel-group" id="settingsAccordion" role="tablist">
+
+          <!-- SERVER Configuration -->
+          <div class="panel panel-primary">
+            <div class="panel-heading" role="tab" id="headingServer">
+              <h4 class="panel-title">
+                <a role="button" data-toggle="collapse" data-parent="#settingsAccordion" href="#collapseServer" aria-expanded="false">
+                  <span class="glyphicon glyphicon-hdd" aria-hidden="true"></span> Server Configuration
+                </a>
+              </h4>
+            </div>
+            <div id="collapseServer" class="panel-collapse collapse" role="tabpanel">
+              <div class="panel-body">
+                <div class="form-horizontal">
+                  <div class="form-group">
+                    <label class="col-sm-3 control-label">Host Address</label>
+                    <div class="col-sm-9">
+                      <input type="text" class="form-control" id="serverHost" placeholder="0.0.0.0 or leave empty">
+                      <p class="help-block">The network address the server listens on. Use 0.0.0.0 for all interfaces, 127.0.0.1 for local only, or empty string.</p>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="col-sm-3 control-label">Log Level</label>
+                    <div class="col-sm-9">
+                      <select class="form-control" id="serverLogLevel">
+                        <option value="DEBUG">DEBUG</option>
+                        <option value="INFO">INFO</option>
+                        <option value="WARNING">WARNING</option>
+                        <option value="ERROR">ERROR</option>
+                        <option value="CRITICAL">CRITICAL</option>
+                      </select>
+                      <p class="help-block">Application logging level. DEBUG shows the most information, CRITICAL shows only severe errors.</p>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="col-sm-3 control-label">Additional Font Folder</label>
+                    <div class="col-sm-9">
+                      <input type="text" class="form-control" id="serverFontFolder" placeholder="/path/to/fonts or false">
+                      <p class="help-block">Path to additional font folder, or 'false' to disable. TTF and OTF fonts in this folder will be available.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PRINTER Configuration -->
+          <div class="panel panel-info">
+            <div class="panel-heading" role="tab" id="headingPrinter">
+              <h4 class="panel-title">
+                <a role="button" data-toggle="collapse" data-parent="#settingsAccordion" href="#collapsePrinter" aria-expanded="true">
+                  <span class="glyphicon glyphicon-print" aria-hidden="true"></span> Printer Configuration
+                </a>
+              </h4>
+            </div>
+            <div id="collapsePrinter" class="panel-collapse collapse in" role="tabpanel">
+              <div class="panel-body">
+                <div class="form-horizontal">
+                  <div class="form-group">
+                    <label class="col-sm-3 control-label">Use CUPS</label>
+                    <div class="col-sm-9">
+                      <div class="checkbox" style="margin-bottom:10px;">
+                        <label>
+                          <input type="checkbox" id="printerUseCups"> Enable CUPS for media retrieval
+                        </label>
+                      </div>
+                      <button id="reloadMediaBtn" class="btn btn-sm btn-info" type="button">
+                        <span class="glyphicon glyphicon-repeat" aria-hidden="true"></span> Reload media sizes from CUPS
+                      </button>
+                      <div id="cups-status" class="alert alert-info" style="margin-top: 10px;">
+                        Loading CUPS status...
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="col-sm-3 control-label">CUPS Server</label>
+                    <div class="col-sm-9">
+                      <input type="text" class="form-control" id="printerServer" placeholder="localhost">
+                      <p class="help-block">CUPS server address. Use 'localhost' for local CUPS, or IP address for remote.</p>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="col-sm-3 control-label">Default Printer</label>
+                    <div class="col-sm-9">
+                      <input type="text" class="form-control" id="printerName" placeholder="Printer name (optional)">
+                      <p class="help-block">Default printer name. Leave empty to use CUPS default printer.</p>
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="col-sm-3 control-label">Printer Include List</label>
+                    <div class="col-sm-9">
+                      <p class="help-block" style="margin-top: 0;">If any printers are selected, show only those printers. Leave all unchecked to include all.</p>
+                      <div id="printersIncludeList" class="well well-sm" style="max-height: 200px; overflow-y: auto;">
+                        <p class="text-muted">Loading printers...</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="col-sm-3 control-label">Printer Exclude List</label>
+                    <div class="col-sm-9">
+                      <p class="help-block" style="margin-top: 0;">Printers to hide from lists. Applied after include list.</p>
+                      <div id="printersExcludeList" class="well well-sm" style="max-height: 200px; overflow-y: auto;">
+                        <p class="text-muted">Loading printers...</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <hr>
+                  <h5><strong>Custom Media Sizes (global)</strong></h5>
+                  <p class="text-muted small">Add custom size key and display label. Key may be a CUPS name (e.g., na_index-4x6_4x6in) or config key with printable area defined.</p>
+                  <div class="form-inline" style="margin-bottom:10px;">
+                    <input type="text" class="form-control" id="customSizeKey" placeholder="size key (e.g., Custom.100x150mm)" style="width:40%; margin-right:5px;">
+                    <input type="text" class="form-control" id="customSizeLabel" placeholder="Display label (e.g., 4in x 6in)" style="width:40%; margin-right:5px;">
+                    <button id="addCustomSizeBtn" type="button" class="btn btn-default">
+                      <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> Add
+                    </button>
+                  </div>
+                  <div id="customSizesList" class="list-group" style="margin-bottom: 15px;"></div>
+
+                  <!-- Edit custom size modal form -->
+                  <div id="editSizeModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999;">
+                    <div style="position:relative; margin:100px auto; max-width:500px; background:white; padding:20px; border-radius:5px;">
+                      <h4>Edit Custom Size</h4>
+                      <div class="form-group">
+                        <label>Size Key</label>
+                        <input type="text" class="form-control" id="editSizeKey" readonly>
+                      </div>
+                      <div class="form-group">
+                        <label>Display Label</label>
+                        <input type="text" class="form-control" id="editSizeLabel">
+                      </div>
+                      <button class="btn btn-primary" onclick="saveEditedSize()">Save</button>
+                      <button class="btn btn-default" onclick="closeEditModal()">Cancel</button>
+                    </div>
+                  </div>
+
+                  <hr>
+                  <h5><strong>Enabled Media Sizes Per Printer</strong></h5>
+                  <p class="text-muted small">Select media sizes that should be enabled for each printer. All other sizes will be disabled by default.</p>
+                  <div id="printers-container">
+                    <p class="text-muted">Loading printers...</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- LABEL Configuration -->
+          <div class="panel panel-success">
+            <div class="panel-heading" role="tab" id="headingLabel">
+              <h4 class="panel-title">
+                <a role="button" data-toggle="collapse" data-parent="#settingsAccordion" href="#collapseLabel" aria-expanded="false">
+                  <span class="glyphicon glyphicon-tag" aria-hidden="true"></span> Label Configuration
+                </a>
+              </h4>
+            </div>
+            <div id="collapseLabel" class="panel-collapse collapse" role="tabpanel">
+              <div class="panel-body">
+                <div class="form-horizontal">
+                  <div class="form-group">
+                    <label class="col-sm-3 control-label">Default Label Size</label>
+                    <div class="col-sm-9">
+                      <input type="text" class="form-control" id="labelDefaultSize" placeholder="e.g., 62">
+                      <p class="help-block">Default label size identifier. Must match one of the available label sizes.</p>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="col-sm-3 control-label">Default Orientation</label>
+                    <div class="col-sm-9">
+                      <select class="form-control" id="labelDefaultOrientation">
+                        <option value="standard">Standard</option>
+                        <option value="rotated">Rotated</option>
+                      </select>
+                      <p class="help-block">Default label orientation. Rotated turns the label 90 degrees.</p>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="col-sm-3 control-label">Default Font Size</label>
+                    <div class="col-sm-9">
+                      <input type="number" class="form-control" id="labelDefaultFontSize" min="8" max="500" placeholder="70">
+                      <p class="help-block">Default font size in points.</p>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="col-sm-3 control-label">Default Font</label>
+                    <div class="col-sm-9">
+                      <input type="text" class="form-control" id="labelDefaultFontFamily" placeholder="DejaVu Sans">
+                      <p class="help-block">Default font family name.</p>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="col-sm-3 control-label">Default Font Style</label>
+                    <div class="col-sm-9">
+                      <input type="text" class="form-control" id="labelDefaultFontStyle" placeholder="Book">
+                      <p class="help-block">Default font style (e.g., Book, Bold, Italic).</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- WEBSITE Configuration -->
+          <div class="panel panel-warning">
+            <div class="panel-heading" role="tab" id="headingWebsite">
+              <h4 class="panel-title">
+                <a role="button" data-toggle="collapse" data-parent="#settingsAccordion" href="#collapseWebsite" aria-expanded="false">
+                  <span class="glyphicon glyphicon-globe" aria-hidden="true"></span> Website Configuration
+                </a>
+              </h4>
+            </div>
+            <div id="collapseWebsite" class="panel-collapse collapse" role="tabpanel">
+              <div class="panel-body">
+                <div class="form-horizontal">
+                  <div class="form-group">
+                    <label class="col-sm-3 control-label">HTML Title</label>
+                    <div class="col-sm-9">
+                      <input type="text" class="form-control" id="websiteHtmlTitle" placeholder="Label Designer">
+                      <p class="help-block">Title shown in browser tab and bookmarks.</p>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="col-sm-3 control-label">Page Title</label>
+                    <div class="col-sm-9">
+                      <input type="text" class="form-control" id="websitePageTitle" placeholder="Label Designer">
+                      <p class="help-block">Title shown in the navigation bar.</p>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="col-sm-3 control-label">Page Headline</label>
+                    <div class="col-sm-9">
+                      <input type="text" class="form-control" id="websitePageHeadline" placeholder="Design and print labels">
+                      <p class="help-block">Headline shown on the home page jumbotron.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Action Buttons (Bottom) -->
+        <div style="margin-top: 20px; margin-bottom: 40px;">
+          <button id="saveButton2" class="btn btn-primary btn-lg">
+            <span class="glyphicon glyphicon-floppy-disk" aria-hidden="true"></span> Save All Settings
+          </button>
+          <button id="resetButton2" class="btn btn-default btn-lg">
+            <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Reload Settings
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Store the settings state
+    let settingsState = {
+      server: { host: '', logLevel: 'INFO', additionalFontFolder: false },
+      printer: {
+        useCups: false,
+        server: 'localhost',
+        printer: '',
+        enabledSizes: {},   // { printer_name: [size1, ...] }
+        labelSizes: {},     // global custom sizes map
+        printersInclude: [],
+        printersExclude: []
+      },
+      label: { defaultSize: '', defaultOrientation: 'standard', defaultFontSize: 70, defaultFontFamily: 'DejaVu Sans', defaultFontStyle: 'Book' },
+      website: { htmlTitle: 'Label Designer', pageTitle: 'Label Designer', pageHeadline: 'Design and print labels' }
+    };
+
+    function loadSettings() {
+      fetch('/api/settings')
+        .then(r => r.json())
+        .then(data => { settingsState = data; renderSettings(); showStatus('Settings loaded successfully', 'success'); })
+        .catch(err => { console.error(err); showStatus('Failed to load settings: ' + err, 'danger'); });
+    }
+
+    function renderSettings() {
+      // SERVER
+      document.getElementById('serverHost').value = settingsState.server.host || '';
+      document.getElementById('serverLogLevel').value = settingsState.server.logLevel || 'INFO';
+      document.getElementById('serverFontFolder').value = settingsState.server.additionalFontFolder === false ? 'false' : (settingsState.server.additionalFontFolder || '');
+      // PRINTER
+      document.getElementById('printerUseCups').checked = settingsState.printer.useCups;
+      document.getElementById('printerServer').value = settingsState.printer.server || 'localhost';
+      document.getElementById('printerName').value = settingsState.printer.printer || '';
+      updateCupsStatus();
+      // WEBSITE
+      document.getElementById('websiteHtmlTitle').value = settingsState.website.htmlTitle || 'Label Designer';
+      document.getElementById('websitePageTitle').value = settingsState.website.pageTitle || 'Label Designer';
+      document.getElementById('websitePageHeadline').value = settingsState.website.pageHeadline || 'Design and print labels';
+
+      // Render custom sizes list
+      renderCustomSizes();
+      // Load printers/media list and printer checkboxes
+      loadPrinters();
+    }
+
+    function renderCustomSizes() {
+      const list = document.getElementById('customSizesList');
+      const sizes = settingsState.printer.labelSizes || {};
+      const entries = Object.entries(sizes);
+      if (entries.length === 0) { list.innerHTML = '<div class="text-muted">No custom sizes added</div>'; return; }
+      let html = '';
+      entries.forEach(([key,label]) => {
+        html += `<div class="list-group-item" style="display:flex; justify-content:space-between; align-items:center;">
+                  <span><strong>${escapeHtml(label)}</strong> <small class="text-muted">(${escapeHtml(key)})</small></span>
+                  <div>
+                    <button class="btn btn-xs btn-primary" onclick="editCustomSize('${escapeHtmlAttr(key)}')"><span class="glyphicon glyphicon-pencil"></span> Edit</button>
+                    <button class="btn btn-xs btn-danger" onclick="removeCustomSize('${escapeHtmlAttr(key)}')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
+                  </div>
+                 </div>`;
+      });
+      list.innerHTML = html;
+    }
+
+    function addCustomSize() {
+      const key = document.getElementById('customSizeKey').value.trim();
+      const label = document.getElementById('customSizeLabel').value.trim();
+      if (!key || !label) { showStatus('Please enter both size key and label', 'warning'); return; }
+      if (!settingsState.printer.labelSizes) settingsState.printer.labelSizes = {};
+      settingsState.printer.labelSizes[key] = label;
+      document.getElementById('customSizeKey').value = '';
+      document.getElementById('customSizeLabel').value = '';
+      renderCustomSizes();
+      // Refresh printers list to include new size in UI
+      loadPrinters();
+    }
+
+    function editCustomSize(key) {
+      if (!settingsState.printer.labelSizes || !(key in settingsState.printer.labelSizes)) return;
+      document.getElementById('editSizeKey').value = key;
+      document.getElementById('editSizeLabel').value = settingsState.printer.labelSizes[key];
+      document.getElementById('editSizeModal').style.display = 'block';
+    }
+
+    function saveEditedSize() {
+      const key = document.getElementById('editSizeKey').value;
+      const label = document.getElementById('editSizeLabel').value.trim();
+      if (!label) { showStatus('Please enter a display label', 'warning'); return; }
+      if (!settingsState.printer.labelSizes) settingsState.printer.labelSizes = {};
+      settingsState.printer.labelSizes[key] = label;
+      closeEditModal();
+      renderCustomSizes();
+      loadPrinters();
+    }
+
+    function closeEditModal() {
+      document.getElementById('editSizeModal').style.display = 'none';
+    }
+
+    function removeCustomSize(key) {
+      if (settingsState.printer.labelSizes && key in settingsState.printer.labelSizes) {
+        delete settingsState.printer.labelSizes[key];
+        renderCustomSizes();
+        loadPrinters();
+      }
+    }
+
+    document.getElementById('addCustomSizeBtn').addEventListener('click', addCustomSize);
+
+    // Render printer checkboxes for include/exclude lists
+    function renderPrinterCheckboxes(printers) {
+      const includeList = document.getElementById('printersIncludeList');
+      const excludeList = document.getElementById('printersExcludeList');
+
+      const includeSet = new Set(settingsState.printer.printersInclude || []);
+      const excludeSet = new Set(settingsState.printer.printersExclude || []);
+
+      // Create a combined set of all printers (from CUPS + from saved include/exclude lists)
+      const allPrinters = new Set(printers);
+
+      // Add any printers from include list that aren't in CUPS (so they can be unchecked)
+      (settingsState.printer.printersInclude || []).forEach(p => allPrinters.add(p));
+
+      // Add any printers from exclude list that aren't in CUPS (so they can be unchecked)
+      (settingsState.printer.printersExclude || []).forEach(p => allPrinters.add(p));
+
+      const allPrintersList = Array.from(allPrinters).sort();
+
+      if (allPrintersList.length === 0) {
+        includeList.innerHTML = '<p class="text-muted">No printers available</p>';
+        excludeList.innerHTML = '<p class="text-muted">No printers available</p>';
+        return;
+      }
+
+      let includeHtml = '';
+      let excludeHtml = '';
+
+      allPrintersList.forEach(printer => {
+        const escapedPrinter = escapeHtml(printer);
+        const escapedAttr = escapeHtmlAttr(printer);
+        const isInCups = printers.includes(printer);
+        const labelStyle = isInCups ? '' : 'color: #999; font-style: italic;';
+        const labelSuffix = isInCups ? '' : ' <small>(not in CUPS)</small>';
+
+        includeHtml += `
+          <div class="checkbox" style="margin: 5px 0;">
+            <label style="${labelStyle}">
+              <input type="checkbox" data-printer="${escapedAttr}" onchange="updatePrinterInclude(this)" ${includeSet.has(printer) ? 'checked' : ''}>
+              ${escapedPrinter}${labelSuffix}
+            </label>
+          </div>
+        `;
+
+        excludeHtml += `
+          <div class="checkbox" style="margin: 5px 0;">
+            <label style="${labelStyle}">
+              <input type="checkbox" data-printer="${escapedAttr}" onchange="updatePrinterExclude(this)" ${excludeSet.has(printer) ? 'checked' : ''}>
+              ${escapedPrinter}${labelSuffix}
+            </label>
+          </div>
+        `;
+      });
+
+      includeList.innerHTML = includeHtml;
+      excludeList.innerHTML = excludeHtml;
+    }
+
+    function updatePrinterInclude(checkbox) {
+      const printer = checkbox.dataset.printer;
+      if (!settingsState.printer.printersInclude) settingsState.printer.printersInclude = [];
+
+      if (checkbox.checked) {
+        if (!settingsState.printer.printersInclude.includes(printer)) {
+          settingsState.printer.printersInclude.push(printer);
+        }
+      } else {
+        const idx = settingsState.printer.printersInclude.indexOf(printer);
+        if (idx > -1) {
+          settingsState.printer.printersInclude.splice(idx, 1);
+        }
+      }
+    }
+
+    function updatePrinterExclude(checkbox) {
+      const printer = checkbox.dataset.printer;
+      if (!settingsState.printer.printersExclude) settingsState.printer.printersExclude = [];
+
+      if (checkbox.checked) {
+        if (!settingsState.printer.printersExclude.includes(printer)) {
+          settingsState.printer.printersExclude.push(printer);
+        }
+      } else {
+        const idx = settingsState.printer.printersExclude.indexOf(printer);
+        if (idx > -1) {
+          settingsState.printer.printersExclude.splice(idx, 1);
+        }
+      }
+    }
+
+    // Load printers and their media sizes
+    function loadPrinters() {
+      fetch('/api/settings/printers')
+        .then(response => response.json())
+        .then(data => {
+          renderPrinterCheckboxes(data.printers || []);
+          renderPrintersList(data);
+        })
+        .catch(error => { console.error('Error loading printers:', error); showStatus('Failed to load printers: ' + error, 'danger'); });
+    }
+
+    // Render the list of printers with their media sizes
+    function renderPrintersList(data) {
+      const container = document.getElementById('printers-container');
+      const printers = data.printers || [];
+      let allMediaSizes = data.all_media_sizes || {};
+
+      // Merge in custom sizes (global) for every printer if not already present
+      const customSizes = settingsState.printer.labelSizes || {};
+      printers.forEach(p => {
+        const list = allMediaSizes[p] || [];
+        const existingKeys = new Set(list.map(item => item[0]));
+        for (const [k,v] of Object.entries(customSizes)) {
+          if (!existingKeys.has(k)) list.push([k, v]);
+        }
+        allMediaSizes[p] = list;
+      });
+
+      if (printers.length === 0) { container.innerHTML = '<p class="text-muted">No printers available</p>'; return; }
+
+      let html = '';
+      printers.forEach((printer, index) => {
+        const enabledForPrinter = settingsState.printer.enabledSizes[printer] || [];
+        const mediaSizes = allMediaSizes[printer] || [];
+        const disabledCount = mediaSizes.length - enabledForPrinter.length;
+        const collapserId = `collapse_${index}`;
+        const headingId = `heading_${index}`;
+
+        html += `
+          <div class="panel panel-default" style="margin-bottom: 15px;">
+            <div class="panel-heading" style="cursor: pointer;" data-toggle="collapse" data-target="#${collapserId}" aria-expanded="false" aria-controls="${collapserId}">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h5 style="margin: 0; flex: 1;">
+                  <span class="glyphicon glyphicon-print" aria-hidden="true"></span>
+                  <span class="glyphicon glyphicon-chevron-right" style="font-size: 12px; margin-left: 5px;"></span>
+                  ${escapeHtml(printer)}
+                </h5>
+                <span class="text-muted counter-${escapeHtml(printer)}" style="font-size: 12px; margin-right: 10px;">
+                  ${mediaSizes.length > 0 ? `${disabledCount}/${mediaSizes.length} disabled` : 'No sizes'}
+                </span>
+              </div>
+            </div>
+            <div id="${collapserId}" class="panel-collapse collapse" role="tabpanel" aria-labelledby="${headingId}">
+              <div class="panel-body">
+        `;
+
+        if (mediaSizes.length === 0) {
+          html += '<p class="text-muted">No media sizes available for this printer</p>';
+        } else {
+          html += `
+            <div style="margin-bottom: 15px;">
+              <button class="btn btn-sm btn-success" onclick="enableAllSizes('${escapeHtmlAttr(printer)}')">
+                <span class="glyphicon glyphicon-ok-circle" aria-hidden="true"></span> Enable All
+              </button>
+              <button class="btn btn-sm btn-danger" onclick="disableAllSizes('${escapeHtmlAttr(printer)}')">
+                <span class="glyphicon glyphicon-ban-circle" aria-hidden="true"></span> Disable All
+              </button>
+            </div>
+          `;
+
+          html += '<div class="list-group" style="margin-bottom: 10px;">';
+          mediaSizes.forEach(size => {
+            const sizeKey = size[0];
+            const sizeLabel = size[1];
+            const isEnabled = enabledForPrinter.includes(sizeKey);
+            const checkboxId = `size_${escapeHtml(printer)}_${escapeHtml(sizeKey)}`;
+
+            html += `
+              <label class="list-group-item" style="border-radius: 4px; margin-bottom: 5px;">
+                <input type="checkbox" id="${checkboxId}"
+                       data-printer="${printer}"
+                       data-size="${sizeKey}"
+                       ${isEnabled ? 'checked' : ''}
+                       onchange="updateEnabledSize(this)" />
+                <span class="text-success">(Enable)</span> ${escapeHtml(sizeLabel)}
+              </label>
+            `;
+          });
+          html += '</div>';
+        }
+
+        html += `
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    // Enable all sizes for a printer
+    function enableAllSizes(printer) {
+      if (!settingsState.printer.enabledSizes[printer]) settingsState.printer.enabledSizes[printer] = [];
+      const checkboxes = document.querySelectorAll(`input[data-printer="${printer}"]`);
+      const allSizes = [];
+      checkboxes.forEach(cb => { cb.checked = true; allSizes.push(cb.dataset.size); });
+      settingsState.printer.enabledSizes[printer] = allSizes;
+      updatePrinterCounter(printer);
+    }
+
+    // Disable all sizes for a printer
+    function disableAllSizes(printer) {
+      if (!settingsState.printer.enabledSizes[printer]) settingsState.printer.enabledSizes[printer] = [];
+      const checkboxes = document.querySelectorAll(`input[data-printer="${printer}"]`);
+      checkboxes.forEach(cb => { cb.checked = false; });
+      settingsState.printer.enabledSizes[printer] = [];
+      updatePrinterCounter(printer);
+    }
+
+    // Update enabled sizes when checkbox changes
+    function updateEnabledSize(checkbox) {
+      const printer = checkbox.dataset.printer;
+      const size = checkbox.dataset.size;
+      if (!settingsState.printer.enabledSizes[printer]) settingsState.printer.enabledSizes[printer] = [];
+      if (checkbox.checked) {
+        if (!settingsState.printer.enabledSizes[printer].includes(size)) settingsState.printer.enabledSizes[printer].push(size);
+      } else {
+        const idx = settingsState.printer.enabledSizes[printer].indexOf(size);
+        if (idx > -1) settingsState.printer.enabledSizes[printer].splice(idx, 1);
+      }
+      updatePrinterCounter(printer);
+    }
+
+    function updatePrinterCounter(printer) {
+      const counterElement = document.querySelector(`.counter-${escapeHtml(printer)}`);
+      if (counterElement) {
+        const checkboxes = document.querySelectorAll(`input[data-printer="${printer}"]`);
+        const total = checkboxes.length;
+        const enabled = settingsState.printer.enabledSizes[printer] ? settingsState.printer.enabledSizes[printer].length : 0;
+        const disabled = total - enabled;
+        counterElement.textContent = `${disabled}/${total} disabled`;
+      }
+    }
+
+    // Update CUPS toggle
+    document.getElementById('printerUseCups').addEventListener('change', function() {
+      settingsState.printer.useCups = this.checked;
+      updateCupsStatus();
+    });
+
+    // Reload media sizes from CUPS (no changes to enabled/disabled state)
+    document.getElementById('reloadMediaBtn').addEventListener('click', function() {
+      loadPrinters();
+      showStatus('Media sizes reloaded from CUPS', 'info');
+    });
+
+    // Update CUPS status message
+    function updateCupsStatus() {
+      const statusDiv = document.getElementById('cups-status');
+      if (settingsState.printer.useCups) {
+        statusDiv.className = 'alert alert-success';
+        statusDiv.innerHTML = '<strong>✓ CUPS media retrieval is enabled</strong><br>Media sizes will be retrieved from the CUPS print server.';
+      } else {
+        statusDiv.className = 'alert alert-warning';
+        statusDiv.innerHTML = '<strong>✗ CUPS media retrieval is disabled</strong><br>Only configuration-defined media sizes will be used.';
+      }
+    }
+
+    // Collect settings from UI
+    function collectSettings() {
+      const fontFolder = document.getElementById('serverFontFolder').value.trim();
+      return {
+        server: {
+          host: document.getElementById('serverHost').value.trim(),
+          logLevel: document.getElementById('serverLogLevel').value,
+          additionalFontFolder: fontFolder === 'false' ? false : (fontFolder || false)
+        },
+        printer: {
+          useCups: document.getElementById('printerUseCups').checked,
+          server: document.getElementById('printerServer').value.trim(),
+          printer: document.getElementById('printerName').value.trim(),
+          enabledSizes: settingsState.printer.enabledSizes,
+          labelSizes: settingsState.printer.labelSizes,
+          printersInclude: settingsState.printer.printersInclude || [],
+          printersExclude: settingsState.printer.printersExclude || []
+        },
+        label: {
+          defaultSize: document.getElementById('labelDefaultSize').value.trim(),
+          defaultOrientation: document.getElementById('labelDefaultOrientation').value,
+          defaultFontSize: parseInt(document.getElementById('labelDefaultFontSize').value) || 70,
+          defaultFontFamily: document.getElementById('labelDefaultFontFamily').value.trim(),
+          defaultFontStyle: document.getElementById('labelDefaultFontStyle').value.trim()
+        },
+        website: {
+          htmlTitle: document.getElementById('websiteHtmlTitle').value.trim(),
+          pageTitle: document.getElementById('websitePageTitle').value.trim(),
+          pageHeadline: document.getElementById('websitePageHeadline').value.trim()
+        }
+      };
+    }
+
+    // Save settings to the server
+    function saveSettings() {
+      const payload = collectSettings();
+      fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            showStatus('Settings saved successfully! Some changes may require a restart.', 'success');
+            // Update in-memory titles immediately for UX
+            document.title = settingsState.website.htmlTitle || document.title;
+            const pageTitleEl = document.querySelector('.navbar-brand');
+            if (pageTitleEl) pageTitleEl.textContent = settingsState.website.pageTitle || pageTitleEl.textContent;
+          } else {
+            showStatus('Failed to save settings: ' + (data.error || 'Unknown error'), 'danger');
+          }
+        })
+        .catch(err => { console.error('Error saving settings:', err); showStatus('Error saving settings: ' + err, 'danger'); });
+    }
+
+    document.getElementById('saveButton').addEventListener('click', saveSettings);
+    document.getElementById('saveButton2').addEventListener('click', saveSettings);
+    document.getElementById('resetButton').addEventListener('click', loadSettings);
+    document.getElementById('resetButton2').addEventListener('click', loadSettings);
+
+    function showStatus(message, type) {
+      const statusDiv = document.getElementById('statusMessage');
+      const alertClass = 'alert alert-' + type;
+      statusDiv.className = alertClass;
+      statusDiv.innerHTML = message;
+      statusDiv.style.display = 'inline-block';
+      if (type === 'success') setTimeout(() => { statusDiv.style.display = 'none'; }, 5000);
+    }
+
+    function escapeHtml(text) {
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+      return String(text).replace(/[&<>"']/g, m => map[m]);
+    }
+
+    function escapeHtmlAttr(text) {
+      return String(text).replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
+    }
+
+    document.addEventListener('DOMContentLoaded', loadSettings);
+  </script>
+
+  <style>
+    .panel-body label { margin-bottom: 0; }
+    .list-group-item { padding: 8px 12px; }
+    #settingsAccordion .panel-title a { display: block; text-decoration: none; color: white; }
+    #settingsAccordion .panel-title a:hover { text-decoration: none; }
+    #settingsAccordion .panel-primary .panel-heading { background-color: #337ab7; border-color: #337ab7; }
+    #settingsAccordion .panel-info .panel-heading { background-color: #5bc0de; border-color: #5bc0de; }
+    #settingsAccordion .panel-success .panel-heading { background-color: #5cb85c; border-color: #5cb85c; }
+    #settingsAccordion .panel-warning .panel-heading { background-color: #f0ad4e; border-color: #f0ad4e; }
+    #settingsAccordion .panel { margin-bottom: 10px; }
+    #statusMessage { display: inline-block; padding: 10px 15px; border-radius: 4px; }
+    .help-block { margin-top: 5px; margin-bottom: 0; }
+    .form-horizontal .form-group { margin-bottom: 20px; }
+  </style>
+{% endblock %}
+

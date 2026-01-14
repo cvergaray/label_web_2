@@ -37,6 +37,7 @@ except FileNotFoundError as e:
 
 PRINTERS = None
 LABEL_SIZES = None
+CONFIG_FILE = '/appconfig/config.json'
 
 
 # the decorator
@@ -80,6 +81,178 @@ def label_sizes_list_to_dict(label_sizes_list, logger=None, warn_prefix=""):
     return label_sizes_dict
 
 
+def reload_config():
+    """Reload CONFIG from file."""
+    global CONFIG
+    try:
+        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+            CONFIG = json.load(f)
+            logger.info(f"Reloaded config from {CONFIG_FILE}")
+            return True
+    except FileNotFoundError:
+        try:
+            with open('config.minimal.json', 'r', encoding='utf-8') as f:
+                CONFIG = json.load(f)
+                logger.info("Reloaded config from config.minimal.json")
+                return True
+        except Exception as e:
+            logger.error(f"Error reloading config: {e}")
+            return False
+    except Exception as e:
+        logger.error(f"Error reloading config: {e}")
+        return False
+
+
+def save_config(new_config):
+    """Save CONFIG to file."""
+    global CONFIG
+    try:
+        # Ensure the directory exists (for /appconfig)
+        os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(new_config, f, indent=2, ensure_ascii=False)
+        CONFIG = new_config
+        logger.info(f"Config saved to {CONFIG_FILE}")
+        return True
+    except Exception as e:
+        logger.error(f"Error saving config: {e}")
+        return False
+
+
+def config_to_settings_format(config):
+    """Convert CONFIG to the settings format expected by frontend."""
+    default_font = config.get('LABEL', {}).get('DEFAULT_FONTS', [{}])
+    if isinstance(default_font, list) and len(default_font) > 0:
+        default_font = default_font[0]
+    else:
+        default_font = {}
+
+    # Normalize LABEL_SIZES to a dict mapping for UI
+    cfg_sizes = config.get('PRINTER', {}).get('LABEL_SIZES', {})
+    if isinstance(cfg_sizes, list):
+        # list of [key, label] pairs
+        label_sizes_map = {k: v for k, v in cfg_sizes}
+    elif isinstance(cfg_sizes, dict):
+        label_sizes_map = dict(cfg_sizes)
+    else:
+        label_sizes_map = {}
+
+    return {
+        'server': {
+            'host': config.get('SERVER', {}).get('HOST', ''),
+            'logLevel': config.get('SERVER', {}).get('LOGLEVEL', 'INFO'),
+            'additionalFontFolder': config.get('SERVER', {}).get('ADDITIONAL_FONT_FOLDER', False)
+        },
+        'printer': {
+            'useCups': config.get('PRINTER', {}).get('USE_CUPS', False),
+            'server': config.get('PRINTER', {}).get('SERVER', 'localhost'),
+            'printer': config.get('PRINTER', {}).get('PRINTER', ''),
+            'enabledSizes': config.get('PRINTER', {}).get('ENABLED_SIZES', {}),
+            'labelSizes': label_sizes_map,
+            'printersInclude': config.get('PRINTER', {}).get('PRINTERS_INCLUDE', []),
+            'printersExclude': config.get('PRINTER', {}).get('PRINTERS_EXCLUDE', []),
+        },
+        'label': {
+            'defaultSize': config.get('LABEL', {}).get('DEFAULT_SIZE', ''),
+            'defaultOrientation': config.get('LABEL', {}).get('DEFAULT_ORIENTATION', 'standard'),
+            'defaultFontSize': config.get('LABEL', {}).get('DEFAULT_FONT_SIZE', 70),
+            'defaultFontFamily': default_font.get('family', 'DejaVu Sans'),
+            'defaultFontStyle': default_font.get('style', 'Book')
+        },
+        'website': {
+            'htmlTitle': config.get('WEBSITE', {}).get('HTML_TITLE', 'Label Designer'),
+            'pageTitle': config.get('WEBSITE', {}).get('PAGE_TITLE', 'Label Designer'),
+            'pageHeadline': config.get('WEBSITE', {}).get('PAGE_HEADLINE', 'Design and print labels')
+        }
+    }
+
+
+def settings_format_to_config(settings):
+    """Convert frontend settings format back to CONFIG structure."""
+    # Normalize custom sizes back to CONFIG format (dict)
+    label_sizes_map = settings.get('printer', {}).get('labelSizes', {}) or {}
+
+    config = {
+        'SERVER': {
+            'HOST': settings.get('server', {}).get('host', ''),
+            'LOGLEVEL': settings.get('server', {}).get('logLevel', 'INFO'),
+            'ADDITIONAL_FONT_FOLDER': settings.get('server', {}).get('additionalFontFolder', False)
+        },
+        'PRINTER': {
+            'USE_CUPS': settings.get('printer', {}).get('useCups', False),
+            'SERVER': settings.get('printer', {}).get('server', 'localhost'),
+            'PRINTER': settings.get('printer', {}).get('printer', ''),
+            'ENABLED_SIZES': settings.get('printer', {}).get('enabledSizes', {}),
+            'LABEL_SIZES': label_sizes_map,
+            'PRINTERS_INCLUDE': settings.get('printer', {}).get('printersInclude', []),
+            'PRINTERS_EXCLUDE': settings.get('printer', {}).get('printersExclude', []),
+        },
+        'LABEL': {
+            'DEFAULT_SIZE': settings.get('label', {}).get('defaultSize', ''),
+            'DEFAULT_ORIENTATION': settings.get('label', {}).get('defaultOrientation', 'standard'),
+            'DEFAULT_FONT_SIZE': settings.get('label', {}).get('defaultFontSize', 70),
+            'DEFAULT_FONTS': [
+                {
+                    'family': settings.get('label', {}).get('defaultFontFamily', 'DejaVu Sans'),
+                    'style': settings.get('label', {}).get('defaultFontStyle', 'Book')
+                }
+            ]
+        },
+        'WEBSITE': {
+            'HTML_TITLE': settings.get('website', {}).get('htmlTitle', 'Label Designer'),
+            'PAGE_TITLE': settings.get('website', {}).get('pageTitle', 'Label Designer'),
+            'PAGE_HEADLINE': settings.get('website', {}).get('pageHeadline', 'Design and print labels')
+        }
+    }
+
+    # Preserve any existing config sections not managed by settings UI
+    if 'LABEL_SIZES' in CONFIG.get('PRINTER', {}):
+        # merge existing with new (new wins)
+        old = CONFIG['PRINTER']['LABEL_SIZES']
+        if isinstance(old, dict):
+            merged = dict(old)
+            merged.update(label_sizes_map)
+            config['PRINTER']['LABEL_SIZES'] = merged
+    if 'LABEL_PRINTABLE_AREA' in CONFIG.get('PRINTER', {}):
+        config['PRINTER']['LABEL_PRINTABLE_AREA'] = CONFIG['PRINTER']['LABEL_PRINTABLE_AREA']
+
+    return config
+
+
+# Filter a list of (key,label) sizes by CONFIG PRINTER.ENABLED_SIZES for given printer.
+# If no entry exists for the printer, allow all sizes.
+def filter_label_sizes_for_printer(label_sizes_list, printer_name):
+    enabled_map = CONFIG.get('PRINTER', {}).get('ENABLED_SIZES', {}) or {}
+    enabled_for_printer = enabled_map.get(printer_name)
+    if not enabled_for_printer:
+        return label_sizes_list
+    enabled_set = set(enabled_for_printer)
+    return [t for t in label_sizes_list if t[0] in enabled_set]
+
+
+# Filter printer list by CONFIG PRINTER.PRINTERS_INCLUDE and PRINTERS_EXCLUDE
+def filter_printers(printers_list):
+    """
+    Filter printers based on include/exclude lists.
+    If include list has items, only show those printers.
+    Then apply exclude list to remove specific printers.
+    """
+    include = CONFIG.get('PRINTER', {}).get('PRINTERS_INCLUDE', []) or []
+    exclude = CONFIG.get('PRINTER', {}).get('PRINTERS_EXCLUDE', []) or []
+
+    filtered = printers_list
+
+    # If include list is specified, only show those printers
+    if include:
+        filtered = [p for p in filtered if p in include]
+
+    # Apply exclude list
+    if exclude:
+        filtered = [p for p in filtered if p not in exclude]
+
+    return filtered
+
+
 @route('/')
 def index():
     redirect('/labeldesigner')
@@ -94,16 +267,53 @@ def serve_static(filename):
 @view('labeldesigner.jinja2')
 def labeldesigner():
     font_family_names = sorted(list(FONTS.keys()))
-    default_printer = instance.selected_printer if instance.selected_printer else (PRINTERS[0] if PRINTERS else None)
+    # Filter printers for display
+    filtered_printers = filter_printers(PRINTERS)
+    default_printer = instance.selected_printer if instance.selected_printer else (filtered_printers[0] if filtered_printers else None)
     default_orientation = CONFIG['LABEL'].get('DEFAULT_ORIENTATION', 'standard')
+
+    # Compute label sizes for default printer and filter by enabled
+    label_sizes_list = instance.get_label_sizes(default_printer)
+    label_sizes_list = filter_label_sizes_for_printer(label_sizes_list, default_printer)
+    label_sizes = label_sizes_list_to_dict(label_sizes_list, logger)
+
     return {'font_family_names': font_family_names,
             'fonts': FONTS,
-            'label_sizes': LABEL_SIZES,
-            'printers': PRINTERS,
+            'label_sizes': label_sizes,
+            'printers': filtered_printers,
             'default_printer': default_printer,
             'default_orientation': default_orientation,
             'website': CONFIG['WEBSITE'],
             'label': CONFIG['LABEL']}
+
+
+@route('/api/printer/<printer_name>/media', method=['GET', 'OPTIONS'])
+@enable_cors
+def get_printer_media(printer_name):
+    """
+    API endpoint to get media details for a specific printer
+    Returns label sizes and default size for the printer
+    """
+    try:
+        label_sizes_list = instance.get_label_sizes(printer_name)
+        # Filter by enabled sizes
+        label_sizes_list = filter_label_sizes_for_printer(label_sizes_list, printer_name)
+        default_size = instance.get_default_label_size(printer_name)
+
+        # Convert list of tuples to dict for JSON response
+        label_sizes_dict = label_sizes_list_to_dict(label_sizes_list, logger, warn_prefix="API: ")
+
+        return {
+            'success': True,
+            'label_sizes': label_sizes_dict,
+            'default_size': default_size
+        }
+    except Exception as e:
+        response.status = 500
+        return {
+            'success': False,
+            'error': str(e)
+        }
 
 
 @route("/templateprint")
@@ -111,11 +321,17 @@ def labeldesigner():
 def templatePrint():
     templateFiles = [os.path.basename(file) for file in glob.glob('/appconfig/*.lbl')]
     default_printer = instance.selected_printer if instance.selected_printer else (PRINTERS[0] if PRINTERS else None)
+
+    # Filter label sizes for default printer
+    label_sizes_list = instance.get_label_sizes(default_printer)
+    label_sizes_list = filter_label_sizes_for_printer(label_sizes_list, default_printer)
+    label_sizes = label_sizes_list_to_dict(label_sizes_list, logger)
+
     return {
         'files': templateFiles,
         'printers': PRINTERS,
         'default_printer': default_printer,
-        'label_sizes': LABEL_SIZES,
+        'label_sizes': label_sizes,
         'website': CONFIG['WEBSITE'],
         'label': CONFIG['LABEL']
     }
@@ -154,32 +370,6 @@ def health():
     response.body = json.dumps({'printers': printers})
     if len(printers) == 0:
         response.status = '500 Internal Server Error'
-
-@route('/api/printer/<printer_name>/media', method=['GET', 'OPTIONS'])
-@enable_cors
-def get_printer_media(printer_name):
-    """
-    API endpoint to get media details for a specific printer
-    Returns label sizes and default size for the printer
-    """
-    try:
-        label_sizes_list = instance.get_label_sizes(printer_name)
-        default_size = instance.get_default_label_size(printer_name)
-
-        # Convert list of tuples to dict for JSON response
-        label_sizes_dict = label_sizes_list_to_dict(label_sizes_list, logger, warn_prefix="API: ")
-
-        return {
-            'success': True,
-            'label_sizes': label_sizes_dict,
-            'default_size': default_size
-        }
-    except Exception as e:
-        response.status = 500
-        return {
-            'success': False,
-            'error': str(e)
-        }
 
 
 @route('/api/template/<templatefile>/raw', method=['GET', 'OPTIONS'])
@@ -479,6 +669,84 @@ def print_text():
     if DEBUG: im.save('sample-out.png')
 
     return instance.print_label(im, **context)
+
+
+@route("/settings")
+@view('settings.jinja2')
+def settings_page():
+    """Render the settings management page."""
+    return {
+        'website': CONFIG['WEBSITE'],
+        'label': CONFIG['LABEL']
+    }
+
+
+@route('/api/settings', method=['GET', 'OPTIONS'])
+@enable_cors
+def get_settings():
+    """Get current application settings."""
+    return config_to_settings_format(CONFIG)
+
+
+@route('/api/settings', method=['POST', 'OPTIONS'])
+@enable_cors
+def save_settings_api():
+    """Save application settings."""
+    try:
+        payload = request.json
+
+        # Convert frontend settings format to CONFIG format
+        new_config = settings_format_to_config(payload)
+
+        # Merge with existing CONFIG to preserve other settings
+        merged_config = {**CONFIG, **new_config}
+
+        if save_config(merged_config):
+            # Apply new settings at runtime
+            global PRINTERS, LABEL_SIZES
+            instance.CONFIG = CONFIG
+            instance.initialize(CONFIG)
+            PRINTERS = instance.get_printers()
+            # Recompute default label sizes list for default printer for global usage
+            default_printer = instance.selected_printer if instance.selected_printer else (PRINTERS[0] if PRINTERS else None)
+            label_sizes_list = instance.get_label_sizes(default_printer)
+            label_sizes_list = filter_label_sizes_for_printer(label_sizes_list, default_printer)
+            LABEL_SIZES = label_sizes_list_to_dict(label_sizes_list, logger)
+            return {'success': True, 'message': 'Settings saved. Some changes may require app restart.'}
+        else:
+            response.status = 500
+            return {'success': False, 'error': 'Failed to save settings'}
+    except Exception as e:
+        response.status = 400
+        logger.error(f"Error saving settings: {e}")
+        return {'success': False, 'error': str(e)}
+
+
+@route('/api/settings/printers', method=['GET', 'OPTIONS'])
+@enable_cors
+def get_settings_printers():
+    """Get list of printers with their available media sizes."""
+
+    try:
+        printers = instance.get_printers() or []
+        all_media_sizes = {}
+
+        for printer in printers:
+            try:
+                media_sizes_list = instance.get_label_sizes(printer)
+                all_media_sizes[printer] = media_sizes_list
+            except Exception as e:
+                logger.warning(f"Could not get media sizes for printer {printer}: {e}")
+                all_media_sizes[printer] = []
+
+        return {
+            'printers': printers,
+            'all_media_sizes': all_media_sizes
+        }
+    except Exception as e:
+        response.status = 500
+        logger.error(f"Error getting printers: {e}")
+        return {'error': str(e)}
 
 
 def main():
