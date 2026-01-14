@@ -27,20 +27,20 @@
         {% endif %}
 
         <!-- Unsaved Changes Indicator (Fixed Position) -->
-        <div id="unsavedIndicator" style="display: none; position: fixed; top: 60px; right: 20px; z-index: 1000; background-color: #f0ad4e; color: white; padding: 12px 20px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+        <div id="unsavedIndicator" style="display: none; position: fixed; top: 60px; right: 20px; z-index: 1000; background-color: #d58512; color: white; padding: 12px 20px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); cursor: pointer;" onclick="saveSettings()">
           <span class="glyphicon glyphicon-warning-sign" aria-hidden="true"></span>
-          <strong>Unsaved Changes</strong> - Click Save to apply changes
+          <strong>Unsaved Changes</strong> - Click here to save
         </div>
 
         <!-- Action Buttons (Top) -->
-        <div style="margin-bottom: 20px;">
+        <div class="action-buttons-container" style="margin-bottom: 20px; position: relative; min-height: 46px;">
           <button id="saveButton" class="btn btn-primary btn-lg">
             <span class="glyphicon glyphicon-floppy-disk" aria-hidden="true"></span> Save All Settings
           </button>
           <button id="resetButton" class="btn btn-default btn-lg">
             <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Reload Settings
           </button>
-          <div id="statusMessage" style="display: inline-block; margin-left: 20px;"></div>
+          <div id="statusMessage" style="position: absolute; left: 420px; top: 0; max-width: calc(100% - 440px);"></div>
         </div>
 
         <!-- Settings Accordion -->
@@ -61,13 +61,14 @@
                   <div class="form-group">
                     <label class="col-sm-3 control-label">Host Address</label>
                     <div class="col-sm-9">
+                      <p class="help-block" style="margin-top: 0;">The network address the server listens on. Use 0.0.0.0 for all interfaces, 127.0.0.1 for local only, or empty string.</p>
                       <input type="text" class="form-control" id="serverHost" placeholder="0.0.0.0 or leave empty">
-                      <p class="help-block">The network address the server listens on. Use 0.0.0.0 for all interfaces, 127.0.0.1 for local only, or empty string.</p>
                     </div>
                   </div>
                   <div class="form-group">
                     <label class="col-sm-3 control-label">Log Level</label>
                     <div class="col-sm-9">
+                      <p class="help-block" style="margin-top: 0;">Application logging level. DEBUG shows the most information, CRITICAL shows only severe errors.</p>
                       <select class="form-control" id="serverLogLevel">
                         <option value="DEBUG">DEBUG</option>
                         <option value="INFO">INFO</option>
@@ -75,14 +76,13 @@
                         <option value="ERROR">ERROR</option>
                         <option value="CRITICAL">CRITICAL</option>
                       </select>
-                      <p class="help-block">Application logging level. DEBUG shows the most information, CRITICAL shows only severe errors.</p>
                     </div>
                   </div>
                   <div class="form-group">
                     <label class="col-sm-3 control-label">Additional Font Folder</label>
                     <div class="col-sm-9">
+                      <p class="help-block" style="margin-top: 0;">Path to additional font folder, or 'false' to disable. TTF and OTF fonts in this folder will be available.</p>
                       <input type="text" class="form-control" id="serverFontFolder" placeholder="/path/to/fonts or false">
-                      <p class="help-block">Path to additional font folder, or 'false' to disable. TTF and OTF fonts in this folder will be available.</p>
                     </div>
                   </div>
                 </div>
@@ -122,6 +122,7 @@
                   <div class="form-group">
                     <label class="col-sm-3 control-label">CUPS Server</label>
                     <div class="col-sm-9">
+                      <p class="help-block" style="margin-top: 0;">CUPS server address. Use 'localhost' for local CUPS, or IP address for remote.</p>
                       <div class="input-group">
                         <input type="text" class="form-control" id="printerServer" placeholder="localhost">
                         <span class="input-group-btn">
@@ -130,17 +131,16 @@
                           </button>
                         </span>
                       </div>
-                      <p class="help-block">CUPS server address. Use 'localhost' for local CUPS, or IP address for remote.</p>
                       <div id="cupsValidateStatus" class="text-muted" style="margin-top:5px;"></div>
                     </div>
                   </div>
                   <div class="form-group">
                     <label class="col-sm-3 control-label">Default Printer</label>
                     <div class="col-sm-9">
+                      <p class="help-block" style="margin-top: 0;">Default printer to use. Select "CUPS Default" to use the CUPS default printer.</p>
                       <select class="form-control" id="printerName">
                         <option value="">(CUPS Default)</option>
                       </select>
-                      <p class="help-block">Default printer to use. Select "CUPS Default" to use the CUPS default printer.</p>
                     </div>
                   </div>
 
@@ -166,10 +166,10 @@
                   <hr>
                   <h5><strong>Custom Media Sizes (global)</strong></h5>
                   <p class="text-muted small">Add custom size key and display label. "Custom." will be automatically prepended to the key.</p>
-                  <div class="form-inline" style="margin-bottom:10px;">
-                    <input type="text" class="form-control" id="customSizeKey" placeholder="size key (e.g., 100x150mm)" style="width:40%; margin-right:5px;">
-                    <input type="text" class="form-control" id="customSizeLabel" placeholder="Display label (e.g., 4in x 6in)" style="width:40%; margin-right:5px;">
-                    <button id="addCustomSizeBtn" type="button" class="btn btn-default">
+                  <div class="custom-size-input-group" style="margin-bottom:10px;">
+                    <input type="text" class="form-control" id="customSizeKey" placeholder="size key (e.g., 100x150mm)" style="width:40%; margin-right:10px; display:inline-block;">
+                    <input type="text" class="form-control" id="customSizeLabel" placeholder="Display label (e.g., 4in x 6in)" style="width:40%; margin-right:10px; display:inline-block;">
+                    <button id="addCustomSizeBtn" type="button" class="btn btn-default" style="display:inline-block;">
                       <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> Add
                     </button>
                   </div>
@@ -218,45 +218,54 @@
                   <div class="form-group">
                     <label class="col-sm-3 control-label">Default Label Size</label>
                     <div class="col-sm-9">
+                      <p class="help-block" style="margin-top: 0;">Default label size for the default printer. Only enabled sizes are shown.</p>
                       <select class="form-control" id="labelDefaultSize">
                         <option value="">Loading...</option>
                       </select>
-                      <p class="help-block">Default label size for the default printer. Only enabled sizes are shown.</p>
                     </div>
                   </div>
                   <div class="form-group">
                     <label class="col-sm-3 control-label">Default Orientation</label>
                     <div class="col-sm-9">
+                      <p class="help-block" style="margin-top: 0;">Default label orientation. Rotated turns the label 90 degrees.</p>
                       <select class="form-control" id="labelDefaultOrientation">
                         <option value="standard">Standard</option>
                         <option value="rotated">Rotated</option>
                       </select>
-                      <p class="help-block">Default label orientation. Rotated turns the label 90 degrees.</p>
                     </div>
                   </div>
                   <div class="form-group">
                     <label class="col-sm-3 control-label">Default Font Size</label>
                     <div class="col-sm-9">
+                      <p class="help-block" style="margin-top: 0;">Default font size in points.</p>
                       <input type="number" class="form-control" id="labelDefaultFontSize" min="8" max="500" placeholder="70">
-                      <p class="help-block">Default font size in points.</p>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="col-sm-3 control-label">Font Management</label>
+                    <div class="col-sm-9">
+                      <p class="help-block" style="margin-top: 0;">Refresh the list of available fonts from the system. Use this after installing new fonts.</p>
+                      <button id="reloadFontsBtn" class="btn btn-sm btn-info" type="button">
+                        <span class="glyphicon glyphicon-repeat" aria-hidden="true"></span> Reload available fonts
+                      </button>
                     </div>
                   </div>
                   <div class="form-group">
                     <label class="col-sm-3 control-label">Default Font Family</label>
                     <div class="col-sm-9">
+                      <p class="help-block" style="margin-top: 0;">Default font family name.</p>
                       <select class="form-control" id="labelDefaultFontFamily">
                         <option value="">Loading...</option>
                       </select>
-                      <p class="help-block">Default font family name.</p>
                     </div>
                   </div>
                   <div class="form-group">
                     <label class="col-sm-3 control-label">Default Font Style</label>
                     <div class="col-sm-9">
+                      <p class="help-block" style="margin-top: 0;">Default font style (e.g., Book, Bold, Italic).</p>
                       <select class="form-control" id="labelDefaultFontStyle">
                         <option value="">Loading...</option>
                       </select>
-                      <p class="help-block">Default font style (e.g., Book, Bold, Italic).</p>
                     </div>
                   </div>
                 </div>
@@ -279,22 +288,22 @@
                   <div class="form-group">
                     <label class="col-sm-3 control-label">HTML Title</label>
                     <div class="col-sm-9">
+                      <p class="help-block" style="margin-top: 0;">Title shown in browser tab and bookmarks.</p>
                       <input type="text" class="form-control" id="websiteHtmlTitle" placeholder="Label Designer">
-                      <p class="help-block">Title shown in browser tab and bookmarks.</p>
                     </div>
                   </div>
                   <div class="form-group">
                     <label class="col-sm-3 control-label">Page Title</label>
                     <div class="col-sm-9">
+                      <p class="help-block" style="margin-top: 0;">Title shown in the navigation bar.</p>
                       <input type="text" class="form-control" id="websitePageTitle" placeholder="Label Designer">
-                      <p class="help-block">Title shown in the navigation bar.</p>
                     </div>
                   </div>
                   <div class="form-group">
                     <label class="col-sm-3 control-label">Page Headline</label>
                     <div class="col-sm-9">
+                      <p class="help-block" style="margin-top: 0;">Headline shown on the home page jumbotron.</p>
                       <input type="text" class="form-control" id="websitePageHeadline" placeholder="Design and print labels">
-                      <p class="help-block">Headline shown on the home page jumbotron.</p>
                     </div>
                   </div>
                 </div>
@@ -305,7 +314,7 @@
         </div>
 
         <!-- Action Buttons (Bottom) -->
-        <div style="margin-top: 20px; margin-bottom: 40px;">
+        <div class="action-buttons-container" style="margin-top: 20px; margin-bottom: 40px;">
           <button id="saveButton2" class="btn btn-primary btn-lg">
             <span class="glyphicon glyphicon-floppy-disk" aria-hidden="true"></span> Save All Settings
           </button>
@@ -339,8 +348,11 @@
     let originalSettingsJson = '';
     let availableFonts = {}; // { family: [style1, style2, ...] }
     let availableLabelSizes = {}; // { size_key: size_label }
+    let isApplyingSettings = false; // suppress change tracking while initializing
+    let listenersAttached = false; // prevent duplicate listener attachment
 
     function markAsChanged() {
+      if (isApplyingSettings) return;
       hasUnsavedChanges = true;
       document.getElementById('unsavedIndicator').style.display = 'block';
     }
@@ -353,6 +365,7 @@
     }
 
     function loadSettings() {
+      isApplyingSettings = true;
       fetch('/api/settings')
         .then(r => r.json())
         .then(data => {
@@ -361,19 +374,31 @@
           markAsSaved(); // Reset unsaved indicator after loading
           showStatus('Settings loaded successfully', 'success');
         })
-        .catch(err => { console.error(err); showStatus('Failed to load settings: ' + err, 'danger'); });
+        .catch(err => {
+          console.error(err);
+          showStatus('Failed to load settings: ' + err, 'danger');
+        })
+        .finally(() => {
+          isApplyingSettings = false;
+          // Attach listeners AFTER flag is cleared
+          attachChangeListeners();
+        });
     }
 
     function loadFonts() {
-      fetch('/api/settings/fonts')
+      return fetch('/api/settings/fonts')
         .then(r => r.json())
         .then(data => {
           if (data.success) {
             availableFonts = data.fonts;
             populateFontFamilyDropdown();
           }
+          return data;
         })
-        .catch(err => { console.error('Error loading fonts:', err); });
+        .catch(err => {
+          console.error('Error loading fonts:', err);
+          throw err;
+        });
     }
 
     function loadLabelSizes() {
@@ -489,12 +514,12 @@
       renderCustomSizes();
       // Load printers/media list and printer checkboxes
       loadPrinters();
-
-      // Attach change listeners to all form inputs (after rendering)
-      attachChangeListeners();
     }
 
     function attachChangeListeners() {
+      if (listenersAttached) return; // Already attached, skip
+      listenersAttached = true;
+
       // SERVER inputs
       ['serverHost', 'serverLogLevel', 'serverFontFolder'].forEach(id => {
         const el = document.getElementById(id);
@@ -640,7 +665,7 @@
         const escapedPrinter = escapeHtml(printer);
         const escapedAttr = escapeHtmlAttr(printer);
         const isInCups = printers.includes(printer);
-        const labelStyle = isInCups ? '' : 'color: #999; font-style: italic;';
+        const labelStyle = isInCups ? '' : 'color: #666; font-style: italic;';
         const labelSuffix = isInCups ? '' : ' <small>(not in CUPS)</small>';
 
         includeHtml += `
@@ -735,7 +760,6 @@
       printers.forEach((printer, index) => {
         const enabledForPrinter = settingsState.printer.enabledSizes[printer] || [];
         const mediaSizes = allMediaSizes[printer] || [];
-        const disabledCount = mediaSizes.length - enabledForPrinter.length;
         const collapserId = `collapse_${index}`;
         const headingId = `heading_${index}`;
 
@@ -743,13 +767,13 @@
           <div class="panel panel-default" style="margin-bottom: 15px;">
             <div class="panel-heading" style="cursor: pointer;" data-toggle="collapse" data-target="#${collapserId}" aria-expanded="false" aria-controls="${collapserId}">
               <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h5 style="margin: 0; flex: 1;">
+                <h5 style="margin: 0; flex: 1; color: #333;">
                   <span class="glyphicon glyphicon-print" aria-hidden="true"></span>
                   <span class="glyphicon glyphicon-chevron-right" style="font-size: 12px; margin-left: 5px;"></span>
                   ${escapeHtml(printer)}
                 </h5>
-                <span class="text-muted counter-${escapeHtml(printer)}" style="font-size: 12px; margin-right: 10px;">
-                  ${mediaSizes.length > 0 ? `${disabledCount}/${mediaSizes.length} disabled` : 'No sizes'}
+                <span class="counter-${escapeHtml(printer)}" style="font-size: 13px; margin-right: 10px; color: #333; font-weight: 500;">
+                  ${mediaSizes.length > 0 ? `${enabledForPrinter.length}/${mediaSizes.length} enabled` : 'No sizes'}
                 </span>
               </div>
             </div>
@@ -859,6 +883,36 @@
     document.getElementById('reloadMediaBtn').addEventListener('click', function() {
       loadPrinters(true);
       showStatus('Media sizes reloaded from CUPS', 'info');
+    });
+
+    // Reload fonts from system
+    document.getElementById('reloadFontsBtn').addEventListener('click', function() {
+      const currentFamily = settingsState.label.defaultFontFamily;
+      const currentStyle = settingsState.label.defaultFontStyle;
+
+      showStatus('Reloading fonts...', 'info');
+
+      fetch('/api/settings/fonts/reload', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            availableFonts = data.fonts;
+            // Try to restore previous selection if it still exists
+            if (currentFamily && availableFonts[currentFamily]) {
+              settingsState.label.defaultFontFamily = currentFamily;
+              if (currentStyle && availableFonts[currentFamily].includes(currentStyle)) {
+                settingsState.label.defaultFontStyle = currentStyle;
+              }
+            }
+            populateFontFamilyDropdown();
+            showStatus(data.message || 'Fonts reloaded successfully', 'success');
+          } else {
+            showStatus('Error reloading fonts: ' + (data.error || 'Unknown error'), 'danger');
+          }
+        })
+        .catch(err => {
+          showStatus('Error reloading fonts: ' + err, 'danger');
+        });
     });
 
     // Update CUPS status message
@@ -1021,14 +1075,273 @@
     .list-group-item { padding: 8px 12px; }
     #settingsAccordion .panel-title a { display: block; text-decoration: none; color: white; }
     #settingsAccordion .panel-title a:hover { text-decoration: none; }
-    #settingsAccordion .panel-primary .panel-heading { background-color: #337ab7; border-color: #337ab7; }
-    #settingsAccordion .panel-info .panel-heading { background-color: #5bc0de; border-color: #5bc0de; }
-    #settingsAccordion .panel-success .panel-heading { background-color: #5cb85c; border-color: #5cb85c; }
-    #settingsAccordion .panel-warning .panel-heading { background-color: #f0ad4e; border-color: #f0ad4e; }
+    #settingsAccordion .panel-primary .panel-heading { background-color: #2a6496; border-color: #2a6496; }
+    #settingsAccordion .panel-info .panel-heading { background-color: #3091b2; border-color: #3091b2; }
+    #settingsAccordion .panel-success .panel-heading { background-color: #449d44; border-color: #449d44; }
+    #settingsAccordion .panel-warning .panel-heading { background-color: #d58512; border-color: #d58512; }
     #settingsAccordion .panel { margin-bottom: 10px; }
-    #statusMessage { display: inline-block; padding: 10px 15px; border-radius: 4px; }
+    #statusMessage { padding: 10px 15px; border-radius: 4px; }
     .help-block { margin-top: 5px; margin-bottom: 0; }
     .form-horizontal .form-group { margin-bottom: 20px; }
+    #unsavedIndicator:hover { background-color: #b06d0f; transform: scale(1.02); transition: all 0.2s ease; }
+
+    /* Fix text-muted contrast for 508 compliance */
+    .text-muted {
+      color: #595959 !important;
+    }
+
+    /* Make counter text more prominent and readable */
+    .panel-heading [class*="counter-"] {
+      color: #333 !important;
+      font-size: 13px !important;
+      font-weight: 500;
+    }
+
+    /* Fix button colors for 508 compliance - ensure 4.5:1 contrast ratio */
+    .btn-info {
+      background-color: #2a6496 !important;
+      border-color: #1f4d73 !important;
+      color: white !important;
+    }
+
+    .btn-info:hover,
+    .btn-info:focus {
+      background-color: #1f4d73 !important;
+      border-color: #163a56 !important;
+      color: white !important;
+    }
+
+    .btn-success {
+      background-color: #449d44 !important;
+      border-color: #398439 !important;
+      color: white !important;
+    }
+
+    .btn-success:hover,
+    .btn-success:focus {
+      background-color: #398439 !important;
+      border-color: #2d672d !important;
+      color: white !important;
+    }
+
+    .btn-danger {
+      background-color: #c9302c !important;
+      border-color: #ac2925 !important;
+      color: white !important;
+    }
+
+    .btn-danger:hover,
+    .btn-danger:focus {
+      background-color: #ac2925 !important;
+      border-color: #8b211e !important;
+      color: white !important;
+    }
+
+    .btn-warning {
+      background-color: #d58512 !important;
+      border-color: #b06d0f !important;
+      color: white !important;
+    }
+
+    .btn-warning:hover,
+    .btn-warning:focus {
+      background-color: #b06d0f !important;
+      border-color: #8f570c !important;
+      color: white !important;
+    }
+
+    .btn-primary {
+      background-color: #2a6496 !important;
+      border-color: #1f4d73 !important;
+      color: white !important;
+    }
+
+    .btn-primary:hover,
+    .btn-primary:focus {
+      background-color: #1f4d73 !important;
+      border-color: #163a56 !important;
+      color: white !important;
+    }
+
+    /* Ensure navbar is above unsaved indicator */
+    .navbar-fixed-top {
+      z-index: 1060 !important;
+    }
+
+    .navbar-collapse {
+      z-index: 1060 !important;
+    }
+
+    /* Add consistent spacing to input groups on desktop */
+    .input-group .form-control {
+      margin-right: 10px;
+      border-top-right-radius: 4px !important;
+      border-bottom-right-radius: 4px !important;
+    }
+
+    .input-group-btn {
+      padding-left: 0;
+    }
+
+    .input-group-btn .btn {
+      border-top-left-radius: 4px !important;
+      border-bottom-left-radius: 4px !important;
+    }
+
+    /* Mobile responsive styles */
+    @media (max-width: 768px) {
+      /* Make custom size inputs full width on mobile */
+      .custom-size-input-group {
+        display: block !important;
+      }
+      .custom-size-input-group .form-control {
+        width: 100% !important;
+        margin-bottom: 10px;
+        margin-right: 0 !important;
+      }
+      .custom-size-input-group .btn {
+        width: 100%;
+        min-height: 44px; /* Touch-friendly height */
+      }
+
+      /* Make action buttons stack on mobile */
+      .action-buttons-container button {
+        display: block;
+        width: 100%;
+        margin-bottom: 10px;
+        min-height: 44px; /* Touch-friendly height */
+      }
+
+      /* Hide status message on mobile (overlaps content) */
+      #statusMessage {
+        position: static !important;
+        left: auto !important;
+        top: auto !important;
+        max-width: 100% !important;
+        margin-top: 10px;
+        width: 100%;
+      }
+
+      /* Adjust unsaved indicator for mobile */
+      #unsavedIndicator {
+        top: 60px !important;
+        right: 10px !important;
+        left: 10px !important;
+        font-size: 14px;
+        padding: 10px 15px !important;
+        word-wrap: break-word;
+        z-index: 1050 !important;
+      }
+
+      /* Ensure it's visible when shown */
+      /* removed forced display so JS controls visibility */
+
+      /* Make form labels and controls stack on mobile */
+      .form-horizontal .control-label {
+        text-align: left;
+        margin-bottom: 5px;
+      }
+
+      /* Adjust modal for mobile */
+      #editSizeModal > div {
+        margin: 20px !important;
+        max-width: 100% !important;
+      }
+
+      /* Ensure buttons in forms are touch-friendly */
+      .btn-sm {
+        min-height: 44px;
+        padding: 10px 15px;
+      }
+
+      /* Make input groups wrap better on mobile - force stacking */
+      .input-group {
+        display: block !important;
+        width: 100%;
+      }
+
+      .input-group .form-control {
+        width: 100% !important;
+        border-radius: 4px !important;
+        margin-bottom: 10px;
+        display: block;
+      }
+
+      .input-group-btn {
+        display: block !important;
+        width: 100% !important;
+        position: static !important;
+        vertical-align: top;
+      }
+
+      .input-group-btn .btn {
+        width: 100% !important;
+        border-radius: 4px !important;
+        min-height: 44px;
+        white-space: normal;
+        padding: 10px 15px;
+        display: block;
+      }
+
+      /* Ensure validate button icon and text are visible */
+      #validateCupsBtn {
+        width: 100% !important;
+      }
+
+      #validateCupsBtn .glyphicon {
+        margin-right: 5px;
+      }
+
+      /* Better spacing for panels on mobile */
+      .panel-body {
+        padding: 10px;
+      }
+
+      /* Ensure help text wraps properly */
+      .help-block {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+      }
+
+      /* Make well containers full width */
+      .well {
+        margin-left: 0;
+        margin-right: 0;
+      }
+    }
+
+    @media (max-width: 480px) {
+      /* Extra small screens - even more compact */
+      #unsavedIndicator {
+        font-size: 12px;
+        padding: 8px 12px !important;
+      }
+
+      .btn-lg {
+        padding: 8px 12px;
+        font-size: 16px;
+      }
+
+      /* Reduce padding on very small screens */
+      .container {
+        padding-left: 10px;
+        padding-right: 10px;
+      }
+
+      .col-md-10 {
+        padding-left: 5px;
+        padding-right: 5px;
+      }
+    }
   </style>
 {% endblock %}
+
+
+
+
+
+
+
+
+
 

@@ -1000,6 +1000,37 @@ def get_settings_fonts():
         return {'success': False, 'error': str(e)}
 
 
+@route('/api/settings/fonts/reload', method=['POST', 'OPTIONS'])
+@enable_cors
+def reload_fonts_api():
+    """Reload fonts from the system."""
+    try:
+        global FONTS
+
+        # Reload fonts from system
+        FONTS = get_fonts()
+
+        # Also reload from additional font folder if configured
+        additional_folder = CONFIG.get('SERVER', {}).get('ADDITIONAL_FONT_FOLDER', False)
+        if additional_folder:
+            FONTS.update(get_fonts(additional_folder))
+
+        logger.info(f"Fonts reloaded. Found {len(FONTS)} font families.")
+
+        # Return the updated fonts list
+        fonts_dict = {}
+        for family, styles in FONTS.items():
+            fonts_dict[family] = list(styles.keys())
+
+        return {
+            'success': True,
+            'fonts': fonts_dict,
+            'message': f'Successfully reloaded {len(FONTS)} font families.'
+        }
+    except Exception as e:
+        response.status = 500
+        logger.error(f"Error reloading fonts: {e}")
+        return {'success': False, 'error': str(e)}
 
 
 def main():
