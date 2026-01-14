@@ -25,6 +25,12 @@
           <a class="navbar-brand" href="/">{{ website['PAGE_TITLE'] }}</a>
           <a class="navbar-brand" href="/templateprint">Print From Template</a>
           <a class="navbar-brand" href="/settings">Settings</a>
+          {% if has_errors %}
+          <a class="navbar-brand" href="/settings" style="background-color: #d9534f; color: white; padding: 10px 15px; border-radius: 4px; margin-left: 20px;">
+            <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
+            <strong>Configuration Errors</strong> - Click here to view
+          </a>
+          {% endif %}
         </div>
       </div>
     </nav>
@@ -38,6 +44,7 @@
     <!-- jQuery first, then Bootstrap JS. -->
     <script src="/static/js/jquery.min.js"></script>
     <script src="/static/js/bootstrap.min.js"></script>
+    <script src="/static/js/common.js"></script>
     <script type="text/javascript">
       {% block javascript %}{% endblock %}
     </script>

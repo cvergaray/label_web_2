@@ -127,65 +127,19 @@
 var currentTemplateFields = [];
 
 /**
- * Escape HTML to prevent XSS attacks
- * @param {string} text - The text to escape
- * @returns {string} HTML-escaped text
+ * Callback function to update preview after media is loaded
  */
-function escapeHtml(text) {
-  if (text === null || text === undefined) {
-    return '';
+function onMediaLoaded(data) {
+  // Update preview with new media if a template is selected
+  if ($('#template').val()) {
+    preview();
   }
-  var map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  };
-  return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
-}
-
-function loadPrinterMedia(printerName) {
-  if (!printerName) return;
-
-  $.ajax({
-    type: 'GET',
-    url: '/api/printer/' + encodeURIComponent(printerName) + '/media',
-    dataType: 'json',
-    success: function(data) {
-      if (data.success) {
-        // Update label sizes dropdown
-        $('#labelSize').empty();
-
-        for (var key in data.label_sizes) {
-          $('#labelSize').append($('<option>', {
-            value: key,
-            text: data.label_sizes[key]
-          }));
-        }
-
-        // When switching printers, always use the printer's default media
-        // This ensures each printer's default is selected when switching
-        if (data.default_size && data.label_sizes[data.default_size]) {
-          $('#labelSize').val(data.default_size);
-        }
-
-        // Update preview with new media
-        if ($('#template').val()) {
-          preview();
-        }
-      }
-    },
-    error: function(xhr, status, error) {
-      console.error('Error loading printer media:', error);
-    }
-  });
 }
 
 function onPrinterChange() {
   var printerName = $('#printer').val();
   // Load media for the selected printer
-  loadPrinterMedia(printerName);
+  loadPrinterMedia(printerName, onMediaLoaded);
 }
 
 function onLabelSizeChange() {
@@ -516,9 +470,11 @@ function preview() {
 function setStatus(data) {
   if (data['success']) {
     $('#statusPanel').html('<div id="statusBox" class="alert alert-success" role="alert"><i class="glyphicon glyphicon-check"></i><span>Printing was successful.</span></div>');
+  } else if (data['has_config_errors']) {
+    $('#statusPanel').html('<div id="statusBox" class="alert alert-danger" role="alert"><i class="glyphicon glyphicon-alert"></i><span>Cannot print: Configuration errors exist. Please <a href="/settings">resolve them in settings</a>.</span></div>');
   } else {
     // Escape the error message to prevent XSS
-    var escapedMessage = escapeHtml(data['message']);
+    var escapedMessage = escapeHtml(data['message'] || data['error'] || 'Unknown error');
     $('#statusPanel').html('<div id="statusBox" class="alert alert-warning" role="alert"><i class="glyphicon glyphicon-alert"></i><span>Printing was unsuccessful:<br />' + escapedMessage + '</span></div>');
   }
   // Only update print button state via updatePrintButtonState
@@ -529,28 +485,36 @@ function print() {
   $('#printButton').prop('disabled', true);
   $('#statusPanel').html('<div id="statusBox" class="alert alert-info" role="alert"><i class="glyphicon glyphicon-hourglass"></i><span>Processing print request...</span></div>');
 
-  var templateName = $('#template').val();
-  var formDataObj = formData();
-  var baseUrl = '/api/print/template/' + templateName;
+  checkConfigErrors().then(hasNoErrors => {
+    if (!hasNoErrors) {
+      $('#statusPanel').html('<div id="statusBox" class="alert alert-danger" role="alert"><i class="glyphicon glyphicon-alert"></i><span>Cannot print: Configuration errors exist. Please <a href="/settings">resolve them in settings</a>.</span></div>');
+      updatePrintButtonState();
+      return;
+    }
 
-  // Build request data
-  var requestData = buildRequestData({
-    quantity: formDataObj.quantity,
-    printer: $('#printer').val()
-  });
+    var templateName = $('#template').val();
+    var formDataObj = formData();
+    var baseUrl = '/api/print/template/' + templateName;
 
-  // Build URL with query parameters
-  var url = buildUrlWithParams(baseUrl, requestData.regularData);
+    // Build request data
+    var requestData = buildRequestData({
+      quantity: formDataObj.quantity,
+      printer: $('#printer').val()
+    });
 
-  // Use POST request with JSON payload
-  $.ajax({
-    url: url,
-    type: 'POST',
-    data: JSON.stringify(requestData.jsonPayload),
-    contentType: 'application/json',
-    dataType: 'json',
-    success: setStatus,
-    error: setStatus
+    // Build URL with query parameters
+    var url = buildUrlWithParams(baseUrl, requestData.regularData);
+
+    // Use POST request with JSON payload
+    $.ajax({
+      url: url,
+      type: 'POST',
+      data: JSON.stringify(requestData.jsonPayload),
+      contentType: 'application/json',
+      dataType: 'json',
+      success: setStatus,
+      error: setStatus
+    });
   });
 }
 
@@ -558,7 +522,7 @@ function print() {
 $(document).ready(function() {
   var initialPrinter = $('#printer').val();
   if (initialPrinter) {
-    loadPrinterMedia(initialPrinter);
+    loadPrinterMedia(initialPrinter, onMediaLoaded);
   }
 });
 

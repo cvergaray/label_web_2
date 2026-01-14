@@ -10,6 +10,28 @@
     <div class="row">
       <div class="col-md-10 col-md-offset-1">
 
+        <!-- Configuration Errors Alert -->
+        {% if has_errors %}
+        <div class="alert alert-danger" role="alert">
+          <h4 class="alert-heading">
+            <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
+            Configuration Errors
+          </h4>
+          <p>The application has encountered the following configuration errors:</p>
+          <div id="errorsList" style="margin-top: 10px;">
+            <!-- Errors will be loaded here via JavaScript -->
+          </div>
+          <hr>
+          <p class="mb-0">Please review and fix the errors below before the application can work properly.</p>
+        </div>
+        {% endif %}
+
+        <!-- Unsaved Changes Indicator (Fixed Position) -->
+        <div id="unsavedIndicator" style="display: none; position: fixed; top: 60px; right: 20px; z-index: 1000; background-color: #f0ad4e; color: white; padding: 12px 20px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+          <span class="glyphicon glyphicon-warning-sign" aria-hidden="true"></span>
+          <strong>Unsaved Changes</strong> - Click Save to apply changes
+        </div>
+
         <!-- Action Buttons (Top) -->
         <div style="margin-bottom: 20px;">
           <button id="saveButton" class="btn btn-primary btn-lg">
@@ -100,15 +122,25 @@
                   <div class="form-group">
                     <label class="col-sm-3 control-label">CUPS Server</label>
                     <div class="col-sm-9">
-                      <input type="text" class="form-control" id="printerServer" placeholder="localhost">
+                      <div class="input-group">
+                        <input type="text" class="form-control" id="printerServer" placeholder="localhost">
+                        <span class="input-group-btn">
+                          <button id="validateCupsBtn" class="btn btn-default" type="button">
+                            <span class="glyphicon glyphicon-ok-circle" aria-hidden="true"></span> Validate
+                          </button>
+                        </span>
+                      </div>
                       <p class="help-block">CUPS server address. Use 'localhost' for local CUPS, or IP address for remote.</p>
+                      <div id="cupsValidateStatus" class="text-muted" style="margin-top:5px;"></div>
                     </div>
                   </div>
                   <div class="form-group">
                     <label class="col-sm-3 control-label">Default Printer</label>
                     <div class="col-sm-9">
-                      <input type="text" class="form-control" id="printerName" placeholder="Printer name (optional)">
-                      <p class="help-block">Default printer name. Leave empty to use CUPS default printer.</p>
+                      <select class="form-control" id="printerName">
+                        <option value="">(CUPS Default)</option>
+                      </select>
+                      <p class="help-block">Default printer to use. Select "CUPS Default" to use the CUPS default printer.</p>
                     </div>
                   </div>
 
@@ -133,9 +165,9 @@
 
                   <hr>
                   <h5><strong>Custom Media Sizes (global)</strong></h5>
-                  <p class="text-muted small">Add custom size key and display label. Key may be a CUPS name (e.g., na_index-4x6_4x6in) or config key with printable area defined.</p>
+                  <p class="text-muted small">Add custom size key and display label. "Custom." will be automatically prepended to the key.</p>
                   <div class="form-inline" style="margin-bottom:10px;">
-                    <input type="text" class="form-control" id="customSizeKey" placeholder="size key (e.g., Custom.100x150mm)" style="width:40%; margin-right:5px;">
+                    <input type="text" class="form-control" id="customSizeKey" placeholder="size key (e.g., 100x150mm)" style="width:40%; margin-right:5px;">
                     <input type="text" class="form-control" id="customSizeLabel" placeholder="Display label (e.g., 4in x 6in)" style="width:40%; margin-right:5px;">
                     <button id="addCustomSizeBtn" type="button" class="btn btn-default">
                       <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> Add
@@ -186,8 +218,10 @@
                   <div class="form-group">
                     <label class="col-sm-3 control-label">Default Label Size</label>
                     <div class="col-sm-9">
-                      <input type="text" class="form-control" id="labelDefaultSize" placeholder="e.g., 62">
-                      <p class="help-block">Default label size identifier. Must match one of the available label sizes.</p>
+                      <select class="form-control" id="labelDefaultSize">
+                        <option value="">Loading...</option>
+                      </select>
+                      <p class="help-block">Default label size for the default printer. Only enabled sizes are shown.</p>
                     </div>
                   </div>
                   <div class="form-group">
@@ -208,16 +242,20 @@
                     </div>
                   </div>
                   <div class="form-group">
-                    <label class="col-sm-3 control-label">Default Font</label>
+                    <label class="col-sm-3 control-label">Default Font Family</label>
                     <div class="col-sm-9">
-                      <input type="text" class="form-control" id="labelDefaultFontFamily" placeholder="DejaVu Sans">
+                      <select class="form-control" id="labelDefaultFontFamily">
+                        <option value="">Loading...</option>
+                      </select>
                       <p class="help-block">Default font family name.</p>
                     </div>
                   </div>
                   <div class="form-group">
                     <label class="col-sm-3 control-label">Default Font Style</label>
                     <div class="col-sm-9">
-                      <input type="text" class="form-control" id="labelDefaultFontStyle" placeholder="Book">
+                      <select class="form-control" id="labelDefaultFontStyle">
+                        <option value="">Loading...</option>
+                      </select>
                       <p class="help-block">Default font style (e.g., Book, Bold, Italic).</p>
                     </div>
                   </div>
@@ -297,12 +335,133 @@
       website: { htmlTitle: 'Label Designer', pageTitle: 'Label Designer', pageHeadline: 'Design and print labels' }
     };
 
+    let hasUnsavedChanges = false;
+    let originalSettingsJson = '';
+    let availableFonts = {}; // { family: [style1, style2, ...] }
+    let availableLabelSizes = {}; // { size_key: size_label }
+
+    function markAsChanged() {
+      hasUnsavedChanges = true;
+      document.getElementById('unsavedIndicator').style.display = 'block';
+    }
+
+    function markAsSaved() {
+      hasUnsavedChanges = false;
+      document.getElementById('unsavedIndicator').style.display = 'none';
+      // Update the baseline for comparison
+      originalSettingsJson = JSON.stringify(settingsState);
+    }
+
     function loadSettings() {
       fetch('/api/settings')
         .then(r => r.json())
-        .then(data => { settingsState = data; renderSettings(); showStatus('Settings loaded successfully', 'success'); })
+        .then(data => {
+          settingsState = data;
+          renderSettings();
+          markAsSaved(); // Reset unsaved indicator after loading
+          showStatus('Settings loaded successfully', 'success');
+        })
         .catch(err => { console.error(err); showStatus('Failed to load settings: ' + err, 'danger'); });
     }
+
+    function loadFonts() {
+      fetch('/api/settings/fonts')
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            availableFonts = data.fonts;
+            populateFontFamilyDropdown();
+          }
+        })
+        .catch(err => { console.error('Error loading fonts:', err); });
+    }
+
+    function loadLabelSizes() {
+      // Get the current default printer to load its enabled sizes
+      const defaultPrinter = settingsState.printer.printer || '';
+      const url = `/api/printer/${encodeURIComponent(defaultPrinter || 'null')}/media`;
+
+      fetch(url)
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            availableLabelSizes = data.label_sizes;
+            populateLabelSizeDropdown();
+          }
+        })
+        .catch(err => { console.error('Error loading label sizes:', err); });
+    }
+
+    function populateFontFamilyDropdown() {
+      const select = document.getElementById('labelDefaultFontFamily');
+      const currentFamily = settingsState.label.defaultFontFamily || '';
+
+      let html = '<option value="">-- Select Font Family --</option>';
+      const families = Object.keys(availableFonts).sort();
+      families.forEach(family => {
+        const selected = family === currentFamily ? 'selected' : '';
+        html += `<option value="${escapeHtmlAttr(family)}" ${selected}>${escapeHtml(family)}</option>`;
+      });
+
+      select.innerHTML = html;
+
+      // Populate styles for current family
+      populateFontStyleDropdown();
+    }
+
+    function populateFontStyleDropdown() {
+      const select = document.getElementById('labelDefaultFontStyle');
+      const currentFamily = document.getElementById('labelDefaultFontFamily').value;
+      const currentStyle = settingsState.label.defaultFontStyle || '';
+
+      if (!currentFamily || !availableFonts[currentFamily]) {
+        select.innerHTML = '<option value="">-- Select Font Family First --</option>';
+        return;
+      }
+
+      let html = '<option value="">-- Select Font Style --</option>';
+      const styles = availableFonts[currentFamily].sort();
+      styles.forEach(style => {
+        const selected = style === currentStyle ? 'selected' : '';
+        html += `<option value="${escapeHtmlAttr(style)}" ${selected}>${escapeHtml(style)}</option>`;
+      });
+
+      select.innerHTML = html;
+    }
+
+    function populateLabelSizeDropdown() {
+      const select = document.getElementById('labelDefaultSize');
+      const currentSize = settingsState.label.defaultSize || '';
+
+      let html = '<option value="">-- Select Label Size --</option>';
+      const entries = Object.entries(availableLabelSizes);
+      entries.forEach(([key, label]) => {
+        const selected = key === currentSize ? 'selected' : '';
+        html += `<option value="${escapeHtmlAttr(key)}" ${selected}>${escapeHtml(label)}</option>`;
+      });
+
+      select.innerHTML = html;
+    }
+
+    // Listen for font family changes to update styles dropdown
+    document.addEventListener('DOMContentLoaded', function() {
+      const fontFamilySelect = document.getElementById('labelDefaultFontFamily');
+      if (fontFamilySelect) {
+        fontFamilySelect.addEventListener('change', function() {
+          populateFontStyleDropdown();
+          markAsChanged();
+        });
+      }
+
+      // Listen for default printer changes to update label sizes
+      const printerSelect = document.getElementById('printerName');
+      if (printerSelect) {
+        printerSelect.addEventListener('change', function() {
+          loadLabelSizes();
+          markAsChanged();
+        });
+      }
+    });
 
     function renderSettings() {
       // SERVER
@@ -314,15 +473,51 @@
       document.getElementById('printerServer').value = settingsState.printer.server || 'localhost';
       document.getElementById('printerName').value = settingsState.printer.printer || '';
       updateCupsStatus();
+      // LABEL - orientation and font size
+      document.getElementById('labelDefaultOrientation').value = settingsState.label.defaultOrientation || 'standard';
+      document.getElementById('labelDefaultFontSize').value = settingsState.label.defaultFontSize || 70;
       // WEBSITE
       document.getElementById('websiteHtmlTitle').value = settingsState.website.htmlTitle || 'Label Designer';
       document.getElementById('websitePageTitle').value = settingsState.website.pageTitle || 'Label Designer';
       document.getElementById('websitePageHeadline').value = settingsState.website.pageHeadline || 'Design and print labels';
 
+      // Load fonts and label sizes for dropdowns
+      loadFonts();
+      loadLabelSizes();
+
       // Render custom sizes list
       renderCustomSizes();
       // Load printers/media list and printer checkboxes
       loadPrinters();
+
+      // Attach change listeners to all form inputs (after rendering)
+      attachChangeListeners();
+    }
+
+    function attachChangeListeners() {
+      // SERVER inputs
+      ['serverHost', 'serverLogLevel', 'serverFontFolder'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', markAsChanged);
+      });
+
+      // PRINTER inputs
+      ['printerUseCups', 'printerServer', 'printerName'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', markAsChanged);
+      });
+
+      // LABEL inputs
+      ['labelDefaultSize', 'labelDefaultOrientation', 'labelDefaultFontSize', 'labelDefaultFontFamily', 'labelDefaultFontStyle'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', markAsChanged);
+      });
+
+      // WEBSITE inputs
+      ['websiteHtmlTitle', 'websitePageTitle', 'websitePageHeadline'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', markAsChanged);
+      });
     }
 
     function renderCustomSizes() {
@@ -344,14 +539,21 @@
     }
 
     function addCustomSize() {
-      const key = document.getElementById('customSizeKey').value.trim();
+      let key = document.getElementById('customSizeKey').value.trim();
       const label = document.getElementById('customSizeLabel').value.trim();
       if (!key || !label) { showStatus('Please enter both size key and label', 'warning'); return; }
+
+      // Automatically prepend "Custom." if not already present
+      if (!key.startsWith('Custom.')) {
+        key = 'Custom.' + key;
+      }
+
       if (!settingsState.printer.labelSizes) settingsState.printer.labelSizes = {};
       settingsState.printer.labelSizes[key] = label;
       document.getElementById('customSizeKey').value = '';
       document.getElementById('customSizeLabel').value = '';
       renderCustomSizes();
+      markAsChanged(); // Mark as unsaved
       // Refresh printers list to include new size in UI
       loadPrinters();
     }
@@ -371,6 +573,7 @@
       settingsState.printer.labelSizes[key] = label;
       closeEditModal();
       renderCustomSizes();
+      markAsChanged(); // Mark as unsaved
       loadPrinters();
     }
 
@@ -382,6 +585,7 @@
       if (settingsState.printer.labelSizes && key in settingsState.printer.labelSizes) {
         delete settingsState.printer.labelSizes[key];
         renderCustomSizes();
+        markAsChanged(); // Mark as unsaved
         loadPrinters();
       }
     }
@@ -406,6 +610,22 @@
       (settingsState.printer.printersExclude || []).forEach(p => allPrinters.add(p));
 
       const allPrintersList = Array.from(allPrinters).sort();
+
+      // Populate default printer dropdown
+      const printerSelect = document.getElementById('printerName');
+      const currentPrinter = settingsState.printer.printer || '';
+
+      // Build options HTML starting with CUPS Default
+      let optionsHtml = '<option value="">CUPS Default</option>';
+      allPrintersList.forEach(printer => {
+        const escapedPrinter = escapeHtml(printer);
+        const escapedAttr = escapeHtmlAttr(printer);
+        const isInCups = printers.includes(printer);
+        const suffix = isInCups ? '' : ' (not in CUPS)';
+        const selected = printer === currentPrinter ? 'selected' : '';
+        optionsHtml += `<option value="${escapedAttr}" ${selected}>${escapedPrinter}${suffix}</option>`;
+      });
+      printerSelect.innerHTML = optionsHtml;
 
       if (allPrintersList.length === 0) {
         includeList.innerHTML = '<p class="text-muted">No printers available</p>';
@@ -460,6 +680,7 @@
           settingsState.printer.printersInclude.splice(idx, 1);
         }
       }
+      markAsChanged(); // Mark as unsaved
     }
 
     function updatePrinterExclude(checkbox) {
@@ -476,11 +697,13 @@
           settingsState.printer.printersExclude.splice(idx, 1);
         }
       }
+      markAsChanged(); // Mark as unsaved
     }
 
     // Load printers and their media sizes
-    function loadPrinters() {
-      fetch('/api/settings/printers')
+    function loadPrinters(forceRefresh = false) {
+      const url = forceRefresh ? '/api/settings/printers?refresh=1' : '/api/settings/printers';
+      fetch(url)
         .then(response => response.json())
         .then(data => {
           renderPrinterCheckboxes(data.printers || []);
@@ -587,6 +810,7 @@
       checkboxes.forEach(cb => { cb.checked = true; allSizes.push(cb.dataset.size); });
       settingsState.printer.enabledSizes[printer] = allSizes;
       updatePrinterCounter(printer);
+      markAsChanged(); // Mark as unsaved
     }
 
     // Disable all sizes for a printer
@@ -596,6 +820,7 @@
       checkboxes.forEach(cb => { cb.checked = false; });
       settingsState.printer.enabledSizes[printer] = [];
       updatePrinterCounter(printer);
+      markAsChanged(); // Mark as unsaved
     }
 
     // Update enabled sizes when checkbox changes
@@ -610,6 +835,7 @@
         if (idx > -1) settingsState.printer.enabledSizes[printer].splice(idx, 1);
       }
       updatePrinterCounter(printer);
+      markAsChanged(); // Mark as unsaved
     }
 
     function updatePrinterCounter(printer) {
@@ -631,7 +857,7 @@
 
     // Reload media sizes from CUPS (no changes to enabled/disabled state)
     document.getElementById('reloadMediaBtn').addEventListener('click', function() {
-      loadPrinters();
+      loadPrinters(true);
       showStatus('Media sizes reloaded from CUPS', 'info');
     });
 
@@ -687,7 +913,15 @@
         .then(r => r.json())
         .then(data => {
           if (data.success) {
-            showStatus('Settings saved successfully! Some changes may require a restart.', 'success');
+            // Update local state with freshly collected payload
+            settingsState = payload;
+            markAsSaved(); // Clear unsaved indicator
+            showStatus('Settings saved successfully! Some changes may require a restart.', data.has_errors ? 'warning' : 'success');
+            // Refresh config errors display
+            loadConfigErrors();
+            // Reload printers/media and label sizes to reflect any changes
+            loadPrinters(true);
+            loadLabelSizes();
             // Update in-memory titles immediately for UX
             document.title = settingsState.website.htmlTitle || document.title;
             const pageTitleEl = document.querySelector('.navbar-brand');
@@ -703,6 +937,33 @@
     document.getElementById('saveButton2').addEventListener('click', saveSettings);
     document.getElementById('resetButton').addEventListener('click', loadSettings);
     document.getElementById('resetButton2').addEventListener('click', loadSettings);
+
+    document.getElementById('validateCupsBtn').addEventListener('click', function() {
+      const server = document.getElementById('printerServer').value.trim() || 'localhost';
+      const statusEl = document.getElementById('cupsValidateStatus');
+      statusEl.className = 'text-info';
+      statusEl.textContent = 'Validating CUPS server...';
+      fetch('/api/settings/cups/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ server })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          statusEl.className = 'text-success';
+          const list = (data.printers || []).map(p => escapeHtml(p)).join(', ');
+          statusEl.innerHTML = `Connected to <strong>${escapeHtml(server)}</strong>. Printers: ${list || 'none found'}.`;
+        } else {
+          statusEl.className = 'text-danger';
+          statusEl.textContent = 'Validation failed: ' + (data.error || 'Unknown error');
+        }
+      })
+      .catch(err => {
+        statusEl.className = 'text-danger';
+        statusEl.textContent = 'Validation failed: ' + err;
+      });
+    });
 
     function showStatus(message, type) {
       const statusDiv = document.getElementById('statusMessage');
@@ -722,7 +983,37 @@
       return String(text).replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
     }
 
-    document.addEventListener('DOMContentLoaded', loadSettings);
+    function loadConfigErrors() {
+      const errorsList = document.getElementById('errorsList');
+      if (!errorsList) return; // Not on settings page
+
+      fetch('/api/config-errors')
+        .then(r => r.json())
+        .then(data => {
+          if (data.has_errors && data.errors && data.errors.length > 0) {
+            let html = '<ul style="margin-bottom: 0;">';
+            data.errors.forEach(error => {
+              html += '<li>' + escapeHtml(error) + '</li>';
+            });
+            html += '</ul>';
+            errorsList.innerHTML = html;
+          } else {
+            // No errors
+            const alertDiv = document.querySelector('.alert-danger');
+            if (alertDiv) {
+              alertDiv.style.display = 'none';
+            }
+          }
+        })
+        .catch(err => {
+          console.error('Error loading configuration errors:', err);
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      loadSettings();
+      loadConfigErrors();
+    });
   </script>
 
   <style>

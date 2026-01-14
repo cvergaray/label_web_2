@@ -26,18 +26,63 @@ from font_helpers import get_fonts
 logger = logging.getLogger(__name__)
 instance = implementation()
 
+# Initialize CONFIG with a safe default structure
+CONFIG = {
+    'SERVER': {
+        'HOST': '0.0.0.0',
+        'PORT': 8013,
+        'LOGLEVEL': 'INFO',
+        'ADDITIONAL_FONT_FOLDER': False
+    },
+    'PRINTER': {
+        'USE_CUPS': True,
+        'SERVER': 'localhost',
+        'PRINTER': '',
+        'LABEL_SIZES': [],
+        'ENABLED_SIZES': {},
+        'PRINTERS_INCLUDE': [],
+        'PRINTERS_EXCLUDE': [],
+        'LABEL_PRINTABLE_AREA': {}
+    },
+    'LABEL': {
+        'DEFAULT_SIZE': '62',
+        'DEFAULT_ORIENTATION': 'standard',
+        'DEFAULT_FONT_SIZE': 70,
+        'DEFAULT_FONTS': {'family': 'DejaVu Sans', 'style': 'Book'}
+    },
+    'WEBSITE': {
+        'HTML_TITLE': 'Label Designer',
+        'PAGE_TITLE': 'Label Designer',
+        'PAGE_HEADLINE': 'Design and print labels'
+    }
+}
+
+CONFIG_ERRORS = []  # Store configuration validation errors
+
+# Try to load config file
 try:
     with open('/appconfig/config.json', encoding='utf-8') as fh:
         CONFIG = json.load(fh)
         print("loaded config from /appconfig/config.json")
-except FileNotFoundError as e:
-    with open('config.minimal.json', encoding='utf-8') as fh:
-        CONFIG = json.load(fh)
-        print("loaded config from config.minimal.json")
+except FileNotFoundError:
+    try:
+        with open('config.minimal.json', encoding='utf-8') as fh:
+            CONFIG = json.load(fh)
+            print("loaded config from config.minimal.json")
+    except FileNotFoundError:
+        CONFIG_ERRORS.append("Warning: No config file found. Using default configuration. Please configure settings on the settings page.")
+        print("Warning: No config files found. Using default configuration.")
+except json.JSONDecodeError as e:
+    CONFIG_ERRORS.append(f"Error: Failed to parse config file: {e}")
+    print(f"Error parsing config file: {e}")
+except Exception as e:
+    CONFIG_ERRORS.append(f"Error: Failed to load config file: {e}")
+    print(f"Error loading config file: {e}")
 
 PRINTERS = None
 LABEL_SIZES = None
 CONFIG_FILE = '/appconfig/config.json'
+FONTS = {}  # Will be populated during initialization
 
 
 # the decorator
@@ -253,6 +298,80 @@ def filter_printers(printers_list):
     return filtered
 
 
+def normalize_default_fonts(fonts_value):
+    """
+    Normalize DEFAULT_FONTS to always be a dict.
+
+    Args:
+        fonts_value: Can be a dict, list of dicts, or other value
+
+    Returns:
+        dict: Normalized font dict with 'family' and 'style' keys, or empty dict
+    """
+    if isinstance(fonts_value, list):
+        # If it's a list, take the first element
+        return fonts_value[0] if fonts_value else {}
+    elif isinstance(fonts_value, dict):
+        return fonts_value
+    else:
+        return {}
+
+
+def validate_configuration(fonts_dict, label_sizes_dict, printers_list):
+    """
+    Validate configuration and collect errors without failing startup.
+
+    Args:
+        fonts_dict: Dictionary of available fonts
+        label_sizes_dict: Dictionary of available label sizes
+        printers_list: List of available printers
+
+    Returns:
+        List of error messages (empty if no errors)
+    """
+    errors = []
+
+    # Check if fonts are available
+    if not fonts_dict:
+        errors.append("No fonts found on the system. Please install fonts to the system or configure additional font folder.")
+
+    # Check printer availability/configuration
+    configured_printer = CONFIG.get('PRINTER', {}).get('PRINTER')
+    if not printers_list:
+        errors.append("No printers detected. Please ensure CUPS is available and printers are configured.")
+    else:
+        if not configured_printer:
+            errors.append("No default printer configured. Please select a printer in settings.")
+        elif configured_printer not in printers_list:
+            errors.append(f"Configured default printer '{configured_printer}' not found among available printers.")
+
+    # Check that label sizes are available
+    if not label_sizes_dict:
+        errors.append("No label sizes available. Ensure printer drivers report media or configure custom sizes.")
+
+    # Check default font configuration
+    default_fonts_list = CONFIG.get('LABEL', {}).get('DEFAULT_FONTS', [])
+    if isinstance(default_fonts_list, dict):
+        default_fonts_list = [default_fonts_list]
+
+    for font in default_fonts_list:
+        family = font.get('family')
+        style = font.get('style')
+        if family and style:
+            if family not in fonts_dict:
+                errors.append(f"Configured default font family '{family}' not found in system fonts.")
+            elif style not in fonts_dict.get(family, {}):
+                errors.append(f"Configured default font style '{style}' not found for font family '{family}'.")
+
+    # Check default label size configuration
+    default_size = CONFIG.get('LABEL', {}).get('DEFAULT_SIZE')
+    if default_size and label_sizes_dict:
+        if default_size not in label_sizes_dict.keys():
+            errors.append(f"Configured default label size '{default_size}' is not in available label sizes.")
+
+    return errors
+
+
 @route('/')
 def index():
     redirect('/labeldesigner')
@@ -277,6 +396,10 @@ def labeldesigner():
     label_sizes_list = filter_label_sizes_for_printer(label_sizes_list, default_printer)
     label_sizes = label_sizes_list_to_dict(label_sizes_list, logger)
 
+    # Normalize DEFAULT_FONTS to always be a dict for template compatibility
+    label_config = dict(CONFIG['LABEL'])
+    label_config['DEFAULT_FONTS'] = normalize_default_fonts(label_config.get('DEFAULT_FONTS', {}))
+
     return {'font_family_names': font_family_names,
             'fonts': FONTS,
             'label_sizes': label_sizes,
@@ -284,20 +407,35 @@ def labeldesigner():
             'default_printer': default_printer,
             'default_orientation': default_orientation,
             'website': CONFIG['WEBSITE'],
-            'label': CONFIG['LABEL']}
+            'label': label_config,
+            'has_errors': len(CONFIG_ERRORS) > 0}
 
 
 @route('/api/printer/<printer_name>/media', method=['GET', 'OPTIONS'])
 @enable_cors
 def get_printer_media(printer_name):
     """
-    API endpoint to get media details for a specific printer
-    Returns label sizes and default size for the printer
+    API endpoint to get media details for a specific printer.
+    Returns label sizes and default size for the printer.
+    Handles URL encoding and special values (empty string, 'null').
+    Used by both labeldesigner and settings pages.
     """
     try:
+        # Decode printer_name in case it's URL encoded
+        from urllib.parse import unquote
+        printer_name = unquote(printer_name) if printer_name else None
+
+        # Handle empty string or 'null' as None (for default printer)
+        if printer_name == '' or printer_name == 'null' or printer_name == 'undefined':
+            printer_name = None
+
+        # Get label sizes for the printer
         label_sizes_list = instance.get_label_sizes(printer_name)
+
         # Filter by enabled sizes
         label_sizes_list = filter_label_sizes_for_printer(label_sizes_list, printer_name)
+
+        # Get default size
         default_size = instance.get_default_label_size(printer_name)
 
         # Convert list of tuples to dict for JSON response
@@ -310,6 +448,7 @@ def get_printer_media(printer_name):
         }
     except Exception as e:
         response.status = 500
+        logger.error(f"Error getting printer media: {e}")
         return {
             'success': False,
             'error': str(e)
@@ -320,20 +459,31 @@ def get_printer_media(printer_name):
 @view('templateprint.jinja2')
 def templatePrint():
     templateFiles = [os.path.basename(file) for file in glob.glob('/appconfig/*.lbl')]
-    default_printer = instance.selected_printer if instance.selected_printer else (PRINTERS[0] if PRINTERS else None)
+    # Filter printers for display
+    filtered_printers = filter_printers(PRINTERS) if PRINTERS else []
+    default_printer = None
+    if instance.selected_printer and instance.selected_printer in filtered_printers:
+        default_printer = instance.selected_printer
+    elif filtered_printers:
+        default_printer = filtered_printers[0]
 
     # Filter label sizes for default printer
     label_sizes_list = instance.get_label_sizes(default_printer)
     label_sizes_list = filter_label_sizes_for_printer(label_sizes_list, default_printer)
     label_sizes = label_sizes_list_to_dict(label_sizes_list, logger)
 
+    # Normalize DEFAULT_FONTS to always be a dict for template compatibility
+    label_config = dict(CONFIG['LABEL'])
+    label_config['DEFAULT_FONTS'] = normalize_default_fonts(label_config.get('DEFAULT_FONTS', {}))
+
     return {
         'files': templateFiles,
-        'printers': PRINTERS,
+        'printers': filtered_printers,
         'default_printer': default_printer,
         'label_sizes': label_sizes,
         'website': CONFIG['WEBSITE'],
-        'label': CONFIG['LABEL']
+        'label': label_config,
+        'has_errors': len(CONFIG_ERRORS) > 0
     }
 
 
@@ -343,6 +493,14 @@ def templatePrint():
 @enable_cors
 def printtemplate(templatefile):
     return_dict = {'Success': False}
+
+    # Check for configuration errors before attempting to print
+    if CONFIG_ERRORS:
+        return_dict['error'] = 'Cannot print: Configuration errors exist. Please resolve them in the settings page.'
+        return_dict['has_config_errors'] = True
+        response.status = 503
+        return return_dict
+
     template_data = get_template_data(templatefile)
 
     try:
@@ -481,9 +639,10 @@ def get_label_context(request):
         font_family = provided_font_family.rpartition('(')[0].strip()
         font_style = provided_font_family.rpartition('(')[2].rstrip(')')
     else:
-        default_fonts = CONFIG.get('LABEL')
-        font_family = CONFIG['LABEL']['DEFAULT_FONTS']['family']
-        font_style = CONFIG['LABEL']['DEFAULT_FONTS']['style']
+        # Normalize DEFAULT_FONTS to a dict (config may contain list)
+        default_fonts_cfg = normalize_default_fonts(CONFIG.get('LABEL', {}).get('DEFAULT_FONTS', {}))
+        font_family = default_fonts_cfg.get('family')
+        font_style = default_fonts_cfg.get('style')
 
     context = {
         'text': d.get('text', None),
@@ -518,8 +677,10 @@ def get_label_context(request):
             if font_family_name is None or font_style_name is None or not font_family_name in FONTS or not font_style_name in \
                                                                                                            FONTS[
                                                                                                                font_family_name]:
-                font_family_name = CONFIG['LABEL']['DEFAULT_FONTS']['family']
-                font_style_name = CONFIG['LABEL']['DEFAULT_FONTS']['style']
+                # Fallback to normalized defaults if provided font missing
+                fallback = normalize_default_fonts(CONFIG.get('LABEL', {}).get('DEFAULT_FONTS', {}))
+                font_family_name = fallback.get('family')
+                font_style_name = fallback.get('style')
             font_path = FONTS[font_family_name][font_style_name]
         except KeyError:
             raise LookupError("Couln't find the font & style")
@@ -655,6 +816,13 @@ def print_text():
 
     return_dict = {'success': False}
 
+    # Check for configuration errors before attempting to print
+    if CONFIG_ERRORS:
+        return_dict['error'] = 'Cannot print: Configuration errors exist. Please resolve them in the settings page.'
+        return_dict['has_config_errors'] = True
+        response.status = 503
+        return return_dict
+
     try:
         context = get_label_context(request)
     except LookupError as e:
@@ -671,13 +839,29 @@ def print_text():
     return instance.print_label(im, **context)
 
 
+
 @route("/settings")
 @view('settings.jinja2')
 def settings_page():
     """Render the settings management page."""
+    # Normalize DEFAULT_FONTS to always be a dict for template compatibility
+    label_config = dict(CONFIG['LABEL'])
+    label_config['DEFAULT_FONTS'] = normalize_default_fonts(label_config.get('DEFAULT_FONTS', {}))
+
     return {
         'website': CONFIG['WEBSITE'],
-        'label': CONFIG['LABEL']
+        'label': label_config,
+        'has_errors': len(CONFIG_ERRORS) > 0
+    }
+
+
+@route('/api/config-errors', method=['GET', 'OPTIONS'])
+@enable_cors
+def get_config_errors():
+    """Get list of configuration errors."""
+    return {
+        'errors': CONFIG_ERRORS,
+        'has_errors': len(CONFIG_ERRORS) > 0
     }
 
 
@@ -702,17 +886,33 @@ def save_settings_api():
         merged_config = {**CONFIG, **new_config}
 
         if save_config(merged_config):
-            # Apply new settings at runtime
-            global PRINTERS, LABEL_SIZES
+            # Apply new settings at runtime and revalidate
+            global PRINTERS, LABEL_SIZES, CONFIG_ERRORS, FONTS
             instance.CONFIG = CONFIG
             instance.initialize(CONFIG)
             PRINTERS = instance.get_printers()
-            # Recompute default label sizes list for default printer for global usage
             default_printer = instance.selected_printer if instance.selected_printer else (PRINTERS[0] if PRINTERS else None)
             label_sizes_list = instance.get_label_sizes(default_printer)
             label_sizes_list = filter_label_sizes_for_printer(label_sizes_list, default_printer)
             LABEL_SIZES = label_sizes_list_to_dict(label_sizes_list, logger)
-            return {'success': True, 'message': 'Settings saved. Some changes may require app restart.'}
+
+            # Reload fonts in case the font folder changed
+            FONTS = get_fonts()
+            additional_folder = CONFIG.get('SERVER', {}).get('ADDITIONAL_FONT_FOLDER', False)
+            if additional_folder:
+                FONTS.update(get_fonts(additional_folder))
+
+            # Re-run configuration validation
+            CONFIG_ERRORS = []
+            validation_errors = validate_configuration(FONTS, LABEL_SIZES, PRINTERS)
+            CONFIG_ERRORS.extend(validation_errors)
+
+            return {
+                'success': True,
+                'message': 'Settings saved. Some changes may require app restart.',
+                'has_errors': len(CONFIG_ERRORS) > 0,
+                'errors': CONFIG_ERRORS
+            }
         else:
             response.status = 500
             return {'success': False, 'error': 'Failed to save settings'}
@@ -722,12 +922,43 @@ def save_settings_api():
         return {'success': False, 'error': str(e)}
 
 
+@route('/api/settings/cups/validate', method=['POST', 'OPTIONS'])
+@enable_cors
+def validate_cups_server_api():
+    """Validate connectivity to a CUPS server without changing current config."""
+    try:
+        payload = request.json or {}
+        server = payload.get('server') or 'localhost'
+        old_server = cups.getServer()
+        try:
+            cups.setServer(server)
+            conn = cups.Connection()
+            printers = list(conn.getPrinters().keys())
+            return {'success': True, 'server': server, 'printers': printers}
+        except Exception as e:
+            response.status = 400
+            return {'success': False, 'error': str(e), 'server': server}
+        finally:
+            cups.setServer(old_server)
+    except Exception as e:
+        response.status = 500
+        logger.error(f"Error validating CUPS server: {e}")
+        return {'success': False, 'error': str(e)}
+
+
 @route('/api/settings/printers', method=['GET', 'OPTIONS'])
 @enable_cors
 def get_settings_printers():
-    """Get list of printers with their available media sizes."""
-
+    """Get list of printers with their available media sizes. Optional refresh from CUPS."""
     try:
+        refresh = request.query.get('refresh')
+        if refresh:
+            # Reinitialize to force fresh CUPS data
+            instance.CONFIG = CONFIG
+            try:
+                instance.initialize(CONFIG)
+            except Exception as init_err:
+                logger.warning(f"Reinitialize during printer refresh failed: {init_err}")
         printers = instance.get_printers() or []
         all_media_sizes = {}
 
@@ -749,19 +980,35 @@ def get_settings_printers():
         return {'error': str(e)}
 
 
+@route('/api/settings/fonts', method=['GET', 'OPTIONS'])
+@enable_cors
+def get_settings_fonts():
+    """Get list of available fonts and their styles."""
+    try:
+        # Return fonts as { family: [style1, style2, ...] }
+        fonts_dict = {}
+        for family, styles in FONTS.items():
+            fonts_dict[family] = list(styles.keys())
+
+        return {
+            'success': True,
+            'fonts': fonts_dict
+        }
+    except Exception as e:
+        response.status = 500
+        logger.error(f"Error getting fonts: {e}")
+        return {'success': False, 'error': str(e)}
+
+
+
+
 def main():
-    global DEBUG, FONTS, BACKEND_CLASS, CONFIG, LABEL_SIZES, PRINTERS
+    global DEBUG, FONTS, BACKEND_CLASS, CONFIG, LABEL_SIZES, PRINTERS, CONFIG_ERRORS
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', default=False)
     parser.add_argument('--loglevel', type=lambda x: getattr(logging, x.upper()), default=False)
     parser.add_argument('--font-folder', default=False, help='folder for additional .ttf/.otf fonts')
-    #parser.add_argument('--default-label-size', default=False, help='Label size inserted in your printer. Defaults to 62.')
-    #parser.add_argument('--default-orientation', default=False, choices=('standard', 'rotated'), help='Label orientation, defaults to "standard". To turn your text by 90°, state "rotated".')
-    #parser.add_argument('printer',  nargs='?', default=False, help='String descriptor for the printer to use (like tcp://192.168.0.23:9100 or file:///dev/usb/lp0)')
     args = parser.parse_args()
-
-    #if args.printer:
-    #    CONFIG['PRINTER']['PRINTER'] = args.printer
 
     if args.port:
         PORT = args.port
@@ -771,7 +1018,7 @@ def main():
     if args.loglevel:
         LOGLEVEL = args.loglevel
     else:
-        LOGLEVEL = CONFIG['SERVER']['LOGLEVEL']
+        LOGLEVEL = CONFIG['SERVER'].get('LOGLEVEL', 'INFO')
 
     if LOGLEVEL == 'DEBUG':
         DEBUG = True
@@ -779,15 +1026,6 @@ def main():
         DEBUG = False
 
     instance.DEBUG = DEBUG
-
-    #if args.model:
-    #    CONFIG['PRINTER']['MODEL'] = args.model
-
-    #if args.default_label_size:
-    #    CONFIG['LABEL']['DEFAULT_SIZE'] = args.default_label_size
-
-    #if args.default_orientation:
-    #    CONFIG['LABEL']['DEFAULT_ORIENTATION'] = args.default_orientation
 
     if args.font_folder:
         ADDITIONAL_FONT_FOLDER = args.font_folder
@@ -798,48 +1036,105 @@ def main():
     instance.logger = logger
     instance.CONFIG = CONFIG
 
-    initialization_errors = instance.initialize(CONFIG)
-    if len(initialization_errors) > 0:
-        parser.error(initialization_errors)
+    try:
+        initialization_errors = instance.initialize(CONFIG)
+        if len(initialization_errors) > 0:
+            CONFIG_ERRORS.extend(initialization_errors)
+            logger.warning(f"Initialization errors: {initialization_errors}")
 
-    # Get label sizes as list of tuples and convert to dict
-    label_sizes_list = instance.get_label_sizes()
-    LABEL_SIZES = label_sizes_list_to_dict(label_sizes_list, logger)
+        # Get label sizes as list of tuples and convert to dict
+        label_sizes_list = instance.get_label_sizes()
+        LABEL_SIZES = label_sizes_list_to_dict(label_sizes_list, logger)
 
-    PRINTERS = instance.get_printers()
+        PRINTERS = instance.get_printers()
 
-    # Get default size from printer first, then fall back to config
-    default_size = instance.get_default_label_size()
-    if default_size and default_size in LABEL_SIZES.keys():
-        CONFIG['LABEL']['DEFAULT_SIZE'] = default_size
-    elif CONFIG['LABEL']['DEFAULT_SIZE'] not in LABEL_SIZES.keys():
-        parser.error(
-            "Invalid --default-label-size. Please choose one of the following:\n:" + " ".join(list(LABEL_SIZES.keys())))
+        # Get default size from printer first, then fall back to config
+        default_size = instance.get_default_label_size()
+        if default_size and default_size in LABEL_SIZES.keys():
+            CONFIG['LABEL']['DEFAULT_SIZE'] = default_size
+        elif CONFIG['LABEL']['DEFAULT_SIZE'] and CONFIG['LABEL']['DEFAULT_SIZE'] not in LABEL_SIZES.keys():
+            error_msg = f"Invalid default label size '{CONFIG['LABEL']['DEFAULT_SIZE']}'. Please choose one of the following: {', '.join(list(LABEL_SIZES.keys()))}"
+            CONFIG_ERRORS.append(error_msg)
+            logger.warning(error_msg)
 
-    FONTS = get_fonts()
-    FONTS.update(get_fonts(ADDITIONAL_FONT_FOLDER))
+        FONTS = get_fonts()
+        FONTS.update(get_fonts(ADDITIONAL_FONT_FOLDER))
 
-    if not FONTS:
-        sys.stderr.write("Not a single font was found on your system. Please install some into the '+ ADDITIONAL_FONT_FOLDER +'.\n")
-        sys.exit(2)
+        if not FONTS:
+            error_msg = f"Not a single font was found on your system. Please install some fonts to the system or configure additional font folder ('{ADDITIONAL_FONT_FOLDER}')."
+            CONFIG_ERRORS.append(error_msg)
+            logger.error(error_msg)
 
-    for font in CONFIG['LABEL']['DEFAULT_FONTS']:
-        try:
-            FONTS[font['family']][font['style']]
-            CONFIG['LABEL']['DEFAULT_FONTS'] = font
-            logger.debug("Selected the following default font: {}".format(font))
-            break
-        except:
-            pass
-    if CONFIG['LABEL']['DEFAULT_FONTS'] is None:
-        sys.stderr.write('Could not find any of the default fonts. Choosing a random one.\n')
-        family = random.choice(list(FONTS.keys()))
-        style = random.choice(list(FONTS[family].keys()))
-        CONFIG['LABEL']['DEFAULT_FONTS'] = {'family': family, 'style': style}
-        sys.stderr.write(
-            'The default font is now set to: {family} ({style})\n'.format(**CONFIG['LABEL']['DEFAULT_FONTS']))
+        # Validate and prepare DEFAULT_FONTS
+        # DEFAULT_FONTS should be a list of font dicts from CONFIG
+        default_fonts_list = CONFIG.get('LABEL', {}).get('DEFAULT_FONTS', [])
 
-    run(host=CONFIG['SERVER']['HOST'], port=PORT, debug=DEBUG)
+        # Ensure it's a list
+        if isinstance(default_fonts_list, dict):
+            # If it's a single dict, convert to list
+            default_fonts_list = [default_fonts_list]
+            CONFIG['LABEL']['DEFAULT_FONTS'] = default_fonts_list
+        elif not isinstance(default_fonts_list, list):
+            default_fonts_list = []
+            CONFIG['LABEL']['DEFAULT_FONTS'] = default_fonts_list
+
+        # Find first font that exists in the system
+        selected_font = None
+        for font in default_fonts_list:
+            family = font.get('family')
+            style = font.get('style')
+            if family and style and family in FONTS and style in FONTS.get(family, {}):
+                # Font exists in system
+                selected_font = font
+                logger.debug(f"Using configured default font: {family} ({style})")
+                break
+
+        # If no configured font was found on system, try to find a reasonable fallback
+        if selected_font is None:
+            if default_fonts_list:
+                # Keep the first configured font even if not available (it might be installed later)
+                logger.warning(f"Configured default font '{default_fonts_list[0].get('family')} ({default_fonts_list[0].get('style')})' not found in system. Using it anyway, but UI will show first available.")
+                selected_font = default_fonts_list[0]
+            else:
+                # No default font configured, pick a random one from system
+                if FONTS:
+                    logger.warning("No default font configured. Choosing a random font from system.")
+                    family = random.choice(list(FONTS.keys()))
+                    style = random.choice(list(FONTS[family].keys()))
+                    selected_font = {'family': family, 'style': style}
+                    CONFIG['LABEL']['DEFAULT_FONTS'] = [selected_font]
+                    logger.debug(f"Selected random default font: {family} ({style})")
+                else:
+                    # No fonts available at all
+                    selected_font = {'family': 'Unknown', 'style': 'Regular'}
+                    CONFIG['LABEL']['DEFAULT_FONTS'] = [selected_font]
+
+        # Store the selected font as a single dict (for backward compatibility with template)
+        if selected_font:
+            CONFIG['LABEL']['DEFAULT_FONTS'] = selected_font
+            logger.debug("Selected the following default font: {}".format(selected_font))
+        else:
+            # Fallback to empty dict if no font was selected
+            CONFIG['LABEL']['DEFAULT_FONTS'] = {'family': '', 'style': ''}
+
+        # Run validation and collect any validation errors
+        validation_errors = validate_configuration(FONTS, LABEL_SIZES, PRINTERS)
+        CONFIG_ERRORS.extend(validation_errors)
+
+    except Exception as e:
+        error_msg = f"Critical error during initialization: {str(e)}"
+        CONFIG_ERRORS.append(error_msg)
+        logger.error(error_msg, exc_info=True)
+        # Continue to start the server anyway so user can see errors on settings page
+        # Initialize with safe defaults
+        if LABEL_SIZES is None:
+            LABEL_SIZES = {}
+        if PRINTERS is None:
+            PRINTERS = []
+        if not FONTS:
+            FONTS = {}
+
+    run(host=CONFIG['SERVER'].get('HOST', '0.0.0.0'), port=PORT, debug=DEBUG)
 
 
 if __name__ == "__main__":
