@@ -934,6 +934,10 @@ def validate_settings_api():
         # Run configuration validation with new_config
         validation_errors = validate_configuration(temp_fonts, combined_label_sizes, temp_printers, new_config)
 
+        # Append initialization errors to the validation errors
+        if temp_instance.initialization_errors:
+            validation_errors.extend(temp_instance.initialization_errors)
+
         return {
             'success': True,
             'has_errors': len(validation_errors) > 0,
@@ -982,6 +986,10 @@ def save_settings_api():
             CONFIG_ERRORS = []
             validation_errors = validate_configuration(FONTS, LABEL_SIZES, PRINTERS)
             CONFIG_ERRORS.extend(validation_errors)
+
+            # Append initialization errors to the configuration errors
+            if instance.initialization_errors:
+                CONFIG_ERRORS.extend(instance.initialization_errors)
 
             return {
                 'success': True,
@@ -1163,12 +1171,17 @@ def main():
 
         PRINTERS = instance.get_printers()
 
+        if len(LABEL_SIZES) == 0:
+            error_msg = "No label sizes detected from printer drivers. Please ensure printers are correctly configured or add custom label sizes in settings."
+            CONFIG_ERRORS.append(error_msg)
+            logger.warning(error_msg)
+
         # Get default size from printer first, then fall back to config
         default_size = instance.get_default_label_size()
         if default_size and default_size in LABEL_SIZES.keys():
             CONFIG['LABEL']['DEFAULT_SIZE'] = default_size
-        elif CONFIG['LABEL']['DEFAULT_SIZE'] and CONFIG['LABEL']['DEFAULT_SIZE'] not in LABEL_SIZES.keys():
-            error_msg = f"Invalid default label size '{CONFIG['LABEL']['DEFAULT_SIZE']}'. Please choose one of the following: {', '.join(list(LABEL_SIZES.keys()))}"
+        elif CONFIG['LABEL'].get('DEFAULT_SIZE') == None or CONFIG['LABEL'].get('DEFAULT_SIZE') not in LABEL_SIZES.keys():
+            error_msg = f"Invalid default label size '{CONFIG['LABEL'].get('DEFAULT_SIZE')}'. Please choose one of the following: {', '.join(list(LABEL_SIZES.keys()))}"
             CONFIG_ERRORS.append(error_msg)
             logger.warning(error_msg)
 
@@ -1235,6 +1248,10 @@ def main():
         # Run validation and collect any validation errors
         validation_errors = validate_configuration(FONTS, LABEL_SIZES, PRINTERS)
         CONFIG_ERRORS.extend(validation_errors)
+
+        # Append initialization errors
+        if instance.initialization_errors:
+            CONFIG_ERRORS.extend(instance.initialization_errors)
 
     except Exception as e:
         error_msg = f"Critical error during initialization: {str(e)}"

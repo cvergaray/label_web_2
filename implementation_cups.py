@@ -36,15 +36,32 @@ class implementation:
         self.logger = None
         self.server_ip = None
         self.selected_printer = None
+        self.initialization_errors = []  # Track initialization and CUPS errors
 
     def initialize(self, config):
         self.CONFIG = config
+        self.initialization_errors = []  # Clear any previous errors
         self.server_ip = None
         if 'PRINTER' not in self.CONFIG:
-            return "No printer configuration found in config file."
+            error_msg = "No printer configuration found in config file."
+            self.initialization_errors.append(error_msg)
+            return error_msg
         if 'SERVER' in self.CONFIG['PRINTER']:
             self.server_ip = self.CONFIG['PRINTER']['SERVER']
+
         cups.setServer(self.server_ip)
+
+        # Test CUPS connection
+        try:
+            # Try to connect to verify the server is accessible
+            conn = self._get_conn()
+            # Verify we can get printers to ensure full connectivity
+            _ = conn.getPrinters()
+        except Exception as e:
+            error_msg = f"Failed to connect to CUPS server at '{self.server_ip or 'localhost'}': {str(e)}"
+            self.initialization_errors.append(error_msg)
+            print(f"Error: {error_msg}")
+
         # Optionally set default printer from config
         self.selected_printer = self.CONFIG['PRINTER'].get('PRINTER')
         return ''
@@ -368,8 +385,12 @@ class implementation:
             conn = self._get_conn()
             printers = list(conn.getPrinters().keys())
         except Exception as e:
+            error_msg = f"Error getting list of printers from CUPS server: {str(e)}"
             print("Error getting list of printers. Verify that CUPS server is running and accessible.")
             print(str(e))
+            # Add to initialization errors if not already there
+            if error_msg not in self.initialization_errors:
+                self.initialization_errors.append(error_msg)
             printers = []
         return printers
 

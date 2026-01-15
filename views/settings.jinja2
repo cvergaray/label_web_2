@@ -35,10 +35,13 @@
           <button id="saveButton" class="btn btn-primary btn-lg">
             <span class="glyphicon glyphicon-floppy-disk" aria-hidden="true"></span> Save All Settings
           </button>
+          <button id="validateButton" class="btn btn-info btn-lg">
+            <span class="glyphicon glyphicon-ok-circle" aria-hidden="true"></span> Validate Configuration
+          </button>
           <button id="resetButton" class="btn btn-default btn-lg">
             <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Reload Settings
           </button>
-          <div id="statusMessage" style="position: absolute; left: 420px; top: 0; max-width: calc(100% - 440px);"></div>
+          <div id="statusMessage" style="position: absolute; left: 620px; top: 0; max-width: calc(100% - 640px);"></div>
         </div>
 
         <!-- Settings Accordion -->
@@ -337,6 +340,9 @@
         <div class="action-buttons-container" style="margin-top: 20px; margin-bottom: 40px;">
           <button id="saveButton2" class="btn btn-primary btn-lg">
             <span class="glyphicon glyphicon-floppy-disk" aria-hidden="true"></span> Save All Settings
+          </button>
+          <button id="validateButton2" class="btn btn-info btn-lg">
+            <span class="glyphicon glyphicon-ok-circle" aria-hidden="true"></span> Validate Configuration
           </button>
           <button id="resetButton2" class="btn btn-default btn-lg">
             <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Reload Settings
@@ -1308,7 +1314,7 @@
       };
     }
 
-    // Validate settings before saving
+    // Validate settings and display errors (does not block save)
     function validateSettings(payload) {
       return fetch('/api/settings/validate', {
         method: 'POST',
@@ -1317,12 +1323,12 @@
       })
       .then(r => r.json())
       .then(data => {
+        const alertDiv = document.getElementById('configErrorsAlert');
+        const errorsList = document.getElementById('errorsList');
+        const navbarItem = document.getElementById('configErrorsNavItem');
+
         if (data.has_errors && data.errors && data.errors.length > 0) {
           // Show errors in the alert
-          const alertDiv = document.getElementById('configErrorsAlert');
-          const errorsList = document.getElementById('errorsList');
-          const navbarItem = document.getElementById('configErrorsNavItem');
-
           if (alertDiv && errorsList) {
             alertDiv.style.display = 'block';
             if (navbarItem) navbarItem.style.display = 'block';
@@ -1338,10 +1344,20 @@
             alertDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
 
-          showStatus('Cannot save: Configuration has errors. Please fix them first.', 'danger');
           return false;
+        } else {
+          // Clear errors when validation passes
+          if (alertDiv) {
+            alertDiv.style.display = 'none';
+          }
+          if (navbarItem) {
+            navbarItem.style.display = 'none';
+          }
+          if (errorsList) {
+            errorsList.innerHTML = '';
+          }
+          return true;
         }
-        return true;
       })
       .catch(err => {
         console.error('Error validating settings:', err);
@@ -1354,15 +1370,14 @@
     function saveSettings() {
       const payload = collectSettings();
 
-      // Validate before saving
-      showStatus('Validating configuration...', 'info');
+      // Validate and show errors (but don't block save)
+      showStatus('Saving settings...', 'info');
       validateSettings(payload).then(isValid => {
         if (!isValid) {
-          return; // Stop if validation failed
+          showStatus('Settings saved, but validation found errors. Please review them below.', 'warning');
         }
 
-        // Proceed with save
-        showStatus('Saving settings...', 'info');
+        // Proceed with save regardless of validation
         fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
           .then(r => r.json())
           .then(data => {
@@ -1390,6 +1405,28 @@
 
     document.getElementById('saveButton').addEventListener('click', saveSettings);
     document.getElementById('saveButton2').addEventListener('click', saveSettings);
+    document.getElementById('validateButton').addEventListener('click', function() {
+      const payload = collectSettings();
+      showStatus('Validating configuration...', 'info');
+      validateSettings(payload).then(isValid => {
+        if (isValid) {
+          showStatus('Configuration is valid!', 'success');
+        } else {
+          showStatus('Configuration has errors. Please review them above.', 'danger');
+        }
+      });
+    });
+    document.getElementById('validateButton2').addEventListener('click', function() {
+      const payload = collectSettings();
+      showStatus('Validating configuration...', 'info');
+      validateSettings(payload).then(isValid => {
+        if (isValid) {
+          showStatus('Configuration is valid!', 'success');
+        } else {
+          showStatus('Configuration has errors. Please review them above.', 'danger');
+        }
+      });
+    });
     document.getElementById('resetButton').addEventListener('click', loadSettings);
     document.getElementById('resetButton2').addEventListener('click', loadSettings);
 
