@@ -59,12 +59,10 @@ class implementation:
             conn = self._get_conn()
             # Verify we can get printers to ensure full connectivity
             _ = conn.getPrinters()
-            try:
-                self.cups_default = conn.getDefault() or None
-            except Exception:
-                self.cups_default = None
+            self.cups_default = conn.getDefault() or None
         except Exception as e:
-            error_msg = f"Failed to connect to CUPS server at '{self.server_ip or 'localhost'}': {str(e)}"
+            error_msg = f"Failed to retrieve printer data from CUPS server at '{self.server_ip or 'localhost'}': {str(e)}"
+            self.cups_default = None
             self.initialization_errors.append(error_msg)
             print(f"Error: {error_msg}")
 
@@ -393,8 +391,7 @@ class implementation:
             printers = list(conn.getPrinters().keys())
         except Exception as e:
             error_msg = f"Error getting list of printers from CUPS server: {str(e)}"
-            print("Error getting list of printers. Verify that CUPS server is running and accessible.")
-            print(str(e))
+            print(error_msg)
             # Add to initialization errors if not already there
             if error_msg not in self.initialization_errors:
                 self.initialization_errors.append(error_msg)

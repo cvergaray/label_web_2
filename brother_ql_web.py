@@ -58,30 +58,29 @@ CONFIG = {
 }
 
 CONFIG_ERRORS = []  # Store configuration validation errors
+CONFIG_FILE = '/appconfig/config.json'
 
 # Try to load config file
 try:
-    with open('/appconfig/config.json', encoding='utf-8') as fh:
+    with open(CONFIG_FILE, encoding='utf-8') as fh:
         CONFIG = json.load(fh)
-        print("loaded config from /appconfig/config.json")
+        print(f"loaded config from {CONFIG_FILE}")
 except FileNotFoundError:
     try:
         with open('config.minimal.json', encoding='utf-8') as fh:
             CONFIG = json.load(fh)
             print("loaded config from config.minimal.json")
     except FileNotFoundError:
-        CONFIG_ERRORS.append("Warning: No config file found. Using default configuration. Please configure settings on the settings page.")
-        print("Warning: No config files found. Using default configuration.")
-except json.JSONDecodeError as e:
-    CONFIG_ERRORS.append(f"Error: Failed to parse config file: {e}")
-    print(f"Error parsing config file: {e}")
+        error_msg = "Warning: No config file found. Using default configuration. Please configure settings on the settings page."
+        CONFIG_ERRORS.append(error_msg)
+        logger.error(error_msg)
 except Exception as e:
-    CONFIG_ERRORS.append(f"Error: Failed to load config file: {e}")
-    print(f"Error loading config file: {e}")
+    error_msg = f"Error: Failed to parse config file: {e}"
+    CONFIG_ERRORS.append(error_msg)
+    logger.error(error_msg)
 
 PRINTERS = None
 LABEL_SIZES = None
-CONFIG_FILE = '/appconfig/config.json'
 FONTS = {}  # Will be populated during initialization
 
 
@@ -186,10 +185,10 @@ def config_to_settings_format(config):
         'server': {
             'host': config.get('SERVER', {}).get('HOST', ''),
             'logLevel': config.get('SERVER', {}).get('LOGLEVEL', 'INFO'),
-            'additionalFontFolder': config.get('SERVER', {}).get('ADDITIONAL_FONT_FOLDER', False)
+            'additionalFontFolder': config.get('SERVER', {}).get('ADDITIONAL_FONT_FOLDER', '/fonts')
         },
         'printer': {
-            'useCups': config.get('PRINTER', {}).get('USE_CUPS', False),
+            'useCups': config.get('PRINTER', {}).get('USE_CUPS', True),
             'server': config.get('PRINTER', {}).get('SERVER', 'localhost'),
             'printer': config.get('PRINTER', {}).get('PRINTER', ''),
             'enabledSizes': config.get('PRINTER', {}).get('ENABLED_SIZES', {}),
@@ -223,10 +222,10 @@ def settings_format_to_config(settings):
         'SERVER': {
             'HOST': settings.get('server', {}).get('host', ''),
             'LOGLEVEL': settings.get('server', {}).get('logLevel', 'INFO'),
-            'ADDITIONAL_FONT_FOLDER': settings.get('server', {}).get('additionalFontFolder', False)
+            'ADDITIONAL_FONT_FOLDER': settings.get('server', {}).get('additionalFontFolder', '/fonts')
         },
         'PRINTER': {
-            'USE_CUPS': settings.get('printer', {}).get('useCups', False),
+            'USE_CUPS': settings.get('printer', {}).get('useCups', True),
             'SERVER': settings.get('printer', {}).get('server', 'localhost'),
             'PRINTER': settings.get('printer', {}).get('printer', ''),
             'ENABLED_SIZES': settings.get('printer', {}).get('enabledSizes', {}),
@@ -255,14 +254,6 @@ def settings_format_to_config(settings):
     # Add LABEL_PRINTABLE_AREA if there are custom dimensions
     if label_printable_area:
         config['PRINTER']['LABEL_PRINTABLE_AREA'] = label_printable_area
-
-    # Preserve any existing config sections not managed by settings UI
-    # Note: LABEL_SIZES is now managed by the UI and should not be merged
-    # Deletions are handled by sending the complete new set from frontend
-    if 'LABEL_PRINTABLE_AREA' in CONFIG.get('PRINTER', {}):
-        # If the user didn't provide custom dimensions, preserve existing ones
-        if not label_printable_area:
-            config['PRINTER']['LABEL_PRINTABLE_AREA'] = CONFIG['PRINTER']['LABEL_PRINTABLE_AREA']
 
     return config
 
@@ -332,7 +323,7 @@ def validate_configuration(fonts_dict, label_sizes_dict, printers_list, config=N
         fonts_dict: Dictionary of available fonts
         label_sizes_dict: Dictionary of available label sizes
         printers_list: List of available printers
-        config: Optional config dict to validate (uses global CONFIG if not provided)
+        config: Optional config dict to validate (validates global CONFIG if not provided)
 
     Returns:
         List of error messages (empty if no errors)
@@ -359,7 +350,7 @@ def validate_configuration(fonts_dict, label_sizes_dict, printers_list, config=N
 
     # Check that label sizes are available
     if not label_sizes_dict:
-        errors.append("No label sizes available. Ensure printer drivers report media or configure custom sizes.")
+        errors.append("No label sizes available. Ensure CUPS server has configured media or enter custom sizes in the configuration.")
 
     # Check default font configuration
     default_fonts_list = config.get('LABEL', {}).get('DEFAULT_FONTS', [])
