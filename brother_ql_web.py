@@ -5,7 +5,7 @@
 This is a web service to print labels on label printers via CUPS.
 """
 import cups
-
+import copy
 import textwrap
 
 import sys, logging, random, json, argparse, requests, yaml
@@ -140,7 +140,7 @@ def labeldesigner():
     font_family_names = sorted(list(FONTS.keys()))
     filtered_printers, default_printer, label_sizes = compute_printer_selection(instance, PRINTERS, CONFIG, logger)
     # Normalize DEFAULT_FONTS to always be a dict for template compatibility
-    label_config = dict(CONFIG['LABEL'])
+    label_config = copy.deepcopy(CONFIG['LABEL'])
     label_config['DEFAULT_FONTS'] = normalize_default_fonts(label_config.get('DEFAULT_FONTS', {}))
 
     return {'font_family_names': font_family_names,
@@ -206,7 +206,7 @@ def templatePrint():
     filtered_printers, default_printer, label_sizes = compute_printer_selection(instance, PRINTERS, CONFIG, logger)
 
     # Normalize DEFAULT_FONTS to always be a dict for template compatibility
-    label_config = dict(CONFIG['LABEL'])
+    label_config = copy.deepcopy(CONFIG['LABEL'])
     label_config['DEFAULT_FONTS'] = normalize_default_fonts(label_config.get('DEFAULT_FONTS', {}))
 
     return {
@@ -564,7 +564,7 @@ def print_text():
 def settings_page():
     """Render the settings management page."""
     # Normalize DEFAULT_FONTS to always be a dict for template compatibility
-    label_config = dict(CONFIG['LABEL'])
+    label_config = copy.deepcopy(CONFIG['LABEL'])
     label_config['DEFAULT_FONTS'] = normalize_default_fonts(label_config.get('DEFAULT_FONTS', {}))
 
     return {
@@ -671,8 +671,9 @@ def save_settings_api():
         # Convert frontend settings format to CONFIG format
         new_config = settings_format_to_config(payload)
 
-        # Merge with existing CONFIG to preserve other settings
-        merged_config = {**CONFIG, **new_config}
+        # Merge with existing CONFIG to preserve other settings (use deep copy to avoid mutating CONFIG)
+        merged_config = copy.deepcopy(CONFIG)
+        merged_config.update(new_config)
 
         if save_config_with_global_update(merged_config):
             # Apply new settings at runtime and revalidate
@@ -749,7 +750,7 @@ def get_settings_printers():
         server_param = request.query.get('server')  # New parameter for CUPS server
 
         # Allow temporary override of CUPS setting and server for preview
-        temp_config = CONFIG.copy()
+        temp_config = copy.deepcopy(CONFIG)
         if use_cups_param is not None:
             temp_config['PRINTER']['USE_CUPS'] = use_cups_param == '1'
 
