@@ -770,6 +770,12 @@
     function removeCustomSize(key) {
       if (settingsState.printer.labelSizes && key in settingsState.printer.labelSizes) {
         delete settingsState.printer.labelSizes[key];
+
+        // Also remove the corresponding printable area entry if it exists
+        if (settingsState.printer.labelPrintableArea && key in settingsState.printer.labelPrintableArea) {
+          delete settingsState.printer.labelPrintableArea[key];
+        }
+
         renderCustomSizes();
         markAsChanged(); // Mark as unsaved
         loadPrinters();
