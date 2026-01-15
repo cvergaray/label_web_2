@@ -32,7 +32,8 @@ from configuration_management import (
     filter_label_sizes_for_printer,
     filter_printers,
     normalize_default_fonts,
-    validate_configuration
+    validate_configuration,
+    compute_printer_selection,
 )
 
 logger = logging.getLogger(__name__)
@@ -137,16 +138,7 @@ def serve_static(filename):
 @view('labeldesigner.jinja2')
 def labeldesigner():
     font_family_names = sorted(list(FONTS.keys()))
-    # Filter printers for display
-    filtered_printers = filter_printers(PRINTERS, CONFIG)
-    default_printer = instance.selected_printer if instance.selected_printer else (filtered_printers[0] if filtered_printers else None)
-    default_orientation = CONFIG['LABEL'].get('DEFAULT_ORIENTATION', 'standard')
-
-    # Compute label sizes for default printer and filter by enabled
-    label_sizes_list = instance.get_label_sizes(default_printer)
-    label_sizes_list = filter_label_sizes_for_printer(label_sizes_list, default_printer, CONFIG)
-    label_sizes = label_sizes_list_to_dict(label_sizes_list, logger)
-
+    filtered_printers, default_printer, label_sizes = compute_printer_selection(instance, PRINTERS, CONFIG, logger)
     # Normalize DEFAULT_FONTS to always be a dict for template compatibility
     label_config = dict(CONFIG['LABEL'])
     label_config['DEFAULT_FONTS'] = normalize_default_fonts(label_config.get('DEFAULT_FONTS', {}))
@@ -156,7 +148,7 @@ def labeldesigner():
             'label_sizes': label_sizes,
             'printers': filtered_printers,
             'default_printer': default_printer,
-            'default_orientation': default_orientation,
+            'default_orientation': CONFIG['LABEL'].get('DEFAULT_ORIENTATION', 'standard'),
             'website': CONFIG['WEBSITE'],
             'label': label_config,
             'has_errors': len(CONFIG_ERRORS) > 0}
@@ -210,18 +202,8 @@ def get_printer_media(printer_name):
 @view('templateprint.jinja2')
 def templatePrint():
     templateFiles = [os.path.basename(file) for file in glob.glob('/appconfig/*.lbl')]
-    # Filter printers for display
-    filtered_printers = filter_printers(PRINTERS, CONFIG) if PRINTERS else []
-    default_printer = None
-    if instance.selected_printer and instance.selected_printer in filtered_printers:
-        default_printer = instance.selected_printer
-    elif filtered_printers:
-        default_printer = filtered_printers[0]
-
-    # Filter label sizes for default printer
-    label_sizes_list = instance.get_label_sizes(default_printer)
-    label_sizes_list = filter_label_sizes_for_printer(label_sizes_list, default_printer, CONFIG)
-    label_sizes = label_sizes_list_to_dict(label_sizes_list, logger)
+    # Use shared helper to get printers, default, and label sizes
+    filtered_printers, default_printer, label_sizes = compute_printer_selection(instance, PRINTERS, CONFIG, logger)
 
     # Normalize DEFAULT_FONTS to always be a dict for template compatibility
     label_config = dict(CONFIG['LABEL'])
@@ -244,13 +226,6 @@ def templatePrint():
 @enable_cors
 def printtemplate(templatefile):
     return_dict = {'Success': False}
-
-    # Check for configuration errors before attempting to print
-    if CONFIG_ERRORS:
-        return_dict['error'] = 'Cannot print: Configuration errors exist. Please resolve them in the settings page.'
-        return_dict['has_config_errors'] = True
-        response.status = 503
-        return return_dict
 
     template_data = get_template_data(templatefile)
 
@@ -567,13 +542,6 @@ def print_text():
 
     return_dict = {'success': False}
 
-    # Check for configuration errors before attempting to print
-    if CONFIG_ERRORS:
-        return_dict['error'] = 'Cannot print: Configuration errors exist. Please resolve them in the settings page.'
-        return_dict['has_config_errors'] = True
-        response.status = 503
-        return return_dict
-
     try:
         context = get_label_context(request)
     except LookupError as e:
@@ -756,8 +724,7 @@ def validate_cups_server_api():
         server = payload.get('server') or 'localhost'
         old_server = cups.getServer()
         try:
-            cups.setServer(server)
-            conn = cups.Connection()
+            conn = cups.Connection(server)
             printers = list(conn.getPrinters().keys())
             return {'success': True, 'server': server, 'printers': printers}
         except Exception as e:

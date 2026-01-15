@@ -352,3 +352,17 @@ def validate_configuration(fonts_dict, label_sizes_dict, printers_list, config):
 
     return errors
 
+
+def compute_printer_selection(instance, printers, config, logger=None):
+    """Compute filtered printers, default printer, and label sizes for UI templates."""
+    filtered_printers = filter_printers(printers or [], config)
+    default_printer = None
+    if instance.selected_printer and instance.selected_printer in filtered_printers:
+        default_printer = instance.selected_printer
+    elif filtered_printers:
+        default_printer = filtered_printers[0]
+
+    label_sizes_list = instance.get_label_sizes(default_printer)
+    label_sizes_list = filter_label_sizes_for_printer(label_sizes_list, default_printer, config)
+    label_sizes = label_sizes_list_to_dict(label_sizes_list, logger)
+    return filtered_printers, default_printer, label_sizes
