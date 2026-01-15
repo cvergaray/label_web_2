@@ -122,14 +122,14 @@
                   <div class="form-group">
                     <label class="col-sm-3 control-label">Use CUPS</label>
                     <div class="col-sm-9">
+                      <p class="help-block" style="margin-top: 5px;">Indicates if printers and media sizes should be retrieved from the CUPS server.</p>
                       <div class="checkbox" style="margin-bottom:10px;">
                         <label>
                           <input type="checkbox" id="printerUseCups"> Enable CUPS for printer and media retrieval
                         </label>
                       </div>
-                      <p class="help-block" style="margin-top: 5px;">Indicates if printers and media sizes should be retrieved from the CUPS server.</p>
                       <button id="reloadMediaBtn" class="btn btn-sm btn-info" type="button">
-                        <span class="glyphicon glyphicon-repeat" aria-hidden="true"></span> Reload from CUPS
+                        <span class="glyphicon glyphicon-repeat" aria-hidden="true"></span> <span id="reloadMediaBtnText">Reload from CUPS</span>
                       </button>
                       <div id="cups-status" class="alert alert-info" style="margin-top: 10px;">
                         Loading CUPS status...
@@ -1261,12 +1261,16 @@
     // Update CUPS status message
     function updateCupsStatus() {
       const statusDiv = document.getElementById('cups-status');
+      const reloadBtnText = document.getElementById('reloadMediaBtnText');
+
       if (settingsState.printer.useCups) {
         statusDiv.className = 'alert alert-success';
         statusDiv.innerHTML = '<strong>✓ CUPS media retrieval is enabled</strong><br>Printers and Media sizes will be retrieved from the CUPS print server.';
+        if (reloadBtnText) reloadBtnText.textContent = 'Reload from CUPS';
       } else {
         statusDiv.className = 'alert alert-warning';
         statusDiv.innerHTML = '<strong>✗ CUPS media retrieval is disabled</strong><br>Only configuration-defined printers and media sizes will be used.';
+        if (reloadBtnText) reloadBtnText.textContent = 'Reload from Configuration';
       }
     }
 
