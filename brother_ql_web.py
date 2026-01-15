@@ -269,8 +269,10 @@ def settings_format_to_config(settings):
 
 # Filter a list of (key,label) sizes by CONFIG PRINTER.ENABLED_SIZES for given printer.
 # If no entry exists for the printer, allow all sizes.
-def filter_label_sizes_for_printer(label_sizes_list, printer_name):
-    enabled_map = CONFIG.get('PRINTER', {}).get('ENABLED_SIZES', {}) or {}
+def filter_label_sizes_for_printer(label_sizes_list, printer_name, config=None):
+    if config is None:
+        config = CONFIG
+    enabled_map = config.get('PRINTER', {}).get('ENABLED_SIZES', {}) or {}
     enabled_for_printer = enabled_map.get(printer_name)
     if not enabled_for_printer:
         return label_sizes_list
@@ -279,14 +281,16 @@ def filter_label_sizes_for_printer(label_sizes_list, printer_name):
 
 
 # Filter printer list by CONFIG PRINTER.PRINTERS_INCLUDE and PRINTERS_EXCLUDE
-def filter_printers(printers_list):
+def filter_printers(printers_list, config=None):
     """
     Filter printers based on include/exclude lists.
     If include list has items, only show those printers.
     Then apply exclude list to remove specific printers.
     """
-    include = CONFIG.get('PRINTER', {}).get('PRINTERS_INCLUDE', []) or []
-    exclude = CONFIG.get('PRINTER', {}).get('PRINTERS_EXCLUDE', []) or []
+    if config is None:
+        config = CONFIG
+    include = config.get('PRINTER', {}).get('PRINTERS_INCLUDE', []) or []
+    exclude = config.get('PRINTER', {}).get('PRINTERS_EXCLUDE', []) or []
 
     filtered = printers_list
 
@@ -320,7 +324,7 @@ def normalize_default_fonts(fonts_value):
         return {}
 
 
-def validate_configuration(fonts_dict, label_sizes_dict, printers_list):
+def validate_configuration(fonts_dict, label_sizes_dict, printers_list, config=None):
     """
     Validate configuration and collect errors without failing startup.
 
@@ -328,10 +332,13 @@ def validate_configuration(fonts_dict, label_sizes_dict, printers_list):
         fonts_dict: Dictionary of available fonts
         label_sizes_dict: Dictionary of available label sizes
         printers_list: List of available printers
+        config: Optional config dict to validate (uses global CONFIG if not provided)
 
     Returns:
         List of error messages (empty if no errors)
     """
+    if config is None:
+        config = CONFIG
     errors = []
 
     # Check if fonts are available
@@ -339,7 +346,7 @@ def validate_configuration(fonts_dict, label_sizes_dict, printers_list):
         errors.append("No fonts found on the system. Please install fonts to the system or configure additional font folder.")
 
     # Check printer availability/configuration
-    configured_printer = CONFIG.get('PRINTER', {}).get('PRINTER')
+    configured_printer = config.get('PRINTER', {}).get('PRINTER')
     if not printers_list:
         errors.append("No printers detected. Please ensure CUPS is available and printers are configured.")
     else:
@@ -353,7 +360,7 @@ def validate_configuration(fonts_dict, label_sizes_dict, printers_list):
         errors.append("No label sizes available. Ensure printer drivers report media or configure custom sizes.")
 
     # Check default font configuration
-    default_fonts_list = CONFIG.get('LABEL', {}).get('DEFAULT_FONTS', [])
+    default_fonts_list = config.get('LABEL', {}).get('DEFAULT_FONTS', [])
     if isinstance(default_fonts_list, dict):
         default_fonts_list = [default_fonts_list]
 
@@ -367,7 +374,7 @@ def validate_configuration(fonts_dict, label_sizes_dict, printers_list):
                 errors.append(f"Configured default font style '{style}' not found for font family '{family}'.")
 
     # Check default label size configuration
-    default_size = CONFIG.get('LABEL', {}).get('DEFAULT_SIZE')
+    default_size = config.get('LABEL', {}).get('DEFAULT_SIZE')
     if default_size and label_sizes_dict:
         if default_size not in label_sizes_dict.keys():
             errors.append(f"Configured default label size '{default_size}' is not in available label sizes.")
@@ -873,6 +880,72 @@ def get_config_errors():
 def get_settings():
     """Get current application settings."""
     return config_to_settings_format(CONFIG)
+
+
+@route('/api/settings/validate', method=['POST', 'OPTIONS'])
+@enable_cors
+def validate_settings_api():
+    """Validate settings without saving them."""
+    try:
+        payload = request.json
+
+        # Convert frontend settings format to CONFIG format
+        new_config = settings_format_to_config(payload)
+
+        # Create a temporary instance for validation
+        temp_instance = implementation()
+
+        # Try to initialize with the new config
+        try:
+            temp_instance.initialize(new_config)
+        except Exception as init_err:
+            return {
+                'success': True,
+                'has_errors': True,
+                'errors': [f"Configuration initialization failed: {init_err}"]
+            }
+
+        # Get printers with the new config
+        temp_printers = temp_instance.get_printers() or []
+
+        # Get label sizes for ALL printers for comprehensive validation
+        all_label_sizes = {}
+        for printer in temp_printers:
+            try:
+                printer_label_sizes_list = temp_instance.get_label_sizes(printer)
+                printer_label_sizes_list = filter_label_sizes_for_printer(printer_label_sizes_list, printer, new_config)
+                printer_label_sizes = label_sizes_list_to_dict(printer_label_sizes_list, logger)
+                all_label_sizes[printer] = printer_label_sizes
+            except Exception as e:
+                logger.warning(f"Could not get label sizes for printer {printer} during validation: {e}")
+                all_label_sizes[printer] = {}
+
+        # Combine all label sizes from all printers for validation
+        combined_label_sizes = {}
+        for printer_sizes in all_label_sizes.values():
+            combined_label_sizes.update(printer_sizes)
+
+        # Get fonts for validation
+        temp_fonts = get_fonts()
+        additional_folder = new_config.get('SERVER', {}).get('ADDITIONAL_FONT_FOLDER', False)
+        if additional_folder:
+            temp_fonts.update(get_fonts(additional_folder))
+
+        # Run configuration validation with new_config
+        validation_errors = validate_configuration(temp_fonts, combined_label_sizes, temp_printers, new_config)
+
+        return {
+            'success': True,
+            'has_errors': len(validation_errors) > 0,
+            'errors': validation_errors
+        }
+    except Exception as e:
+        logger.error(f"Error validating settings: {e}")
+        return {
+            'success': True,
+            'has_errors': True,
+            'errors': [f"Validation error: {str(e)}"]
+        }
 
 
 @route('/api/settings', method=['POST', 'OPTIONS'])

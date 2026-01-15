@@ -28,14 +28,12 @@
           <ul class="nav navbar-nav">
             <li><a href="/templateprint">Print From Template</a></li>
             <li><a href="/settings">Settings</a></li>
-            {% if has_errors %}
-            <li>
+            <li id="configErrorsNavItem" style="{% if not has_errors %}display: none;{% endif %}">
               <a href="/settings" style="background-color: #d9534f; color: white;">
                 <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
                 <strong>Configuration Errors</strong> - Click here to view
               </a>
             </li>
-            {% endif %}
           </ul>
         </div>
       </div>

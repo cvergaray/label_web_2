@@ -11,8 +11,7 @@
       <div class="col-md-10 col-md-offset-1">
 
         <!-- Configuration Errors Alert -->
-        {% if has_errors %}
-        <div class="alert alert-danger" role="alert">
+        <div id="configErrorsAlert" class="alert alert-danger" role="alert" style="{% if not has_errors %}display: none;{% endif %}">
           <h4 class="alert-heading">
             <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
             Configuration Errors
@@ -24,7 +23,6 @@
           <hr>
           <p class="mb-0">Please review and fix the errors below before the application can work properly.</p>
         </div>
-        {% endif %}
 
         <!-- Unsaved Changes Indicator (Fixed Position) -->
         <div id="unsavedIndicator" style="display: none; position: fixed; top: 60px; right: 20px; z-index: 1000; background-color: #d58512; color: white; padding: 12px 20px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); cursor: pointer;" onclick="saveSettings()">
@@ -139,10 +137,13 @@
                   <div class="form-group">
                     <label class="col-sm-3 control-label">Default Printer</label>
                     <div class="col-sm-9">
-                      <p class="help-block" style="margin-top: 0;">Default printer to use. Select "CUPS Default" to use the CUPS default printer.</p>
-                      <select class="form-control" id="printerName">
+                      <p class="help-block" style="margin-top: 0;">Default printer to use. When CUPS is enabled, select from available printers or choose "CUPS Default". When CUPS is disabled, enter the printer name manually.</p>
+                      <!-- Dropdown for CUPS enabled mode -->
+                      <select class="form-control" id="printerName" style="display: none;">
                         <option value="">(CUPS Default)</option>
                       </select>
+                      <!-- Text input for CUPS disabled mode -->
+                      <input type="text" class="form-control" id="printerNameText" placeholder="Enter printer name or leave empty for CUPS default" style="display: none;">
                     </div>
                   </div>
 
@@ -517,7 +518,10 @@
       document.getElementById('printerUseCups').checked = settingsState.printer.useCups;
       document.getElementById('printerServer').value = settingsState.printer.server || 'localhost';
       document.getElementById('printerName').value = settingsState.printer.printer || '';
+      document.getElementById('printerNameText').value = settingsState.printer.printer || '';
       updateCupsStatus();
+      // Display correct printer input based on CUPS state
+      updatePrinterInputDisplay(settingsState.printer.useCups);
       // LABEL - orientation and font size
       document.getElementById('labelDefaultOrientation').value = settingsState.label.defaultOrientation || 'standard';
       document.getElementById('labelDefaultFontSize').value = settingsState.label.defaultFontSize || 70;
@@ -536,6 +540,25 @@
       loadPrinters();
     }
 
+    // Update include/exclude lists and enabled media sizes when default printer changes in CUPS-disabled mode
+    function updatePrinterChecklistsForDefaultPrinter() {
+      const newPrinterName = document.getElementById('printerNameText').value.trim();
+
+      // Update settingsState with new printer name
+      settingsState.printer.printer = newPrinterName;
+
+      // Re-render the printer checkboxes with the current printers list
+      // This will include the newly selected default printer and any previously selected printers
+      if (window.currentPrintersList) {
+        renderPrinterCheckboxes(window.currentPrintersList);
+      }
+
+      // Re-render the enabled media sizes to reflect the new available printers
+      if (window.currentMediaSizes) {
+        renderPrintersList(window.currentMediaSizes);
+      }
+    }
+
     function attachChangeListeners() {
       if (listenersAttached) return; // Already attached, skip
       listenersAttached = true;
@@ -551,6 +574,18 @@
         const el = document.getElementById(id);
         if (el) el.addEventListener('change', markAsChanged);
       });
+
+      // Special handling for printerNameText - update checkboxes and media when changed in CUPS-disabled mode
+      const printerNameText = document.getElementById('printerNameText');
+      if (printerNameText) {
+        printerNameText.addEventListener('change', function() {
+          markAsChanged();
+          // When CUPS is disabled and default printer changes, update include/exclude lists and media sizes
+          if (!settingsState.printer.useCups) {
+            updatePrinterChecklistsForDefaultPrinter();
+          }
+        });
+      }
 
       // LABEL inputs
       ['labelDefaultSize', 'labelDefaultOrientation', 'labelDefaultFontSize', 'labelDefaultFontFamily', 'labelDefaultFontStyle'].forEach(id => {
@@ -865,6 +900,10 @@
       fetch(url)
         .then(response => response.json())
         .then(data => {
+          // Store current state for use by updatePrinterChecklistsForDefaultPrinter
+          window.currentPrintersList = data.printers || [];
+          window.currentMediaSizes = data;
+
           renderPrinterCheckboxes(data.printers || []);
           renderPrintersList(data);
         })
@@ -935,8 +974,7 @@
                 <p class="text-muted" style="margin-bottom: 0;">
                   <small><strong>Note:</strong> The following sizes were previously enabled but are no longer available. They are preserved to prevent data loss. Uncheck any you want to remove.</small>
                 </p>
-              </div>
-              <div class="list-group" style="margin-bottom: 10px;">
+                <div class="list-group" style="margin-bottom: 10px;">
             `;
             enabledForPrinter.forEach(sizeKey => {
               const checkboxId = `size_${escapeHtml(printer)}_${escapeHtml(sizeKey)}`;
@@ -1112,11 +1150,44 @@
       }
     }
 
+    // Toggle between dropdown and text input for default printer based on CUPS state
+    function updatePrinterInputDisplay(useCups) {
+      const dropdown = document.getElementById('printerName');
+      const textInput = document.getElementById('printerNameText');
+
+      if (useCups) {
+        // CUPS enabled - show dropdown
+        dropdown.style.display = 'block';
+        textInput.style.display = 'none';
+        // Sync textbox value to dropdown if it exists in options
+        const textValue = textInput.value.trim();
+        if (textValue) {
+          // Check if text value matches any option value
+          const optionExists = Array.from(dropdown.options).some(opt => opt.value === textValue);
+          if (optionExists) {
+            dropdown.value = textValue;
+          } else {
+            // Default to CUPS Default if text value doesn't match
+            dropdown.value = '';
+          }
+        }
+      } else {
+        // CUPS disabled - show text input
+        textInput.style.display = 'block';
+        dropdown.style.display = 'none';
+        // Sync dropdown value to textbox
+        textInput.value = dropdown.value || '';
+      }
+    }
+
     // Update CUPS toggle - reload all CUPS data when changed
     document.getElementById('printerUseCups').addEventListener('change', function() {
       const newCupsState = this.checked;
       settingsState.printer.useCups = newCupsState;
       updateCupsStatus();
+
+      // Update printer input display based on CUPS state
+      updatePrinterInputDisplay(newCupsState);
 
       // Reload all CUPS-related data when toggling
       if (newCupsState) {
@@ -1186,6 +1257,20 @@
     // Collect settings from UI
     function collectSettings() {
       const fontFolder = document.getElementById('serverFontFolder').value.trim();
+      const useCups = document.getElementById('printerUseCups').checked;
+
+      // Get printer name from appropriate input based on CUPS state
+      let printerName = '';
+      if (useCups) {
+        // When CUPS enabled, get from dropdown
+        printerName = document.getElementById('printerName').value.trim();
+      } else {
+        // When CUPS disabled, get from text input
+        printerName = document.getElementById('printerNameText').value.trim();
+        // If text value doesn't match any dropdown option, treat as custom name
+        // (If empty, it will use CUPS default)
+      }
+
       return {
         server: {
           host: document.getElementById('serverHost').value.trim(),
@@ -1193,9 +1278,9 @@
           additionalFontFolder: fontFolder === 'false' ? false : (fontFolder || false)
         },
         printer: {
-          useCups: document.getElementById('printerUseCups').checked,
+          useCups: useCups,
           server: document.getElementById('printerServer').value.trim(),
-          printer: document.getElementById('printerName').value.trim(),
+          printer: printerName,
           enabledSizes: settingsState.printer.enabledSizes,
           labelSizes: settingsState.printer.labelSizes,
           labelPrintableArea: settingsState.printer.labelPrintableArea || {},
@@ -1217,31 +1302,84 @@
       };
     }
 
+    // Validate settings before saving
+    function validateSettings(payload) {
+      return fetch('/api/settings/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.has_errors && data.errors && data.errors.length > 0) {
+          // Show errors in the alert
+          const alertDiv = document.getElementById('configErrorsAlert');
+          const errorsList = document.getElementById('errorsList');
+          const navbarItem = document.getElementById('configErrorsNavItem');
+
+          if (alertDiv && errorsList) {
+            alertDiv.style.display = 'block';
+            if (navbarItem) navbarItem.style.display = 'block';
+
+            let html = '<ul style="margin-bottom: 0;">';
+            data.errors.forEach(error => {
+              html += '<li>' + escapeHtml(error) + '</li>';
+            });
+            html += '</ul>';
+            errorsList.innerHTML = html;
+
+            // Scroll to the error alert
+            alertDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+
+          showStatus('Cannot save: Configuration has errors. Please fix them first.', 'danger');
+          return false;
+        }
+        return true;
+      })
+      .catch(err => {
+        console.error('Error validating settings:', err);
+        showStatus('Error validating settings: ' + err, 'danger');
+        return false;
+      });
+    }
+
     // Save settings to the server
     function saveSettings() {
       const payload = collectSettings();
-      fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-        .then(r => r.json())
-        .then(data => {
-          if (data.success) {
-            // Update local state with freshly collected payload
-            settingsState = payload;
-            markAsSaved(); // Clear unsaved indicator
-            showStatus('Settings saved successfully! Some changes may require a restart.', data.has_errors ? 'warning' : 'success');
-            // Refresh config errors display
-            loadConfigErrors();
-            // Reload printers/media and label sizes to reflect any changes
-            loadPrinters(true);
-            loadLabelSizes();
-            // Update in-memory titles immediately for UX
-            document.title = settingsState.website.htmlTitle || document.title;
-            const pageTitleEl = document.querySelector('.navbar-brand');
-            if (pageTitleEl) pageTitleEl.textContent = settingsState.website.pageTitle || pageTitleEl.textContent;
-          } else {
-            showStatus('Failed to save settings: ' + (data.error || 'Unknown error'), 'danger');
-          }
-        })
-        .catch(err => { console.error('Error saving settings:', err); showStatus('Error saving settings: ' + err, 'danger'); });
+
+      // Validate before saving
+      showStatus('Validating configuration...', 'info');
+      validateSettings(payload).then(isValid => {
+        if (!isValid) {
+          return; // Stop if validation failed
+        }
+
+        // Proceed with save
+        showStatus('Saving settings...', 'info');
+        fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+          .then(r => r.json())
+          .then(data => {
+            if (data.success) {
+              // Update local state with freshly collected payload
+              settingsState = payload;
+              markAsSaved(); // Clear unsaved indicator
+              showStatus('Settings saved successfully! Some changes may require a restart.', data.has_errors ? 'warning' : 'success');
+              // Refresh config errors display
+              loadConfigErrors();
+              // Reload printers/media and label sizes to reflect any changes
+              loadPrinters(true);
+              loadLabelSizes();
+              // Update in-memory titles immediately for UX
+              document.title = settingsState.website.htmlTitle || document.title;
+              const pageTitleEl = document.querySelector('.navbar-brand');
+              if (pageTitleEl) pageTitleEl.textContent = settingsState.website.pageTitle || pageTitleEl.textContent;
+            } else {
+              showStatus('Failed to save settings: ' + (data.error || 'Unknown error'), 'danger');
+            }
+          })
+          .catch(err => { console.error('Error saving settings:', err); showStatus('Error saving settings: ' + err, 'danger'); });
+      });
     }
 
     document.getElementById('saveButton').addEventListener('click', saveSettings);
@@ -1296,12 +1434,19 @@
 
     function loadConfigErrors() {
       const errorsList = document.getElementById('errorsList');
-      if (!errorsList) return; // Not on settings page
+      const alertDiv = document.getElementById('configErrorsAlert');
+      const navbarItem = document.getElementById('configErrorsNavItem');
+
+      // If error list doesn't exist on page, we're not on settings page
+      if (!errorsList || !alertDiv) return;
 
       fetch('/api/config-errors')
         .then(r => r.json())
         .then(data => {
           if (data.has_errors && data.errors && data.errors.length > 0) {
+            // There are errors - show alert and populate error list
+            alertDiv.style.display = 'block';
+            if (navbarItem) navbarItem.style.display = 'block';
             let html = '<ul style="margin-bottom: 0;">';
             data.errors.forEach(error => {
               html += '<li>' + escapeHtml(error) + '</li>';
@@ -1309,11 +1454,9 @@
             html += '</ul>';
             errorsList.innerHTML = html;
           } else {
-            // No errors
-            const alertDiv = document.querySelector('.alert-danger');
-            if (alertDiv) {
-              alertDiv.style.display = 'none';
-            }
+            // No errors - hide the alert completely
+            alertDiv.style.display = 'none';
+            if (navbarItem) navbarItem.style.display = 'none';
           }
         })
         .catch(err => {
@@ -1592,6 +1735,10 @@
     }
   </style>
 {% endblock %}
+
+
+
+
 
 
 
