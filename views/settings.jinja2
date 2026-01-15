@@ -146,7 +146,7 @@
                         <option value="">(CUPS Default)</option>
                       </select>
                       <!-- Text input for CUPS disabled mode -->
-                      <input type="text" class="form-control" id="printerNameText" placeholder="Enter printer name or leave empty for CUPS default" style="display: none;">
+                      <input type="text" class="form-control" id="printerNameText" placeholder="Enter printer name" style="display: none;">
                     </div>
                   </div>
 
@@ -217,7 +217,7 @@
                   <hr>
 
                   <h5><strong>Enabled Media Sizes Per Printer</strong></h5>
-                  <p class="text-muted small">Select media sizes that should be enabled for each printer. All other sizes will be disabled by default.</p>
+                  <p class="text-muted small">Select media sizes that should be enabled for each printer. If none are explicitly enabled, all will be implicitly enabled.</p>
                   <div id="printers-container">
                     <p class="text-muted">Loading printers...</p>
                   </div>
@@ -543,7 +543,7 @@
       // Render custom sizes list
       renderCustomSizes();
       // Load printers/media list and printer checkboxes
-      loadPrinters();
+      loadPrinters(settingsState.printer.useCups);
     }
 
     // Update include/exclude lists and enabled media sizes when default printer changes in CUPS-disabled mode
@@ -899,7 +899,7 @@
     }
 
     // Load printers and their media sizes
-    function loadPrinters(forceRefresh = false, useCupsOverride = null) {
+    function loadPrinters(forceRefresh = false, useCupsOverride = null, serverOverride = null) {
       // Build URL with parameters
       let url = '/api/settings/printers';
       const params = [];
@@ -907,6 +907,9 @@
       // Allow override of CUPS setting for immediate preview before saving
       const useCups = useCupsOverride !== null ? useCupsOverride : settingsState.printer.useCups;
       params.push(`use_cups=${useCups ? '1' : '0'}`);
+      // Allow override of CUPS server for immediate preview before saving
+      const server = serverOverride !== null ? serverOverride : settingsState.printer.server;
+      if (server) params.push(`server=${encodeURIComponent(server)}`);
       if (params.length > 0) url += '?' + params.join('&');
 
       fetch(url)
@@ -1218,10 +1221,11 @@
       markAsChanged();
     });
 
-    // Reload media sizes from CUPS (no changes to enabled/disabled state)
+    // Reload media sizes from CUPS using the server in the input box
     document.getElementById('reloadMediaBtn').addEventListener('click', function() {
-      loadPrinters(true);
-      showStatus('Media sizes reloaded from CUPS', 'info');
+      const server = document.getElementById('printerServer').value.trim() || 'localhost';
+      loadPrinters(true, null, server);
+      showStatus('Media sizes reloaded from CUPS server: ' + server, 'info');
     });
 
     // Reload fonts from system

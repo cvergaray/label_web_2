@@ -32,7 +32,7 @@ CONFIG = {
         'HOST': '0.0.0.0',
         'PORT': 8013,
         'LOGLEVEL': 'INFO',
-        'ADDITIONAL_FONT_FOLDER': False
+        'ADDITIONAL_FONT_FOLDER': '/fonts'
     },
     'PRINTER': {
         'USE_CUPS': True,
@@ -1033,32 +1033,40 @@ def validate_cups_server_api():
 
 
 @route('/api/settings/printers', method=['GET', 'OPTIONS'])
+@route('/api/settings/printers', method=['GET', 'OPTIONS'])
 @enable_cors
 def get_settings_printers():
     """Get list of printers with their available media sizes. Optional refresh from CUPS."""
     try:
         refresh = request.query.get('refresh')
         use_cups_param = request.query.get('use_cups')
+        server_param = request.query.get('server')  # New parameter for CUPS server
 
-        # Allow temporary override of CUPS setting for preview
+        # Allow temporary override of CUPS setting and server for preview
         temp_config = CONFIG.copy()
         if use_cups_param is not None:
             temp_config['PRINTER']['USE_CUPS'] = use_cups_param == '1'
 
-        if refresh:
-            # Reinitialize to force fresh CUPS data with potentially new CUPS setting
-            instance.CONFIG = temp_config
-            try:
-                instance.initialize(temp_config)
-            except Exception as init_err:
-                logger.warning(f"Reinitialize during printer refresh failed: {init_err}")
+        # Allow temporary override of CUPS server for preview
+        if server_param is not None:
+            temp_config['PRINTER']['SERVER'] = server_param
 
-        printers = instance.get_printers() or []
+        # Create a temporary instance for preview (doesn't modify global state)
+        temp_instance = implementation()
+
+        if refresh:
+            # Initialize temporary instance with the preview config
+            try:
+                temp_instance.initialize(temp_config)
+            except Exception as init_err:
+                logger.warning(f"Initialize temporary instance during printer refresh failed: {init_err}")
+
+        printers = temp_instance.get_printers() or []
         all_media_sizes = {}
 
         for printer in printers:
             try:
-                media_sizes_list = instance.get_label_sizes(printer)
+                media_sizes_list = temp_instance.get_label_sizes(printer)
                 all_media_sizes[printer] = media_sizes_list
             except Exception as e:
                 logger.warning(f"Could not get media sizes for printer {printer}: {e}")
