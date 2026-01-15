@@ -347,13 +347,15 @@ def validate_configuration(fonts_dict, label_sizes_dict, printers_list, config=N
 
     # Check printer availability/configuration
     configured_printer = config.get('PRINTER', {}).get('PRINTER')
+    # If we have printers from CUPS/config
     if not printers_list:
         errors.append("No printers detected. Please ensure CUPS is available and printers are configured.")
     else:
-        if not configured_printer:
-            errors.append("No default printer configured. Please select a printer in settings.")
-        elif configured_printer not in printers_list:
-            errors.append(f"Configured default printer '{configured_printer}' not found among available printers.")
+        # Accept missing configured printer when CUPS provides a default
+        if configured_printer:
+            if configured_printer not in printers_list:
+                errors.append(f"Configured default printer '{configured_printer}' not found among available printers.")
+        # else: no configured printer is fine if printers exist (CUPS default or selection can be used)
 
     # Check that label sizes are available
     if not label_sizes_dict:

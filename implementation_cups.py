@@ -37,10 +37,12 @@ class implementation:
         self.server_ip = None
         self.selected_printer = None
         self.initialization_errors = []  # Track initialization and CUPS errors
+        self.cups_default = None  # Track CUPS-reported default printer
 
     def initialize(self, config):
         self.CONFIG = config
         self.initialization_errors = []  # Clear any previous errors
+        self.cups_default = None
         self.server_ip = None
         if 'PRINTER' not in self.CONFIG:
             error_msg = "No printer configuration found in config file."
@@ -57,13 +59,18 @@ class implementation:
             conn = self._get_conn()
             # Verify we can get printers to ensure full connectivity
             _ = conn.getPrinters()
+            try:
+                self.cups_default = conn.getDefault() or None
+            except Exception:
+                self.cups_default = None
         except Exception as e:
             error_msg = f"Failed to connect to CUPS server at '{self.server_ip or 'localhost'}': {str(e)}"
             self.initialization_errors.append(error_msg)
             print(f"Error: {error_msg}")
 
-        # Optionally set default printer from config
-        self.selected_printer = self.CONFIG['PRINTER'].get('PRINTER')
+        # Optionally set default printer from config or CUPS default
+        configured_printer = self.CONFIG['PRINTER'].get('PRINTER')
+        self.selected_printer = configured_printer or self.cups_default
         return ''
 
     def _get_conn(self):
