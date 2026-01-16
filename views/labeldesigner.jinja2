@@ -210,21 +210,13 @@ function print() {
   $('#printButton').prop('disabled', true);
   $('#statusPanel').html('<div id="statusBox" class="alert alert-info" role="alert"><i class="glyphicon glyphicon-hourglass"></i><span>Processing print request...</span></div>');
 
-  checkConfigErrors().then(hasNoErrors => {
-    if (!hasNoErrors) {
-      $('#statusPanel').html('<div id="statusBox" class="alert alert-danger" role="alert"><i class="glyphicon glyphicon-alert"></i><span>Cannot print: Configuration errors exist. Please <a href="/settings">resolve them in settings</a>.</span></div>');
-      $('#printButton').prop('disabled', false);
-      return;
-    }
-
-    $.ajax({
-      type:     'POST',
-      dataType: 'json',
-      data:     formData(),
-      url:      '/api/print/text',
-      success:  setStatus,
-      error:    setStatus
-    });
+  $.ajax({
+    type:     'POST',
+    dataType: 'json',
+    data:     formData(),
+    url:      '/api/print/text',
+    success:  setStatus,
+    error:    setStatus
   });
 }
 

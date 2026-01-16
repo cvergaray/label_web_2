@@ -485,36 +485,28 @@ function print() {
   $('#printButton').prop('disabled', true);
   $('#statusPanel').html('<div id="statusBox" class="alert alert-info" role="alert"><i class="glyphicon glyphicon-hourglass"></i><span>Processing print request...</span></div>');
 
-  checkConfigErrors().then(hasNoErrors => {
-    if (!hasNoErrors) {
-      $('#statusPanel').html('<div id="statusBox" class="alert alert-danger" role="alert"><i class="glyphicon glyphicon-alert"></i><span>Cannot print: Configuration errors exist. Please <a href="/settings">resolve them in settings</a>.</span></div>');
-      updatePrintButtonState();
-      return;
-    }
+  var templateName = $('#template').val();
+  var formDataObj = formData();
+  var baseUrl = '/api/print/template/' + templateName;
 
-    var templateName = $('#template').val();
-    var formDataObj = formData();
-    var baseUrl = '/api/print/template/' + templateName;
+  // Build request data
+  var requestData = buildRequestData({
+    quantity: formDataObj.quantity,
+    printer: $('#printer').val()
+  });
 
-    // Build request data
-    var requestData = buildRequestData({
-      quantity: formDataObj.quantity,
-      printer: $('#printer').val()
-    });
+  // Build URL with query parameters
+  var url = buildUrlWithParams(baseUrl, requestData.regularData);
 
-    // Build URL with query parameters
-    var url = buildUrlWithParams(baseUrl, requestData.regularData);
-
-    // Use POST request with JSON payload
-    $.ajax({
-      url: url,
-      type: 'POST',
-      data: JSON.stringify(requestData.jsonPayload),
-      contentType: 'application/json',
-      dataType: 'json',
-      success: setStatus,
-      error: setStatus
-    });
+  // Use POST request with JSON payload
+  $.ajax({
+    url: url,
+    type: 'POST',
+    data: JSON.stringify(requestData.jsonPayload),
+    contentType: 'application/json',
+    dataType: 'json',
+    success: setStatus,
+    error: setStatus
   });
 }
 
