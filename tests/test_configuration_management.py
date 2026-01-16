@@ -838,9 +838,32 @@ class TestAdditionalCornerCases(unittest.TestCase):
         }
         result = cm.settings_format_to_config(settings)
 
+        # Validate SERVER section
         self.assertEqual(result['SERVER']['HOST'], '192.168.1.1')
+        self.assertEqual(result['SERVER']['LOGLEVEL'], 'DEBUG')
+        self.assertEqual(result['SERVER']['ADDITIONAL_FONT_FOLDER'], '/custom/fonts')
+
+        # Validate PRINTER section
+        self.assertEqual(result['PRINTER']['USE_CUPS'], True)
         self.assertEqual(result['PRINTER']['SERVER'], 'cups.local:631')
+        self.assertEqual(result['PRINTER']['PRINTER'], 'Brother_QL_800')
+        self.assertEqual(result['PRINTER']['ENABLED_SIZES'], {'printer1': ['62', '29']})
+        self.assertEqual(result['PRINTER']['LABEL_SIZES'], {'62': '62mm', '29': '29mm'})
+        self.assertEqual(result['PRINTER']['LABEL_PRINTABLE_AREA'], {'62': [696, 271]})
+        self.assertEqual(result['PRINTER']['PRINTERS_INCLUDE'], ['printer1'])
+        self.assertEqual(result['PRINTER']['PRINTERS_EXCLUDE'], [])
+
+        # Validate LABEL section
+        self.assertEqual(result['LABEL']['DEFAULT_SIZE'], '62')
+        self.assertEqual(result['LABEL']['DEFAULT_ORIENTATION'], 'rotated')
         self.assertEqual(result['LABEL']['DEFAULT_FONT_SIZE'], 80)
+        self.assertEqual(result['LABEL']['DEFAULT_FONTS'][0]['family'], 'Courier')
+        self.assertEqual(result['LABEL']['DEFAULT_FONTS'][0]['style'], 'Bold')
+
+        # Validate WEBSITE section
+        self.assertEqual(result['WEBSITE']['HTML_TITLE'], 'Custom Title')
+        self.assertEqual(result['WEBSITE']['PAGE_TITLE'], 'Custom Page')
+        self.assertEqual(result['WEBSITE']['PAGE_HEADLINE'], 'Custom Headline')
 
 
     def test_config_to_settings_with_null_values(self):
