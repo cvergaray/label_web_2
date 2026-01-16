@@ -53,9 +53,11 @@
               <div class="chooser panel-body">
               <label for="fontFamily">Font Family:</label>
               <select class="form-control" id="fontFamily" onChange="preview()">
+                {% set default_family = label.get('DEFAULT_FONTS', {}).get('family', '') %}
+                {% set default_style = label.get('DEFAULT_FONTS', {}).get('style', '') %}
                 {% for font_family_name in font_family_names %}
                   {% for font_style in fonts[font_family_name].keys() %}
-                    <option {% if label['DEFAULT_FONTS']['style'] == font_style and label['DEFAULT_FONTS']['family'] == font_family_name %}selected{% endif %}>{{font_family_name}} ({{ font_style }})</option>
+                    <option {% if default_style == font_style and default_family == font_family_name %}selected{% endif %}>{{font_family_name}} ({{ font_style }})</option>
                   {% endfor %}
                 {% endfor %}
               </select>
@@ -141,64 +143,10 @@
 {% block javascript %}
 var text = $('#labelText');
 
-/**
- * Escape HTML to prevent XSS attacks
- * @param {string} text - The text to escape
- * @returns {string} HTML-escaped text
- */
-function escapeHtml(text) {
-  if (text === null || text === undefined) {
-    return '';
-  }
-  var map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  };
-  return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
-}
-
-function loadPrinterMedia(printerName) {
-  if (!printerName) return;
-
-  $.ajax({
-    type: 'GET',
-    url: '/api/printer/' + encodeURIComponent(printerName) + '/media',
-    dataType: 'json',
-    success: function(data) {
-      if (data.success) {
-        // Update label sizes dropdown
-        $('#labelSize').empty();
-
-        for (var key in data.label_sizes) {
-          $('#labelSize').append($('<option>', {
-            value: key,
-            text: data.label_sizes[key]
-          }));
-        }
-
-        // When switching printers, always use the printer's default media
-        // This ensures each printer's default is selected when switching
-        if (data.default_size && data.label_sizes[data.default_size]) {
-          $('#labelSize').val(data.default_size);
-        }
-
-        // Update preview with new media
-        preview();
-      }
-    },
-    error: function(xhr, status, error) {
-      console.error('Error loading printer media:', error);
-    }
-  });
-}
-
 function onPrinterChange() {
   var printerName = $('#printer').val();
   // Always use the printer's default when switching printers
-  loadPrinterMedia(printerName, true);
+  loadPrinterMedia(printerName, preview);
 }
 
 function formData() {
@@ -248,9 +196,11 @@ function preview() {
 function setStatus(data) {
   if (data['success']) {
     $('#statusPanel').html('<div id="statusBox" class="alert alert-success" role="alert"><i class="glyphicon glyphicon-check"></i><span>Printing was successful.</span></div>');
+  } else if (data['has_config_errors']) {
+    $('#statusPanel').html('<div id="statusBox" class="alert alert-danger" role="alert"><i class="glyphicon glyphicon-alert"></i><span>Cannot print: Configuration errors exist. Please <a href="/settings">resolve them in settings</a>.</span></div>');
   } else {
     // Escape the error message to prevent XSS
-    var escapedMessage = escapeHtml(data['message']);
+    var escapedMessage = escapeHtml(data['message'] || data['error'] || 'Unknown error');
     $('#statusPanel').html('<div id="statusBox" class="alert alert-warning" role="alert"><i class="glyphicon glyphicon-alert"></i><span>Printing was unsuccessful:<br />' + escapedMessage + '</span></div>');
   }
   $('#printButton').prop('disabled', false);
@@ -259,6 +209,7 @@ function setStatus(data) {
 function print() {
   $('#printButton').prop('disabled', true);
   $('#statusPanel').html('<div id="statusBox" class="alert alert-info" role="alert"><i class="glyphicon glyphicon-hourglass"></i><span>Processing print request...</span></div>');
+
   $.ajax({
     type:     'POST',
     dataType: 'json',
@@ -274,7 +225,7 @@ function print() {
 $(document).ready(function() {
   var initialPrinter = $('#printer').val();
   if (initialPrinter) {
-    loadPrinterMedia(initialPrinter, true);
+    loadPrinterMedia(initialPrinter, preview);
   } else {
     // If no printer, just preview with current settings
     preview();

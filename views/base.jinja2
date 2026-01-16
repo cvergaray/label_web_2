@@ -23,7 +23,18 @@
             <span class="icon-bar"></span>
           </button>
           <a class="navbar-brand" href="/">{{ website['PAGE_TITLE'] }}</a>
-          <a class="navbar-brand" href="/templateprint">Print From Template</a>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
+            <li><a href="/templateprint">Print From Template</a></li>
+            <li><a href="/settings">Settings</a></li>
+            <li id="configErrorsNavItem" style="{% if not has_errors %}display: none;{% endif %}">
+              <a href="/settings" style="background-color: #d9534f; color: white;">
+                <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
+                <strong>Configuration Errors</strong> - Click here to view
+              </a>
+            </li>
+          </ul>
         </div>
       </div>
     </nav>
@@ -37,6 +48,7 @@
     <!-- jQuery first, then Bootstrap JS. -->
     <script src="/static/js/jquery.min.js"></script>
     <script src="/static/js/bootstrap.min.js"></script>
+    <script src="/static/js/common.js"></script>
     <script type="text/javascript">
       {% block javascript %}{% endblock %}
     </script>
