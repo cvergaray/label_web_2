@@ -740,7 +740,6 @@ def validate_cups_server_api():
 
 
 @route('/api/settings/printers', method=['GET', 'OPTIONS'])
-@route('/api/settings/printers', method=['GET', 'OPTIONS'])
 @enable_cors
 def get_settings_printers():
     """Get list of printers with their available media sizes. Optional refresh from CUPS."""
