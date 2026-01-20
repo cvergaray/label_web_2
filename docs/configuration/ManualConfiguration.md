@@ -1,10 +1,29 @@
-# Minimal Configuration Guide
+# Manual Configuration Guide
+
+When manually editing the config.json to configuring the application, you can choose between a **minimal configuration** that relies on CUPS for most printer settings, or a **full configuration** that defines all printer and media settings explicitly.
+The minimal configuration is simpler to set up and maintain, while the full configuration provides more control and backward compatibility.
+
+Using the settings page will manage all of these settings for you. This guide is for users who prefer to edit the configuration file directly.
 
 ## Overview
 
 This application requires a connection to a CUPS server (either on localhost or a remote server). The configuration controls whether the application dynamically queries CUPS for printer and media information, or uses static values from the configuration file.
 
 **Note:** A CUPS server connection is always required for printing. The `USE_CUPS` flag only controls whether printer metadata is queried dynamically or defined statically in the configuration.
+
+## Configuration file
+
+Copy `config.example.json` to `config.json` (e.g. `cp config.example.json config.json`) and adjust the values 
+to match your needs. You can still let the Settings UI generate/update this file for you, even after manual edits.
+
+There are some printer-specific settings to include in config.json:
+
+- `LABEL_SIZES`, a dictionary of items with a key and the human-readable description of that size
+- `LABEL_PRINTABLE_AREA`, a dictionary of items mapping the same keys to the printable area in DPI
+- `PRINTER`, the name of the default printer to be used as exposed by CUPS
+- `DEFAULT_SIZE`, the key of the size from the `LABEL_SIZES` that should be used by default.
+
+---
 
 ## Minimal Configuration File
 
