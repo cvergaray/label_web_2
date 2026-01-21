@@ -181,40 +181,50 @@ def config_to_settings_format(config):
 
 def settings_format_to_config(settings):
     """Convert frontend settings format back to CONFIG structure."""
+    # Ensure settings is a dict
+    if settings is None:
+        settings = {}
+
+    # Ensure nested dicts exist
+    server_settings = settings.get('server') or {}
+    printer_settings = settings.get('printer') or {}
+    label_settings = settings.get('label') or {}
+    website_settings = settings.get('website') or {}
+
     # Normalize custom sizes back to CONFIG format (dict)
-    label_sizes_map = settings.get('printer', {}).get('labelSizes', {}) or {}
-    label_printable_area = settings.get('printer', {}).get('labelPrintableArea', {}) or {}
+    label_sizes_map = printer_settings.get('labelSizes', {}) or {}
+    label_printable_area = printer_settings.get('labelPrintableArea', {}) or {}
 
     config = {
         'SERVER': {
-            'HOST': settings.get('server', {}).get('host', ''),
-            'LOGLEVEL': settings.get('server', {}).get('logLevel', 'INFO'),
-            'ADDITIONAL_FONT_FOLDER': settings.get('server', {}).get('additionalFontFolder', '/fonts')
+            'HOST': server_settings.get('host', '') or '',
+            'LOGLEVEL': server_settings.get('logLevel', 'INFO') or 'INFO',
+            'ADDITIONAL_FONT_FOLDER': server_settings.get('additionalFontFolder', '/fonts') or '/fonts'
         },
         'PRINTER': {
-            'USE_CUPS': settings.get('printer', {}).get('useCups', True),
-            'SERVER': settings.get('printer', {}).get('server', 'localhost'),
-            'PRINTER': settings.get('printer', {}).get('printer', ''),
-            'ENABLED_SIZES': settings.get('printer', {}).get('enabledSizes', {}),
+            'USE_CUPS': printer_settings.get('useCups', True),
+            'SERVER': printer_settings.get('server', 'localhost') or 'localhost',
+            'PRINTER': printer_settings.get('printer', '') or '',
+            'ENABLED_SIZES': printer_settings.get('enabledSizes', {}) or {},
             'LABEL_SIZES': label_sizes_map,
-            'PRINTERS_INCLUDE': settings.get('printer', {}).get('printersInclude', []),
-            'PRINTERS_EXCLUDE': settings.get('printer', {}).get('printersExclude', []),
+            'PRINTERS_INCLUDE': printer_settings.get('printersInclude', []) or [],
+            'PRINTERS_EXCLUDE': printer_settings.get('printersExclude', []) or [],
         },
         'LABEL': {
-            'DEFAULT_SIZE': settings.get('label', {}).get('defaultSize', ''),
-            'DEFAULT_ORIENTATION': settings.get('label', {}).get('defaultOrientation', 'standard'),
-            'DEFAULT_FONT_SIZE': settings.get('label', {}).get('defaultFontSize', 70),
+            'DEFAULT_SIZE': label_settings.get('defaultSize', '') or '',
+            'DEFAULT_ORIENTATION': label_settings.get('defaultOrientation', 'standard') or 'standard',
+            'DEFAULT_FONT_SIZE': label_settings.get('defaultFontSize', 70) or 70,
             'DEFAULT_FONTS': [
                 {
-                    'family': settings.get('label', {}).get('defaultFontFamily', 'DejaVu Sans'),
-                    'style': settings.get('label', {}).get('defaultFontStyle', 'Book')
+                    'family': label_settings.get('defaultFontFamily', 'DejaVu Sans') or 'DejaVu Sans',
+                    'style': label_settings.get('defaultFontStyle', 'Book') or 'Book'
                 }
             ]
         },
         'WEBSITE': {
-            'HTML_TITLE': settings.get('website', {}).get('htmlTitle', 'Label Designer'),
-            'PAGE_TITLE': settings.get('website', {}).get('pageTitle', 'Label Designer'),
-            'PAGE_HEADLINE': settings.get('website', {}).get('pageHeadline', 'Design and print labels')
+            'HTML_TITLE': website_settings.get('htmlTitle', 'Label Designer') or 'Label Designer',
+            'PAGE_TITLE': website_settings.get('pageTitle', 'Label Designer') or 'Label Designer',
+            'PAGE_HEADLINE': website_settings.get('pageHeadline', 'Design and print labels') or 'Design and print labels'
         }
     }
 

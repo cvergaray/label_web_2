@@ -171,15 +171,15 @@
 
                   <hr>
                   <h5><strong>Custom Media Sizes (global)</strong></h5>
-                  <p class="text-muted small">Add custom size key and display label. Size key will use "Custom." prefix (e.g., "4x6in" becomes "Custom.4x6in"). Optionally specify pixel dimensions for precise control. If dimensions are not provided, they will be auto-calculated from parseable names like "4x6in" or "100x50mm". If they are not parseable, dimensions must be provided.</p>
+                  <p class="text-muted small">Add custom size key and display label. If size keys are in valid CUPS format: "WxH" (points), "WxHin" (inches), "WxHmm" (millimeters), or "WxHcm" (centimeters), the dimensions will be auto-calculated from the parseable size key. Examples: "4x6in", "100x50mm", "288x144" (points). Otherwise, pixel dimensions are required. </p>
                   <div class="custom-size-input-group" style="margin-bottom:10px;">
                     <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
-                      <input type="text" class="form-control" id="customSizeKey" placeholder="Size key (e.g., 4x6in or 100x50mm)" style="flex: 1; min-width: 200px;">
+                      <input type="text" class="form-control" id="customSizeKey" placeholder="Size key (e.g., 4x6in, 100x50mm, 288x144)" style="flex: 1; min-width: 200px;">
                       <input type="text" class="form-control" id="customSizeLabel" placeholder="Display label (e.g., 4in x 6in)" style="flex: 1; min-width: 200px;">
                     </div>
                     <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
-                      <input type="number" class="form-control" id="customSizeWidth" placeholder="Width (pixels, optional)" style="flex: 1; min-width: 150px; min-height: 34px;">
-                      <input type="number" class="form-control" id="customSizeHeight" placeholder="Height (pixels, optional)" style="flex: 1; min-width: 150px; min-height: 34px;">
+                      <input type="number" class="form-control" id="customSizeWidth" placeholder="Width (pixels)" style="flex: 1; min-width: 150px; min-height: 34px;">
+                      <input type="number" class="form-control" id="customSizeHeight" placeholder="Height (pixels)" style="flex: 1; min-width: 150px; min-height: 34px;">
                       <button id="addCustomSizeBtn" type="button" class="btn btn-default" style="white-space: nowrap; display: inline-block;">
                         <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> Add
                       </button>
@@ -646,14 +646,22 @@
           errorDiv.style.display = 'block';
           return false;
         }
+        // If explicit dimensions are provided, the key can be any valid identifier
         return true;
       }
 
-      // If no explicit dimensions, key must be parseable
-      // Check for patterns like "4x6in", "100x50mm", etc.
+      // If no explicit dimensions, key must be parseable (to be convertible to CUPS format)
+      // Check for patterns like "4x6in", "100x50mm", "288x144" (points), etc.
+      // NOTE: This pattern must be kept in sync with the backend conversion logic.
+      //
+      // Valid formats (matching CUPS custom media):
+      //   WIDTHxHEIGHT      - points (1/72 inch, CUPS default)
+      //   WIDTHxHEIGHTin    - inches
+      //   WIDTHxHEIGHTmm    - millimeters
+      //   WIDTHxHEIGHTcm    - centimeters
       const parseablePattern = /^(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*(in|mm|cm)?$/i;
       if (!parseablePattern.test(sizeKey)) {
-        errorDiv.textContent = 'Size key must be parseable (e.g., "4x6in", "100x50mm") or you must provide explicit pixel dimensions.';
+        errorDiv.textContent = 'Size key must be in valid CUPS format (e.g., "4x6in", "100x50mm", "288x144" for points) or you must provide explicit pixel dimensions.';
         errorDiv.style.display = 'block';
         return false;
       }
@@ -666,9 +674,19 @@
       const label = document.getElementById('customSizeLabel').value.trim();
       const width = document.getElementById('customSizeWidth').value.trim();
       const height = document.getElementById('customSizeHeight').value.trim();
+      const errorDiv = document.getElementById('customSizeError');
+
+      // Clear any previous errors
+      if (errorDiv) {
+        errorDiv.style.display = 'none';
+        errorDiv.textContent = '';
+      }
 
       if (!key || !label) {
-        showStatus('Please enter both size key and label', 'warning');
+        if (errorDiv) {
+          errorDiv.textContent = 'Please enter both size key and display label.';
+          errorDiv.style.display = 'block';
+        }
         return;
       }
 
@@ -677,10 +695,9 @@
         return;
       }
 
-      // Automatically prepend "Custom." if not already present
-      if (!key.startsWith('Custom.')) {
-        key = 'Custom.' + key;
-      }
+      // DO NOT automatically prepend "Custom." - it will be added by the backend
+      // when converting to CUPS format. This allows flexibility in key naming.
+      // The backend _convert_to_cups_media_format() handles the Custom. prefix.
 
       if (!settingsState.printer.labelSizes) settingsState.printer.labelSizes = {};
 
@@ -736,9 +753,19 @@
       const label = document.getElementById('editSizeLabel').value.trim();
       const width = document.getElementById('editSizeWidth').value.trim();
       const height = document.getElementById('editSizeHeight').value.trim();
+      const errorDiv = document.getElementById('editSizeError');
+
+      // Clear any previous errors
+      if (errorDiv) {
+        errorDiv.style.display = 'none';
+        errorDiv.textContent = '';
+      }
 
       if (!label) {
-        showStatus('Please enter a display label', 'warning');
+        if (errorDiv) {
+          errorDiv.textContent = 'Please enter a display label.';
+          errorDiv.style.display = 'block';
+        }
         return;
       }
 
@@ -789,6 +816,20 @@
     }
 
     document.getElementById('addCustomSizeBtn').addEventListener('click', addCustomSize);
+
+    // Clear error message when user starts typing in custom size fields
+    ['customSizeKey', 'customSizeLabel', 'customSizeWidth', 'customSizeHeight'].forEach(id => {
+      const field = document.getElementById(id);
+      if (field) {
+        field.addEventListener('input', function() {
+          const errorDiv = document.getElementById('customSizeError');
+          if (errorDiv && errorDiv.style.display === 'block') {
+            errorDiv.style.display = 'none';
+            errorDiv.textContent = '';
+          }
+        });
+      }
+    });
 
     // Render printer checkboxes for include/exclude lists
     function renderPrinterCheckboxes(printers) {
@@ -1518,6 +1559,20 @@
     document.addEventListener('DOMContentLoaded', function() {
       loadSettings();
       loadConfigErrors();
+
+      // Clear error message when user starts typing in edit modal fields
+      ['editSizeLabel', 'editSizeWidth', 'editSizeHeight'].forEach(id => {
+        const field = document.getElementById(id);
+        if (field) {
+          field.addEventListener('input', function() {
+            const errorDiv = document.getElementById('editSizeError');
+            if (errorDiv && errorDiv.style.display === 'block') {
+              errorDiv.style.display = 'none';
+              errorDiv.textContent = '';
+            }
+          });
+        }
+      });
     });
   </script>
 
@@ -1786,6 +1841,7 @@
     }
   </style>
 {% endblock %}
+
 
 
 

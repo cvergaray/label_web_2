@@ -1,6 +1,7 @@
 # NOTE: Requires the 'pycups' library. Install with: pip install pycups
 import cups
-
+import re
+from constants import PARSEABLE_SIZE_PATTERN
 # Printer-specific settings
 # Set these based on your printer and loaded labels
 
@@ -44,10 +45,13 @@ class implementation:
         self.initialization_errors = []  # Clear any previous errors
         self.cups_default = None
         self.server_ip = None
-        if 'PRINTER' not in self.CONFIG:
-            error_msg = "No printer configuration found in config file."
+
+        # Ensure PRINTER section exists and is a dict
+        if 'PRINTER' not in self.CONFIG or self.CONFIG['PRINTER'] is None:
+            self.CONFIG['PRINTER'] = {}
+            error_msg = "No printer configuration found in config file. Using defaults."
             self.initialization_errors.append(error_msg)
-            return error_msg
+
         if 'SERVER' in self.CONFIG['PRINTER']:
             self.server_ip = self.CONFIG['PRINTER']['SERVER']
 
@@ -118,20 +122,58 @@ class implementation:
     def _convert_to_cups_media_format(self, label_size, printerName=None, dpi=None):
         """
         Convert a custom label size to CUPS-compatible media format.
-        If the size is already in CUPS format (e.g., 'Custom.4x6in'), return as-is.
-        Otherwise, look up dimensions from config and convert to 'Custom.WxHmm' format.
 
-        Returns the CUPS-compatible media name, or the original if conversion fails.
+        Valid CUPS custom formats:
+          Custom.WIDTHxLENGTH      - measured in points (1/72 inch)
+          Custom.WIDTHxLENGTHin    - measured in inches
+          Custom.WIDTHxLENGTHcm    - measured in centimeters
+          Custom.WIDTHxLENGTHmm    - measured in millimeters
+          Custom.WIDTHxLENGTHpt    - measured in points (explicit)
+
+        Args:
+            label_size: Size key, may be in format "4x6in", "Custom.4x6in", etc.
+            printerName: Optional printer name for DPI lookup
+            dpi: Optional explicit DPI value
+
+        Returns the CUPS-compatible media name with "Custom." prefix, or the original if conversion fails.
         """
-        # Check if already in CUPS custom format
-        if label_size.startswith('Custom.') and ('in' in label_size or 'mm' in label_size):
-            return label_size
+
+        # Check if already in valid CUPS custom format (Custom.WxHunit)
+        if label_size.startswith('Custom.'):
+            # Validate the format after "Custom."
+            size_part = label_size[7:]  # Remove "Custom." prefix
+            match = re.search(PARSEABLE_SIZE_PATTERN, size_part, re.IGNORECASE)
+            if match:
+                # Already in valid format, return as-is
+                return label_size
+            # Invalid format after Custom., try to parse without prefix
+            label_size = size_part
+
+        # Try to parse the size using the standard pattern
+        match = re.search(PARSEABLE_SIZE_PATTERN, label_size, re.IGNORECASE)
+        if match:
+            w, h, unit = match.groups()
+            # If unit is provided, construct the CUPS format with that unit
+            if unit:
+                unit_lower = unit.lower()
+                return f"Custom.{w}x{h}{unit_lower}"
+            # No unit provided - check if dimensions are in config (pixel-based)
+            # Otherwise default to points
+            pass  # Fall through to config lookup
 
         # Try to get dimensions from config
         if 'PRINTER' not in self.CONFIG or 'LABEL_PRINTABLE_AREA' not in self.CONFIG['PRINTER']:
+            # No config available, if we have a parseable name without unit, assume points
+            if match and not match.groups()[2]:
+                w, h, _ = match.groups()
+                return f"Custom.{w}x{h}"  # No unit = points in CUPS
             return label_size
 
         if label_size not in self.CONFIG['PRINTER']['LABEL_PRINTABLE_AREA']:
+            # Not in config, if we have a parseable name without unit, assume points
+            if match and not match.groups()[2]:
+                w, h, _ = match.groups()
+                return f"Custom.{w}x{h}"  # No unit = points in CUPS
             return label_size
 
         # Get pixel dimensions from config
@@ -199,13 +241,23 @@ class implementation:
             h = float(h)
             dpi = self._get_printer_dpi(printerName)
 
-            if unit == 'in':
+            if not unit or unit.lower() == 'pt':
+                # Points (1/72 inch) - CUPS default when no unit specified
+                w_in = w / 72.0
+                h_in = h / 72.0
+                return int(w_in * dpi), int(h_in * dpi)
+            elif unit.lower() == 'in':
                 # Convert inches to pixels using printer DPI
                 return int(w * dpi), int(h * dpi)
-            elif unit == 'mm':
+            elif unit.lower() == 'mm':
                 # Convert mm to inches, then to pixels
                 w_in = w / 25.4
                 h_in = h / 25.4
+                return int(w_in * dpi), int(h_in * dpi)
+            elif unit.lower() == 'cm':
+                # Convert cm to inches, then to pixels
+                w_in = w / 2.54
+                h_in = h / 2.54
                 return int(w_in * dpi), int(h_in * dpi)
 
         return None

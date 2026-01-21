@@ -673,7 +673,20 @@ def save_settings_api():
 
         # Merge with existing CONFIG to preserve other settings (use deep copy to avoid mutating CONFIG)
         merged_config = copy.deepcopy(CONFIG)
-        merged_config.update(new_config)
+
+        # Ensure critical sections exist before update
+        for section in ['SERVER', 'PRINTER', 'LABEL', 'WEBSITE']:
+            if section not in merged_config:
+                merged_config[section] = {}
+
+        # Deep merge to avoid completely replacing sections
+        for section, values in new_config.items():
+            if section not in merged_config:
+                merged_config[section] = values
+            elif isinstance(values, dict):
+                merged_config[section].update(values)
+            else:
+                merged_config[section] = values
 
         if save_config_with_global_update(merged_config):
             # Apply new settings at runtime and revalidate
@@ -694,7 +707,7 @@ def save_settings_api():
 
             # Re-run configuration validation
             CONFIG_ERRORS = []
-            validation_errors = validate_configuration(FONTS, LABEL_SIZES, PRINTERS)
+            validation_errors = validate_configuration(FONTS, LABEL_SIZES, PRINTERS, CONFIG)
             CONFIG_ERRORS.extend(validation_errors)
 
             # Append initialization errors to the configuration errors
@@ -750,6 +763,11 @@ def get_settings_printers():
 
         # Allow temporary override of CUPS setting and server for preview
         temp_config = copy.deepcopy(CONFIG)
+
+        # Ensure PRINTER section exists and is a dict (defensive check)
+        if temp_config.get('PRINTER') is None:
+            temp_config['PRINTER'] = {}
+
         if use_cups_param is not None:
             temp_config['PRINTER']['USE_CUPS'] = use_cups_param == '1'
 
