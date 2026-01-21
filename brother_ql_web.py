@@ -154,14 +154,19 @@ def labeldesigner():
             'has_errors': len(CONFIG_ERRORS) > 0}
 
 
-@route('/api/printer/<printer_name>/media', method=['GET', 'OPTIONS'])
+@route('/api/printer/<printer_name>/media', method=['GET', 'POST', 'OPTIONS'])
 @enable_cors
 def get_printer_media(printer_name):
     """
     API endpoint to get media details for a specific printer.
     Returns label sizes and default size for the printer.
     Handles URL encoding and special values (empty string, 'null').
-    Used by both labeldesigner and settings pages.
+
+    Supports two calling modes:
+    - GET: Uses the global CONFIG (backward compatible)
+    - POST with config in body: Uses the provided configuration for accurate preview
+
+    Used by labeldesigner and settings pages.
     """
     try:
         # Decode printer_name in case it's URL encoded
@@ -172,14 +177,34 @@ def get_printer_media(printer_name):
         if printer_name == '' or printer_name == 'null' or printer_name == 'undefined':
             printer_name = None
 
-        # Get label sizes for the printer
-        label_sizes_list = instance.get_label_sizes(printer_name)
+        # Determine which configuration to use
+        instance_to_use = instance
 
-        # Filter by enabled sizes
-        label_sizes_list = filter_label_sizes_for_printer(label_sizes_list, printer_name, CONFIG)
+        config_to_use = CONFIG
+
+        # If POST request with config body, use that configuration instead of global CONFIG
+        if request.method == 'POST':
+            try:
+                payload = request.json
+                if payload and isinstance(payload, dict):
+                    config_to_use = settings_format_to_config(payload)
+                    temp_instance = implementation()
+                    temp_instance.initialize(config_to_use)
+                    instance_to_use = temp_instance
+            except Exception as e:
+                logger.warning(f"Could not parse config from request body: {e}")
+                # Fall back to global CONFIG on error
+                instance_to_use = instance
+                config_to_use = CONFIG
+
+        # Get label sizes for the printer
+        label_sizes_list = instance_to_use.get_label_sizes(printer_name)
+
+        # Filter by enabled sizes using the provided/global configuration
+        label_sizes_list = filter_label_sizes_for_printer(label_sizes_list, printer_name, config_to_use)
 
         # Get default size
-        default_size = instance.get_default_label_size(printer_name)
+        default_size = instance_to_use.get_default_label_size(printer_name)
 
         # Convert list of tuples to dict for JSON response
         label_sizes_dict = label_sizes_list_to_dict(label_sizes_list, logger, warn_prefix="API: ")
@@ -752,38 +777,60 @@ def validate_cups_server_api():
         return {'success': False, 'error': str(e)}
 
 
-@route('/api/settings/printers', method=['GET', 'OPTIONS'])
+@route('/api/settings/printers', method=['GET', 'POST', 'OPTIONS'])
 @enable_cors
 def get_settings_printers():
-    """Get list of printers with their available media sizes. Optional refresh from CUPS."""
+    """Get list of printers with their available media sizes. Optional config override.
+
+    Query/Body Parameters:
+    - include_disabled (GET) or include_disabled (POST body): If true, returns all available
+      media sizes without filtering by enabled sizes. Used by settings page to show all
+      media that can be enabled/disabled.
+    """
     try:
-        refresh = request.query.get('refresh')
-        use_cups_param = request.query.get('use_cups')
-        server_param = request.query.get('server')  # New parameter for CUPS server
+        # Try to get full config from POST body
+        preview_config = None
+        include_disabled = False
 
-        # Allow temporary override of CUPS setting and server for preview
-        temp_config = copy.deepcopy(CONFIG)
+        if request.method == 'POST':
+            try:
+                payload = request.json
+                if payload and isinstance(payload, dict):
+                    # Convert frontend settings format to CONFIG format
+                    preview_config = settings_format_to_config(payload)
+                    # Check for include_disabled flag in POST body
+                    include_disabled = payload.get('_include_disabled', False)
+            except Exception as e:
+                logger.warning(f"Could not parse config from request body: {e}")
 
-        # Ensure PRINTER section exists and is a dict (defensive check)
-        if temp_config.get('PRINTER') is None:
-            temp_config['PRINTER'] = {}
+        # Fall back to query parameters for backward compatibility
+        if preview_config is None:
+            use_cups_param = request.query.get('use_cups')
+            server_param = request.query.get('server')
+            include_disabled = request.query.get('include_disabled') == '1'
 
-        if use_cups_param is not None:
-            temp_config['PRINTER']['USE_CUPS'] = use_cups_param == '1'
+            # Use existing CONFIG as base
+            preview_config = copy.deepcopy(CONFIG)
 
-        # Allow temporary override of CUPS server for preview
-        if server_param is not None:
-            temp_config['PRINTER']['SERVER'] = server_param
+            # Ensure PRINTER section exists and is a dict (defensive check)
+            if preview_config.get('PRINTER') is None:
+                preview_config['PRINTER'] = {}
+
+            # Apply query parameter overrides if provided
+            if use_cups_param is not None:
+                preview_config['PRINTER']['USE_CUPS'] = use_cups_param == '1'
+
+            if server_param is not None:
+                preview_config['PRINTER']['SERVER'] = server_param
+        else:
+            # For POST requests, also check query params for include_disabled
+            include_disabled = include_disabled or request.query.get('include_disabled') == '1'
 
         # Create a temporary instance for preview (doesn't modify global state)
         temp_instance = implementation()
 
-        if refresh:
-            # Initialize temporary instance with the preview config
-            try:
-                temp_instance.initialize(temp_config)
-            except Exception as init_err:
-                logger.warning(f"Initialize temporary instance during printer refresh failed: {init_err}")
+        # Initialize temporary instance with the preview config
+        temp_instance.initialize(preview_config)
 
         printers = temp_instance.get_printers() or []
         all_media_sizes = {}
@@ -791,6 +838,9 @@ def get_settings_printers():
         for printer in printers:
             try:
                 media_sizes_list = temp_instance.get_label_sizes(printer)
+                # Apply filtering based on the preview config, unless include_disabled is set
+                if not include_disabled:
+                    media_sizes_list = filter_label_sizes_for_printer(media_sizes_list, printer, preview_config)
                 all_media_sizes[printer] = media_sizes_list
             except Exception as e:
                 logger.warning(f"Could not get media sizes for printer {printer}: {e}")

@@ -51,7 +51,7 @@
           <div class="panel panel-primary">
             <div class="panel-heading" role="tab" id="headingServer">
               <h4 class="panel-title">
-                <a role="button" data-toggle="collapse" data-parent="#settingsAccordion" href="#collapseServer" aria-expanded="false">
+                <a role="button" data-toggle="collapse" href="#collapseServer" aria-expanded="false">
                   <span class="glyphicon glyphicon-hdd" aria-hidden="true"></span> Server Configuration
                 </a>
               </h4>
@@ -95,7 +95,7 @@
           <div class="panel panel-info">
             <div class="panel-heading" role="tab" id="headingPrinter">
               <h4 class="panel-title">
-                <a role="button" data-toggle="collapse" data-parent="#settingsAccordion" href="#collapsePrinter" aria-expanded="true">
+                <a role="button" data-toggle="collapse" href="#collapsePrinter" aria-expanded="true">
                   <span class="glyphicon glyphicon-print" aria-hidden="true"></span> Printer Configuration
                 </a>
               </h4>
@@ -230,12 +230,12 @@
           <div class="panel panel-success">
             <div class="panel-heading" role="tab" id="headingLabel">
               <h4 class="panel-title">
-                <a role="button" data-toggle="collapse" data-parent="#settingsAccordion" href="#collapseLabel" aria-expanded="false">
+                <a role="button" data-toggle="collapse" href="#collapseLabel" aria-expanded="true">
                   <span class="glyphicon glyphicon-tag" aria-hidden="true"></span> Label Configuration
                 </a>
               </h4>
             </div>
-            <div id="collapseLabel" class="panel-collapse collapse" role="tabpanel">
+            <div id="collapseLabel" class="panel-collapse collapse in" role="tabpanel">
               <div class="panel-body">
                 <div class="form-horizontal">
                   <div class="form-group">
@@ -300,7 +300,7 @@
           <div class="panel panel-warning">
             <div class="panel-heading" role="tab" id="headingWebsite">
               <h4 class="panel-title">
-                <a role="button" data-toggle="collapse" data-parent="#settingsAccordion" href="#collapseWebsite" aria-expanded="false">
+                <a role="button" data-toggle="collapse" href="#collapseWebsite" aria-expanded="false">
                   <span class="glyphicon glyphicon-globe" aria-hidden="true"></span> Website Configuration
                 </a>
               </h4>
@@ -433,11 +433,18 @@
       const defaultPrinter = settingsState.printer.printer || '';
       const url = `/api/printer/${encodeURIComponent(defaultPrinter || 'null')}/media`;
 
-      fetch(url)
+      // Send full config via POST to ensure endpoint uses caller's configuration
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settingsState)
+      })
         .then(r => r.json())
         .then(data => {
           if (data.success) {
             availableLabelSizes = data.label_sizes;
+            // Store the default size from the printer for later use
+            window.printerDefaultSize = data.default_size || '';
             populateLabelSizeDropdown();
           }
         })
@@ -483,12 +490,31 @@
 
     function populateLabelSizeDropdown() {
       const select = document.getElementById('labelDefaultSize');
-      const currentSize = settingsState.label.defaultSize || '';
+      const previouslySelected = settingsState.label.defaultSize || '';
+      const printerDefault = window.printerDefaultSize || '';
 
       let html = '<option value="">-- Select Label Size --</option>';
       const entries = Object.entries(availableLabelSizes);
+
+      let selectedSize = '';
+
+      // Determine which size to select:
+      // 1. Try to keep the previously selected size if it's available in the new list
+      if (previouslySelected && availableLabelSizes.hasOwnProperty(previouslySelected)) {
+        selectedSize = previouslySelected;
+      }
+      // 2. Otherwise, use the printer's default size if available
+      else if (printerDefault && availableLabelSizes.hasOwnProperty(printerDefault)) {
+        selectedSize = printerDefault;
+        settingsState.label.defaultSize = printerDefault;
+      }
+      // 3. Otherwise, leave it unselected (empty string)
+      else {
+        settingsState.label.defaultSize = '';
+      }
+
       entries.forEach(([key, label]) => {
-        const selected = key === currentSize ? 'selected' : '';
+        const selected = key === selectedSize ? 'selected' : '';
         html += `<option value="${escapeHtmlAttr(key)}" ${selected}>${escapeHtml(label)}</option>`;
       });
 
@@ -509,6 +535,8 @@
       const printerSelect = document.getElementById('printerName');
       if (printerSelect) {
         printerSelect.addEventListener('change', function() {
+          // Update settingsState with the newly selected printer
+          settingsState.printer.printer = printerSelect.value;
           loadLabelSizes();
           markAsChanged();
         });
@@ -941,19 +969,26 @@
 
     // Load printers and their media sizes
     function loadPrinters(forceRefresh = false, useCupsOverride = null, serverOverride = null) {
-      // Build URL with parameters
-      let url = '/api/settings/printers';
-      const params = [];
-      if (forceRefresh) params.push('refresh=1');
-      // Allow override of CUPS setting for immediate preview before saving
-      const useCups = useCupsOverride !== null ? useCupsOverride : settingsState.printer.useCups;
-      params.push(`use_cups=${useCups ? '1' : '0'}`);
-      // Allow override of CUPS server for immediate preview before saving
-      const server = serverOverride !== null ? serverOverride : settingsState.printer.server;
-      if (server) params.push(`server=${encodeURIComponent(server)}`);
-      if (params.length > 0) url += '?' + params.join('&');
+      // Create a copy of current settings for preview
+      let previewSettings = JSON.parse(JSON.stringify(settingsState));
 
-      fetch(url)
+      // Apply overrides if provided
+      if (useCupsOverride !== null) {
+        previewSettings.printer.useCups = useCupsOverride;
+      }
+      if (serverOverride !== null) {
+        previewSettings.printer.server = serverOverride;
+      }
+
+      // Include disabled sizes flag to get full list of available media
+      previewSettings._include_disabled = true;
+
+      // Send full config via POST for accurate filtering
+      fetch('/api/settings/printers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(previewSettings)
+      })
         .then(response => response.json())
         .then(data => {
           // Store current state for use by updatePrinterChecklistsForDefaultPrinter
