@@ -64,10 +64,10 @@ function loadPrinterMedia(printerName, onSuccess) {
 }
 
 /**
- * Check if there are configuration errors
- * @returns {Promise<boolean>} Promise that resolves to true if no errors, false if errors exist
+ * Check if configuration is valid (no errors)
+ * @returns {Promise<boolean>} Promise that resolves to true if configuration is valid, false if errors exist
  */
-function checkConfigErrors() {
+function isConfigValid() {
   return fetch('/api/config-errors')
     .then(r => r.json())
     .then(data => {

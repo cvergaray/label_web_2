@@ -25,10 +25,12 @@
         </div>
 
         <!-- Unsaved Changes Indicator (Fixed Position) -->
-        <div id="unsavedIndicator" style="display: none; position: fixed; top: 60px; right: 20px; z-index: 1000; background-color: #d58512; color: white; padding: 12px 20px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); cursor: pointer;" onclick="saveSettings()">
+        <button id="unsavedIndicator" style="display: none; position: fixed; top: 60px; right: 20px; z-index: 1000;
+        background-color: #d58512; color: white; padding: 12px 20px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        border: none; cursor: pointer; font-size: 14px; font-weight: bold;" aria-label="Save settings with unsaved changes">
           <span class="glyphicon glyphicon-warning-sign" aria-hidden="true"></span>
           <strong>Unsaved Changes</strong> - Click here to save
-        </div>
+        </button>
 
         <!-- Action Buttons (Top) -->
         <div class="action-buttons-container" style="margin-bottom: 20px; position: relative; min-height: 46px;">
@@ -1043,7 +1045,7 @@
                   <span class="glyphicon glyphicon-chevron-right" style="font-size: 12px; margin-left: 5px;"></span>
                   ${escapeHtml(printer)}
                 </h5>
-                <span class="counter-${escapeHtml(printer)}" style="font-size: 13px; margin-right: 10px; color: #333; font-weight: 500;">
+                <span class="counter-${CSS.escape(printer)}" style="font-size: 13px; margin-right: 10px; color: #333; font-weight: 500;">
                   ${totalAvailable > 0
                     ? (unavailableEnabledCount > 0
                       ? `${totalEnabled} enabled (${unavailableEnabledCount} unavailable)`
@@ -1159,7 +1161,7 @@
     // Enable all sizes for a printer
     function enableAllSizes(printer) {
       if (!settingsState.printer.enabledSizes[printer]) settingsState.printer.enabledSizes[printer] = [];
-      const checkboxes = document.querySelectorAll(`input[data-printer="${printer}"]`);
+      const checkboxes = document.querySelectorAll(`input[data-printer="${CSS.escape(printer)}"]`);
       const allSizes = [];
       checkboxes.forEach(cb => { cb.checked = true; allSizes.push(cb.dataset.size); });
       settingsState.printer.enabledSizes[printer] = allSizes;
@@ -1170,7 +1172,7 @@
     // Disable all sizes for a printer
     function disableAllSizes(printer) {
       if (!settingsState.printer.enabledSizes[printer]) settingsState.printer.enabledSizes[printer] = [];
-      const checkboxes = document.querySelectorAll(`input[data-printer="${printer}"]`);
+      const checkboxes = document.querySelectorAll(`input[data-printer="${CSS.escape(printer)}"]`);
       checkboxes.forEach(cb => { cb.checked = false; });
       settingsState.printer.enabledSizes[printer] = [];
       updatePrinterCounter(printer);
@@ -1193,7 +1195,7 @@
     }
 
     function updatePrinterCounter(printer) {
-      const counterElement = document.querySelector(`.counter-${escapeHtml(printer)}`);
+      const counterElement = document.querySelector(`.counter-${CSS.escape(printer)}`);
       if (counterElement) {
         // Get current enabled sizes for this printer
         const enabledSizes = settingsState.printer.enabledSizes[printer] || [];
@@ -1206,7 +1208,7 @@
         // Count only checkboxes that are NOT marked as unavailable
         // Unavailable checkboxes are in list-group-items with background-color: #f5f5f5
         const availableCheckboxes = Array.from(
-          container.querySelectorAll(`input[data-printer="${printer}"]`)
+          container.querySelectorAll(`input[data-printer="${CSS.escape(printer)}"]`)
         ).filter(checkbox => {
           // Check if this checkbox is in an unavailable item (has specific background)
           const label = checkbox.closest('label');
@@ -1489,6 +1491,7 @@
 
     document.getElementById('saveButton').addEventListener('click', saveSettings);
     document.getElementById('saveButton2').addEventListener('click', saveSettings);
+    document.getElementById('unsavedIndicator').addEventListener('click', saveSettings);
     document.getElementById('validateButton').addEventListener('click', function() {
       const payload = collectSettings();
       showStatus('Validating configuration...', 'info');
