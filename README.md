@@ -15,45 +15,47 @@ There's also a screenshot showing [how it looks on a smartphone](./static/images
 
 ## Installation
 
-### Docker Compose (preferred) 
-docker-compose.yaml
+### Docker Compose (preferred)
 
-    services:
-      label_web:
-        image: cvergaray/label_web_2:latest
-        container_name: label_web
-        ports:
-          - 8013:8013
-        volumes:
-          - <Your Local Path>/Label_Config:/appconfig
-          - <Your Local Path>/label_plugins:/app/elements/Custom
+```yaml
+services:
+  label_web:
+    image: cvergaray/label_web_2:latest
+    container_name: label_web
+    ports:
+      - 8013:8013
+    volumes:
+      - <Your Local Path>/Label_Config:/appconfig
+      - <Your Local Path>/label_plugins:/app/elements/Custom
+```
 
-1. Create a file at `<Your Local Path>/Label_Config/config.json`, add the contents from 
-[config.example.json](./config.example.json), and update with your configuration. See the [Configuration Section](#configuration-file) for details.
+### Configure the application
 
-2. Add any template (.lbl) files to the same `<Your Local Path>/Label_Config/config.json` folder
+Configuration can be done via the UI (recommended) or by editing the config file directly.
+Details are provided in the [Configuration Documentation](./docs/configuration/README.md),
+with a description of each configuration property in the [Configuration Sections](./docs/configuration/ConfigSections.md) document.
 
-3. Add any Custom element plugins to the `<Your Local Path>/Label_Config/label_plugins` folder
+#### Configure via UI (recommended)
+1. Start the container (or run the app locally) and open <http://localhost:8013>.
+2. Go to **Settings** and adjust server, CUPS, printers, labels, and website options.
+3. Click **Save All Settings**. The app writes `config.json` for you under `Label_Config`.
 
-## Configuration file
 
-Copy `config.example.json` to `config.json` (e.g. `cp config.example.json config.json`) and adjust the values 
-to match your needs.
-
-There are some printer-specific settings to include in config.json:
-
-- `LABEL_SIZES`, a dictionary of items with a key and the human-readable description of that size
-- `LABEL_PRINTABLE_AREA`, a dictionary of items mapping the same keys to the printable area in DPI
-- `PRINTER`, the name of the default printer to be used as exposed by CUPS
-- `DEFAULT_SIZE`, the key of the size from the `LABEL_SIZES` that should be used by default.
+#### Manual config (legacy, still supported)
+If you prefer to edit files directly or are scripting installs:
+1. Copy `config.example.json` to `<Your Local Path>/Label_Config/config.json`.
+2. Edit the values to match your environment. See the [Configuration Section](#configuration-file) for details.
+3. Add any template (`.lbl`) files to the same `Label_Config` folder.
+4. Add any custom element plugins to `Label_Config/label_plugins`.
+See the 
 
 ## Documentation
 
 Comprehensive documentation is available in the `docs/` folder:
 
 - **[Template File Elements Documentation](docs/TemplateElements.md)** - Complete reference for all template elements, form field customization, and data handling
-- **[Minimal Configuration Guide](docs/MINIMAL_CONFIG_GUIDE.md)** - Quick start guide for configuration with minimal required settings
-- **[Custom Label Sizes Guide](docs/CUSTOM_SIZES_GUIDE.md)** - Instructions for configuring custom label sizes for your printers
+- **[Minimal Configuration Guide](docs/configuration/ManualConfiguration.md)** - Quick start guide for configuration with minimal required settings
+- **[Custom Label Sizes Guide](docs/configuration/CustomSizes.md)** - Instructions for configuring custom label sizes for your printers
 - **[Manual Installation Guide](docs/ManualInstall.md)** - Step-by-step guide for installing without Docker
 - **[Plugin Development Guide](docs/PluginDevelopmentGuide.md)** - Guide for developing custom element plugins
 
