@@ -2,6 +2,10 @@
 import cups
 import re
 from constants import PARSEABLE_SIZE_PATTERN
+
+# Conversion constants
+POINTS_PER_INCH = 72.0  # PostScript/CUPS points per inch
+
 # Printer-specific settings
 # Set these based on your printer and loaded labels
 
@@ -243,8 +247,8 @@ class implementation:
 
             if not unit or unit.lower() == 'pt':
                 # Points (1/72 inch) - CUPS default when no unit specified
-                w_in = w / 72.0
-                h_in = h / 72.0
+                w_in = w / POINTS_PER_INCH
+                h_in = h / POINTS_PER_INCH
                 return int(w_in * dpi), int(h_in * dpi)
             elif unit.lower() == 'in':
                 # Convert inches to pixels using printer DPI

@@ -964,7 +964,7 @@ def main():
         default_size = instance.get_default_label_size()
         if default_size and default_size in LABEL_SIZES.keys():
             CONFIG['LABEL']['DEFAULT_SIZE'] = default_size
-        elif CONFIG['LABEL'].get('DEFAULT_SIZE') == None or CONFIG['LABEL'].get('DEFAULT_SIZE') not in LABEL_SIZES.keys():
+        elif CONFIG['LABEL'].get('DEFAULT_SIZE') is None or CONFIG['LABEL'].get('DEFAULT_SIZE') not in LABEL_SIZES.keys():
             error_msg = f"Invalid default label size '{CONFIG['LABEL'].get('DEFAULT_SIZE')}'. Please choose one of the following: {', '.join(list(LABEL_SIZES.keys()))}"
             CONFIG_ERRORS.append(error_msg)
             logger.warning(error_msg)

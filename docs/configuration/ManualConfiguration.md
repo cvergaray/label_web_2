@@ -13,7 +13,7 @@ This application requires a connection to a CUPS server (either on localhost or 
 
 ## Configuration file
 
-Copy `config.example.json` to `config.json` (e.g. `cp config.example.json config.json`) and adjust the values 
+Copy `config.example.json` to `config.json` (e.g., `cp config.example.json config.json`) and adjust the values 
 to match your needs. You can still let the Settings UI generate/update this file for you, even after manual edits.
 
 There are some printer-specific settings to include in config.json:
