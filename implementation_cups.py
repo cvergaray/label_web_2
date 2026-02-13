@@ -111,7 +111,7 @@ class implementation:
     def _get_printer_dpi(self, printerName=None):
         """
         Get the DPI/resolution of the printer.
-        Priority: 1) Config DPI mapping, 2) CUPS query with unit conversion, 3) Fallback to 203 DPI
+        Priority: 1) Config DPI mapping, 2) CUPS query with unit conversion, 3) DEFAULT_DPI, 4) Fallback to 203 DPI
 
         Supports CUPS resolution units:
         - 3: dots per inch (DPI)
@@ -152,7 +152,13 @@ class implementation:
         except:
             pass
 
-        # Priority 3: Default DPI for thermal label printers
+        # Priority 3: Check for global DEFAULT_DPI setting
+        if 'PRINTER' in self.CONFIG and 'DEFAULT_DPI' in self.CONFIG['PRINTER']:
+            default_dpi = self.CONFIG['PRINTER']['DEFAULT_DPI']
+            if default_dpi and isinstance(default_dpi, (int, float)) and default_dpi > 0:
+                return int(default_dpi)
+
+        # Priority 4: Hard-coded default DPI for thermal label printers
         return 203
 
     def _convert_to_cups_media_format(self, label_size, printerName=None, dpi=None):

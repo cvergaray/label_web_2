@@ -172,23 +172,6 @@
                   </div>
 
                   <hr>
-                  <h5><strong>Printer DPI Configuration</strong></h5>
-                  <p class="text-muted small">Configure DPI (dots per inch) for each printer. If not configured, the system will attempt to retrieve from CUPS or use a default of 203 DPI.</p>
-                  <div class="dpi-input-group" style="margin-bottom:10px;">
-                    <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
-                      <select class="form-control" id="dpiPrinterSelect" style="flex: 1; min-width: 200px;">
-                        <option value="">-- Select Printer --</option>
-                      </select>
-                      <input type="number" class="form-control" id="dpiValue" placeholder="DPI (e.g., 203, 300)" min="1" max="10000" style="flex: 1; min-width: 150px;">
-                      <button id="addDpiBtn" type="button" class="btn btn-default" style="white-space: nowrap; display: inline-block;">
-                        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> Add/Update
-                      </button>
-                    </div>
-                    <div id="dpiError" class="text-danger" style="display: none; margin-bottom: 10px; font-size: 12px;"></div>
-                  </div>
-                  <div id="dpiList" class="list-group" style="margin-bottom: 15px;"></div>
-
-                  <hr>
                   <h5><strong>Custom Media Sizes (global)</strong></h5>
                   <p class="text-muted small">Add custom size key and display label. If size keys are in valid CUPS format: "WxH" (points), "WxHin" (inches), "WxHmm" (millimeters), or "WxHcm" (centimeters), the dimensions will be auto-calculated from the parseable size key. Examples: "4x6in", "100x50mm", "288x144" (points). Otherwise, pixel dimensions are required. </p>
                   <div class="custom-size-input-group" style="margin-bottom:10px;">
@@ -240,6 +223,34 @@
                   <div id="printers-container">
                     <p class="text-muted">Loading printers...</p>
                   </div>
+
+                  <hr>
+                  <h5><strong>Printer DPI Configuration</strong></h5>
+                  <p class="text-muted small">Configure DPI (dots per inch) for printers. Priority: 1) Per-printer DPI below, 2) CUPS-reported DPI, 3) Default DPI fallback, 4) Hard-coded 203 DPI.</p>
+
+                  <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="col-sm-3 control-label">Default DPI Fallback</label>
+                    <div class="col-sm-9">
+                      <p class="help-block" style="margin-top: 0;">Global fallback DPI when printer-specific DPI is not configured and CUPS detection fails. Leave empty or set to 0 to use hard-coded default of 203 DPI.</p>
+                      <input type="number" class="form-control" id="printerDefaultDpi" placeholder="203" min="0" max="10000" style="max-width: 200px;">
+                    </div>
+                  </div>
+
+                  <h6><strong>Per-Printer DPI Override</strong></h6>
+                  <p class="text-muted small">Configure specific DPI values for individual printers. These take highest priority and override all other methods.</p>
+                  <div class="dpi-input-group" style="margin-bottom:10px;">
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
+                      <select class="form-control" id="dpiPrinterSelect" style="flex: 1; min-width: 200px;">
+                        <option value="">-- Select Printer --</option>
+                      </select>
+                      <input type="number" class="form-control" id="dpiValue" placeholder="DPI (e.g., 203, 300)" min="1" max="10000" style="flex: 1; min-width: 150px;">
+                      <button id="addDpiBtn" type="button" class="btn btn-default" style="white-space: nowrap; display: inline-block;">
+                        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> Add/Update
+                      </button>
+                    </div>
+                    <div id="dpiError" class="text-danger" style="display: none; margin-bottom: 10px; font-size: 12px;"></div>
+                  </div>
+                  <div id="dpiList" class="list-group" style="margin-bottom: 15px;"></div>
                 </div>
               </div>
             </div>
@@ -380,6 +391,7 @@
         useCups: false,
         server: 'localhost',
         printer: '',
+        defaultDpi: 203,    // Global fallback DPI
         dpi: {},            // { printer_name: dpi_value }
         enabledSizes: {},   // { printer_name: [size1, ...] }
         labelSizes: {},     // global custom sizes map
@@ -573,6 +585,7 @@
       document.getElementById('printerServer').value = settingsState.printer.server || 'localhost';
       document.getElementById('printerName').value = settingsState.printer.printer || '';
       document.getElementById('printerNameText').value = settingsState.printer.printer || '';
+      document.getElementById('printerDefaultDpi').value = settingsState.printer.defaultDpi || '';
       updateCupsStatus();
       // Display correct printer input based on CUPS state
       updatePrinterInputDisplay(settingsState.printer.useCups);
@@ -626,7 +639,7 @@
       });
 
       // PRINTER inputs
-      ['printerUseCups', 'printerServer', 'printerName'].forEach(id => {
+      ['printerUseCups', 'printerServer', 'printerName', 'printerDefaultDpi'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('change', markAsChanged);
       });
@@ -1518,6 +1531,8 @@
           useCups: useCups,
           server: document.getElementById('printerServer').value.trim(),
           printer: printerName,
+          defaultDpi: parseInt(document.getElementById('printerDefaultDpi').value) || 203,
+          dpi: settingsState.printer.dpi || {},
           enabledSizes: settingsState.printer.enabledSizes,
           labelSizes: settingsState.printer.labelSizes,
           labelPrintableArea: settingsState.printer.labelPrintableArea || {},
@@ -1629,7 +1644,7 @@
     }
 
     document.getElementById('saveButton').addEventListener('click', saveSettings);
-    document.getElementById('saveButton2').addEventListener('click', saveSettings);
+    document.getElementById('saveButton2' ).addEventListener('click', saveSettings);
     document.getElementById('unsavedIndicator').addEventListener('click', saveSettings);
     document.getElementById('validateButton').addEventListener('click', function() {
       const payload = collectSettings();
@@ -2018,18 +2033,5 @@
     }
   </style>
 {% endblock %}
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
