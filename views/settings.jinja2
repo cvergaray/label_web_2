@@ -908,7 +908,7 @@
       let html = '';
       entries.forEach(([printer, dpi]) => {
         html += `<div class="list-group-item" style="display:flex; justify-content:space-between; align-items:center;">
-                  <span><strong>${escapeHtml(printer)}</strong> <span class="text-muted">→ ${dpi} DPI</span></span>
+                  <span><strong>${escapeHtml(printer)}</strong> <span class="text-muted">→ ${escapeHtml(String(dpi))} DPI</span></span>
                   <button class="btn btn-xs btn-danger" onclick="removeDpi('${escapeHtmlAttr(printer)}')">
                     <span class="glyphicon glyphicon-trash"></span> Remove
                   </button>
@@ -1644,7 +1644,7 @@
     }
 
     document.getElementById('saveButton').addEventListener('click', saveSettings);
-    document.getElementById('saveButton2' ).addEventListener('click', saveSettings);
+    document.getElementById('saveButton2').addEventListener('click', saveSettings);
     document.getElementById('unsavedIndicator').addEventListener('click', saveSettings);
     document.getElementById('validateButton').addEventListener('click', function() {
       const payload = collectSettings();
