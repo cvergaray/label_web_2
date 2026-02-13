@@ -4,8 +4,9 @@ bottle>=0.12.25
 jinja2>=3.1.4
 pycups
 pylibdmtx[scripts]
-pillow>=10.3.0
+pillow>=12.1.1
 requests
 healthyurl
 pyyaml
 treepoem
+urllib3>=2.6.3
