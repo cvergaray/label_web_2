@@ -8,6 +8,10 @@
     "USE_CUPS": false,
     "SERVER": "192.168.1.176",
     "PRINTER": "Zebra-LP2844",
+    "DPI": {
+      "Zebra-LP2844": 203,
+      "Some-Other-Printer": 300
+    },
     "LABEL_SIZES": {
                "3x1": "3\" by 1\"",
                "1x3": "1\" x 3\""

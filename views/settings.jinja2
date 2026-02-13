@@ -172,6 +172,23 @@
                   </div>
 
                   <hr>
+                  <h5><strong>Printer DPI Configuration</strong></h5>
+                  <p class="text-muted small">Configure DPI (dots per inch) for each printer. If not configured, the system will attempt to retrieve from CUPS or use a default of 203 DPI.</p>
+                  <div class="dpi-input-group" style="margin-bottom:10px;">
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
+                      <select class="form-control" id="dpiPrinterSelect" style="flex: 1; min-width: 200px;">
+                        <option value="">-- Select Printer --</option>
+                      </select>
+                      <input type="number" class="form-control" id="dpiValue" placeholder="DPI (e.g., 203, 300)" min="1" max="10000" style="flex: 1; min-width: 150px;">
+                      <button id="addDpiBtn" type="button" class="btn btn-default" style="white-space: nowrap; display: inline-block;">
+                        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> Add/Update
+                      </button>
+                    </div>
+                    <div id="dpiError" class="text-danger" style="display: none; margin-bottom: 10px; font-size: 12px;"></div>
+                  </div>
+                  <div id="dpiList" class="list-group" style="margin-bottom: 15px;"></div>
+
+                  <hr>
                   <h5><strong>Custom Media Sizes (global)</strong></h5>
                   <p class="text-muted small">Add custom size key and display label. If size keys are in valid CUPS format: "WxH" (points), "WxHin" (inches), "WxHmm" (millimeters), or "WxHcm" (centimeters), the dimensions will be auto-calculated from the parseable size key. Examples: "4x6in", "100x50mm", "288x144" (points). Otherwise, pixel dimensions are required. </p>
                   <div class="custom-size-input-group" style="margin-bottom:10px;">
@@ -363,6 +380,7 @@
         useCups: false,
         server: 'localhost',
         printer: '',
+        dpi: {},            // { printer_name: dpi_value }
         enabledSizes: {},   // { printer_name: [size1, ...] }
         labelSizes: {},     // global custom sizes map
         labelPrintableArea: {}, // { size_key: [width, height] in pixels }
@@ -572,6 +590,8 @@
 
       // Render custom sizes list
       renderCustomSizes();
+      // Render DPI list
+      renderDpiList();
       // Load printers/media list and printer checkboxes
       loadPrinters(settingsState.printer.useCups);
     }
@@ -861,6 +881,113 @@
       }
     });
 
+    // DPI Management Functions
+    function renderDpiList() {
+      const list = document.getElementById('dpiList');
+      const dpiMap = settingsState.printer.dpi || {};
+      const entries = Object.entries(dpiMap);
+
+      if (entries.length === 0) {
+        list.innerHTML = '<div class="text-muted">No DPI configurations set. System will auto-detect or use default.</div>';
+        return;
+      }
+
+      let html = '';
+      entries.forEach(([printer, dpi]) => {
+        html += `<div class="list-group-item" style="display:flex; justify-content:space-between; align-items:center;">
+                  <span><strong>${escapeHtml(printer)}</strong> <span class="text-muted">→ ${dpi} DPI</span></span>
+                  <button class="btn btn-xs btn-danger" onclick="removeDpi('${escapeHtmlAttr(printer)}')">
+                    <span class="glyphicon glyphicon-trash"></span> Remove
+                  </button>
+                 </div>`;
+      });
+      list.innerHTML = html;
+    }
+
+    function addDpi() {
+      const printerSelect = document.getElementById('dpiPrinterSelect');
+      const dpiInput = document.getElementById('dpiValue');
+      const errorDiv = document.getElementById('dpiError');
+
+      const printer = printerSelect.value.trim();
+      const dpiValue = dpiInput.value.trim();
+
+      // Clear any previous errors
+      if (errorDiv) {
+        errorDiv.style.display = 'none';
+        errorDiv.textContent = '';
+      }
+
+      if (!printer) {
+        if (errorDiv) {
+          errorDiv.textContent = 'Please select a printer.';
+          errorDiv.style.display = 'block';
+        }
+        return;
+      }
+
+      if (!dpiValue) {
+        if (errorDiv) {
+          errorDiv.textContent = 'Please enter a DPI value.';
+          errorDiv.style.display = 'block';
+        }
+        return;
+      }
+
+      const dpi = parseInt(dpiValue);
+      if (isNaN(dpi) || dpi <= 0 || dpi > 10000) {
+        if (errorDiv) {
+          errorDiv.textContent = 'DPI must be a positive number between 1 and 10000.';
+          errorDiv.style.display = 'block';
+        }
+        return;
+      }
+
+      if (!settingsState.printer.dpi) {
+        settingsState.printer.dpi = {};
+      }
+
+      settingsState.printer.dpi[printer] = dpi;
+
+      // Clear inputs
+      printerSelect.value = '';
+      dpiInput.value = '';
+
+      renderDpiList();
+      markAsChanged();
+    }
+
+    function removeDpi(printer) {
+      if (settingsState.printer.dpi && printer in settingsState.printer.dpi) {
+        delete settingsState.printer.dpi[printer];
+        renderDpiList();
+        markAsChanged();
+      }
+    }
+
+    document.getElementById('addDpiBtn').addEventListener('click', addDpi);
+
+    // Clear error message when user interacts with DPI fields
+    ['dpiPrinterSelect', 'dpiValue'].forEach(id => {
+      const field = document.getElementById(id);
+      if (field) {
+        field.addEventListener('input', function() {
+          const errorDiv = document.getElementById('dpiError');
+          if (errorDiv && errorDiv.style.display === 'block') {
+            errorDiv.style.display = 'none';
+            errorDiv.textContent = '';
+          }
+        });
+        field.addEventListener('change', function() {
+          const errorDiv = document.getElementById('dpiError');
+          if (errorDiv && errorDiv.style.display === 'block') {
+            errorDiv.style.display = 'none';
+            errorDiv.textContent = '';
+          }
+        });
+      }
+    });
+
     // Render printer checkboxes for include/exclude lists
     function renderPrinterCheckboxes(printers) {
       const includeList = document.getElementById('printersIncludeList');
@@ -895,6 +1022,18 @@
         optionsHtml += `<option value="${escapedAttr}" ${selected}>${escapedPrinter}${suffix}</option>`;
       });
       printerSelect.innerHTML = optionsHtml;
+
+      // Populate DPI printer dropdown
+      const dpiPrinterSelect = document.getElementById('dpiPrinterSelect');
+      let dpiOptionsHtml = '<option value="">-- Select Printer --</option>';
+      allPrintersList.forEach(printer => {
+        const escapedPrinter = escapeHtml(printer);
+        const escapedAttr = escapeHtmlAttr(printer);
+        const isInCups = printers.includes(printer);
+        const suffix = isInCups ? '' : ' (not configured)';
+        dpiOptionsHtml += `<option value="${escapedAttr}">${escapedPrinter}${suffix}</option>`;
+      });
+      dpiPrinterSelect.innerHTML = dpiOptionsHtml;
 
       if (allPrintersList.length === 0) {
         includeList.innerHTML = '<p class="text-muted">No printers available</p>';

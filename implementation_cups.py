@@ -109,19 +109,51 @@ class implementation:
         return media_name, media_name
 
     def _get_printer_dpi(self, printerName=None):
-        """Get the DPI/resolution of the printer, with fallback to 203 DPI"""
+        """
+        Get the DPI/resolution of the printer.
+        Priority: 1) Config DPI mapping, 2) CUPS query with unit conversion, 3) Fallback to 203 DPI
+
+        Supports CUPS resolution units:
+        - 3: dots per inch (DPI)
+        - 4: dots per centimeter (DPCM)
+        """
+        printerName = self._get_printer_name(printerName)
+
+        # Priority 1: Check config for explicit DPI setting
+        if 'PRINTER' in self.CONFIG and 'DPI' in self.CONFIG['PRINTER']:
+            dpi_map = self.CONFIG['PRINTER']['DPI']
+            if isinstance(dpi_map, dict) and printerName in dpi_map:
+                configured_dpi = dpi_map[printerName]
+                if configured_dpi and isinstance(configured_dpi, (int, float)) and configured_dpi > 0:
+                    return int(configured_dpi)
+
+        # Priority 2: Try to get from CUPS
         try:
-            printerName = self._get_printer_name(printerName)
             conn = self._get_conn()
             attrs = conn.getPrinterAttributes(printerName, requested_attributes=["printer-resolution-default"])
             resolution = attrs.get("printer-resolution-default")
             if resolution:
-                # Resolution is typically (xdpi, ydpi, units) where units is 3 for DPI
+                # Resolution is typically (xdpi, ydpi, units) where:
+                # units = 3: dots per inch (DPI)
+                # units = 4: dots per centimeter (DPCM)
                 if isinstance(resolution, tuple) and len(resolution) >= 2:
-                    return resolution[0]  # Return X DPI
+                    x_res = resolution[0]
+                    unit = resolution[2] if len(resolution) >= 3 else 3  # Default to DPI if unit not specified
+
+                    if unit == 3:
+                        # Already in DPI
+                        return int(x_res)
+                    elif unit == 4:
+                        # Convert DPCM to DPI (1 inch = 2.54 cm)
+                        return int(x_res * 2.54)
+                    else:
+                        # Unknown unit, assume DPI
+                        return int(x_res)
         except:
             pass
-        return 203  # Default DPI for thermal label printers
+
+        # Priority 3: Default DPI for thermal label printers
+        return 203
 
     def _convert_to_cups_media_format(self, label_size, printerName=None, dpi=None):
         """
