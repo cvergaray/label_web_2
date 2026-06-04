@@ -7,8 +7,12 @@ class GrocyEntryElement(elements.ElementBase):
         pass
 
     @staticmethod
+    def element_key():
+        return 'grocy_entry'
+
+    @staticmethod
     def can_process(element):
-        return element['type'] == 'grocy_entry'
+        return element['type'] == GrocyEntryElement.element_key()
 
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
         server = element.get('endpoint')
@@ -40,3 +44,78 @@ class GrocyEntryElement(elements.ElementBase):
         im = self.process_with_plugins(element, im, margins, dimensions, payload, **kwargs)
 
         return im
+
+    @staticmethod
+    def get_definition():
+        return {
+            GrocyEntryElement.element_key(): {
+                "type": "object",
+                "id": GrocyEntryElement.element_key(),
+                "defaultProperties": [
+                    "type",
+                    "endpoint",
+                    "api_key",
+                    "elements",
+                ],
+                "requiredProperties": [
+                    "type",
+                    "endpoint",
+                    "api_key"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [GrocyEntryElement.element_key()],
+                        "options": {
+                            "hidden": "true"
+                        }
+                    },
+                    "grocycode": {
+                        "type": "string",
+                        "title": "Grocy Code",
+                        "description": "Hardcoded Grocy Code to be used with the request. If omitted, the " +
+                                       "http request for printing the label must include this property.",
+                    },
+                    "elements": {
+                        "type": "array",
+                        "title": "Grocy Entry Sub Elements",
+                        "items": {
+                            "title": "Sub-Element",
+                            "anyOf": GrocyEntryElement.get_plugin_editor_keys()
+                        }
+                    },
+                    "datakeyname": {
+                        "type": "string",
+                        "title": "Data Key Name",
+                        "description": "The key for the data retrieved with the Data Key when sent with the request"
+                    },
+                    "headers": {
+                        "type": "object",
+                        "title": "Headers",
+                        "additionalProperties": {
+                            "type": ["string"],
+                            "items": ["string"]
+                        }
+                    },
+                    "method": {
+                        "type": "string",
+                        "title": "Method",
+                        "enum": ["get", "post", "put", "delete"],
+                        "default": "get"
+                    },
+                    "endpoint": {
+                        "type": "string",
+                        "title": "Endpoint",
+                        "description": "The endpoint of the request"
+                    },
+                    "api_key": {
+                        "type": "string",
+                        "title": "API Key",
+                        "description": "The Grocy API key for the request"
+                    }
+                }
+            }
+        }

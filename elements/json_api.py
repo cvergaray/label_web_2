@@ -10,8 +10,12 @@ class JsonAPIElement(elements.ElementBase):
         pass
 
     @staticmethod
+    def element_key():
+        return 'json_api'
+
+    @staticmethod
     def can_process(element):
-        return element['type'] == 'json_api'
+        return element['type'] == JsonAPIElement.element_key()
 
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
 
@@ -58,5 +62,78 @@ class JsonAPIElement(elements.ElementBase):
                 sub_element['data'] = response_data
             self.process_with_plugins(sub_element, im, margins, dimensions, payload, **kwargs)
 
-        return im
+        return
 
+    @staticmethod
+    def get_definition():
+        return {
+            JsonAPIElement.element_key(): {
+                "type": "object",
+                "id": JsonAPIElement.element_key(),
+                "defaultProperties": [
+                    "type",
+                    "endpoint",
+                    "datakey",
+                    "elements"
+                ],
+                "requiredProperties": [
+                    "type",
+                    "endpoint"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [JsonAPIElement.element_key()],
+                        "options": {
+                            "hidden": "true"
+                        }
+                    },
+                    "elements": {
+                        "type": "array",
+                        "title": "JSON API Sub Elements",
+                        "items": {
+                            "title": "Sub-Element",
+                            "anyOf": JsonAPIElement.get_plugin_editor_keys()
+                        }
+                    },
+                    "data": {
+                        "type": "string",
+                        "title": "Data",
+                        "description": "Data dictionary, or leave blank if inheriting from parent element.",
+                    },
+                    "datakey": {
+                        "type": "string",
+                        "title": "Data Key",
+                        "description": "The key of the element from data dictionary to be set as the data property of "
+                                       "child elements",
+                    },
+                    "datakeyname": {
+                        "type": "string",
+                        "title": "Data Key Name",
+                        "description": "The key for the data retrieved with the Data Key when sent with the request"
+                    },
+                    "headers": {
+                        "type": "object",
+                        "title": "Headers",
+                        "additionalProperties": {
+                            "type": ["string"],
+                            "items": ["string"]
+                        }
+                    },
+                    "method": {
+                        "type": "string",
+                        "title": "Method",
+                        "enum": ["get", "post", "put", "delete"],
+                        "default": "get"
+                    },
+                    "endpoint": {
+                        "type": "string",
+                        "title": "Endpoint",
+                        "description": "The endpoint of the request"
+                    }
+                }
+            }
+        }

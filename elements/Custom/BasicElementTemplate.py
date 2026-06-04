@@ -7,8 +7,12 @@ class BasicElement(elements.ElementBase):
         pass
 
     @staticmethod
+    def element_key():
+        return 'basic'
+
+    @staticmethod
     def can_process(element):
-        return element['type'] == 'basic'
+        return element['type'] == BasicElement.element_key()
 
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
         # Do Stuff here to add visual elements to the im object
@@ -21,3 +25,27 @@ class BasicElement(elements.ElementBase):
         if form is None:
             return []
         return [form]
+
+    @staticmethod
+    def get_definition():
+        return {
+            BasicElement.element_key(): {
+                "type": "object",
+                "id": BasicElement.element_key(),
+                "defaultProperties": [
+                    "type"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [BasicElement.element_key()],
+                        "options": {
+                            "hidden": "true"
+                        }
+                    }
+                }
+            }
+        }

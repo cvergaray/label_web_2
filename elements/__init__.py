@@ -26,6 +26,30 @@ class ElementBase:
                 # print('Processing element with handler {}'.format(type(instance).__name__))
                 instance.process_element(element, im, margins, dimensions, payload, **kwargs)
 
+
+    @staticmethod
+    def get_plugin_editor_definitions():
+        definitions = {}
+        for handler in ElementBase.plugins:
+            instance = handler()
+            definitions = definitions | instance.get_definition()
+        return definitions
+
+    @staticmethod
+    def get_plugin_editor_keys():
+        keys = [{
+            "title": "none",
+            "type": "null"
+        }]
+        for handler in ElementBase.plugins:
+            instance = handler()
+            key = instance.element_key()
+            keys.append({
+                "title": key,
+                "$ref": "#/definitions/" + key
+            })
+        return keys
+
     @staticmethod
     def get_form_elements_with_plugins(element):
         element_type = element['type']
