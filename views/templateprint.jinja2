@@ -498,6 +498,7 @@ function saveTemplateSource() {
           // Display status in the status panel
           $('#statusPanel').html('<div id="statusBox" class="alert alert-success" role="alert"><i class="glyphicon glyphicon-check"></i><span>Template Saved</span></div>');
           $('#templateSourceStatus').text('');
+          $.ajax({
           // Reload template options from server
             url: '/api/list/templates',
             type: 'GET',
