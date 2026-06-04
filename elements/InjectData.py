@@ -21,8 +21,12 @@ class InjectData(elements.ElementBase):
         pass
 
     @staticmethod
+    def element_key():
+        return 'inject_data'
+
+    @staticmethod
     def can_process(element):
-        return element.get('type') == 'inject_data'
+        return element.get('type') == InjectData.element_key()
 
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
         target_key = element.get('target_key')
@@ -58,3 +62,76 @@ class InjectData(elements.ElementBase):
                 self.process_with_plugins(sub_element, im, margins, dimensions, payload, **kwargs)
 
         return im
+
+    @staticmethod
+    def get_definition():
+        return {
+            InjectData.element_key(): {
+                "type": "object",
+                "id": InjectData.element_key(),
+                "defaultProperties": [
+                    "type",
+                    "target",
+                    "target_key",
+                    "override",
+                    "elements"
+                ],
+                "required": [
+                    "type",
+                    "target",
+                    "target_key"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [InjectData.element_key()],
+                        "options": {
+                            "hidden": "true"
+                        }
+                    },
+                    "data": {
+                        "type": ["string", "number", "boolean", "object", "array", "null"],
+                        "title": "Data",
+                        "description": "Base data to inject; can be overridden by key lookup."
+                    },
+                    "key": {
+                        "type": "string",
+                        "title": "Source Key",
+                        "description": "Lookup key used against kwargs or payload before injection."
+                    },
+                    "datakey": {
+                        "type": "string",
+                        "title": "Nested Source Key",
+                        "description": "If source resolves to an object, pick this nested key."
+                    },
+                    "target": {
+                        "type": "string",
+                        "title": "Target",
+                        "enum": ["payload", "kwargs", "children"],
+                        "default": "payload"
+                    },
+                    "target_key": {
+                        "type": "string",
+                        "title": "Target Key",
+                        "description": "Name of the key to inject into the selected target."
+                    },
+                    "override": {
+                        "type": "boolean",
+                        "title": "Override Existing Value",
+                        "default": False
+                    },
+                    "elements": {
+                        "type": "array",
+                        "title": "Child Elements",
+                        "items": {
+                            "title": "Element",
+                            "anyOf": InjectData.get_plugin_editor_keys()
+                        }
+                    }
+                }
+            }
+        }
+

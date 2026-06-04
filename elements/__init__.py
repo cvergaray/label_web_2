@@ -17,6 +17,11 @@ class ElementBase:
         cls.plugins.append(cls)
 
     @staticmethod
+    def get_definition():
+        """Default empty schema definition for plugins that do not define one."""
+        return {}
+
+    @staticmethod
     def process_with_plugins(element, im: Image, margins, dimensions, payload, **kwargs):
         element_type = element['type']
         # print('Attempting to process element with type {}'.format(element_type))
@@ -32,7 +37,10 @@ class ElementBase:
         definitions = {}
         for handler in ElementBase.plugins:
             instance = handler()
-            definitions = definitions | instance.get_definition()
+            try:
+                definitions = definitions | instance.get_definition()
+            except Exception:
+                traceback.print_exc()
         return definitions
 
     @staticmethod

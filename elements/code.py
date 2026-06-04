@@ -8,9 +8,13 @@ class CodeElement(elements.ElementBase):
         pass
 
     @staticmethod
+    def element_key():
+        return 'code'
+
+    @staticmethod
     def can_process(element):
         # Generic barcode element, type must be "code"
-        return element['type'] == 'code'
+        return element['type'] == CodeElement.element_key()
 
     def process_element(self, element, im, margins, dimensions, payload, **kwargs):
         import treepoem
@@ -90,3 +94,73 @@ class CodeElement(elements.ElementBase):
         form['required'] = True
         form['description'] = form['description'] or element.get('code_type', 'code39') + ' barcode to be generated'
         return [form]
+
+    @staticmethod
+    def get_definition():
+        return {
+            CodeElement.element_key(): {
+                "type": "object",
+                "id": CodeElement.element_key(),
+                "defaultProperties": [
+                    "type",
+                    "code_type",
+                    "data",
+                    "horizontal_offset",
+                    "vertical_offset"
+                ],
+                "required": [
+                    "type",
+                    "code_type",
+                    "horizontal_offset",
+                    "vertical_offset"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [CodeElement.element_key()],
+                        "options": {
+                            "hidden": "true"
+                        }
+                    },
+                    "code_type": {
+                        "type": "string",
+                        "title": "Barcode Type",
+                        "default": "code39",
+                        "description": "treepoem/BWIPP barcode type (for example: code39, qrcode, code128)."
+                    },
+                    "data": {
+                        "type": "string",
+                        "description": "Hard-coded barcode value to be rendered"
+                    },
+                    "key": {
+                        "type": "string",
+                        "description": "Request key used as barcode value."
+                    },
+                    "datakey": {
+                        "type": "string",
+                        "description": "Nested key when the resolved data is an object."
+                    },
+                    "img_size": {
+                        "type": ["string", "integer"],
+                        "title": "Image Size",
+                        "description": "Optional output size in pixels, like 200 or 200x100."
+                    },
+                    "horizontal_offset": {
+                        "title": "Horizontal Offset",
+                        "type": "integer",
+                        "minimum": 0,
+                        "default": 0
+                    },
+                    "vertical_offset": {
+                        "title": "Vertical Offset",
+                        "type": "integer",
+                        "minimum": 0,
+                        "default": 0
+                    }
+                }
+            }
+        }
+
