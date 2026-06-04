@@ -79,6 +79,17 @@ var currentFormData = {};
 var renderRoot = null;
 var knownTemplates = [];
 
+/*
+ * Plugin-contributed RJSF widgets are loaded at runtime from
+ * /api/template/designer/widgets.js. Each plugin calls:
+ *   registerWidget(name, ReactComponent)
+ * which stores the component here.
+ */
+var RJSF_CUSTOM_WIDGETS = {};
+window.__rjsfWidgetRegistry = function(name, component) {
+  RJSF_CUSTOM_WIDGETS[name] = component;
+};
+
 function setDesignerStatus(html, cssClass) {
   var klass = cssClass || 'alert-info';
   $('#designerStatus').html('<div class="alert ' + klass + '" role="alert">' + html + '</div>');
@@ -113,45 +124,33 @@ function renderDesignerForm() {
     return;
   }
 
+  var formProps = {
+    schema: schemaPayload.schema,
+    uiSchema: schemaPayload.uiSchema || {},
+    widgets: RJSF_CUSTOM_WIDGETS,
+    formData: currentFormData,
+    noHtml5Validate: true,
+    liveValidate: false,
+    onChange: function(event) {
+      currentFormData = event.formData || {};
+      syncGeneratedSource();
+    },
+    onSubmit: function(event) {
+      currentFormData = event.formData || {};
+      syncGeneratedSource();
+    }
+  };
+
   if (window.ReactDOM.createRoot) {
     if (!renderRoot) {
       renderRoot = window.ReactDOM.createRoot(formMount);
     }
-
-    renderRoot.render(window.React.createElement(FormComponent, {
-      schema: schemaPayload.schema,
-      uiSchema: schemaPayload.uiSchema || {},
-      formData: currentFormData,
-      noHtml5Validate: true,
-      liveValidate: false,
-      onChange: function(event) {
-        currentFormData = event.formData || {};
-        syncGeneratedSource();
-      },
-      onSubmit: function(event) {
-        currentFormData = event.formData || {};
-        syncGeneratedSource();
-      }
-    }));
+    renderRoot.render(window.React.createElement(FormComponent, formProps));
     return;
   }
 
   if (window.ReactDOM.render) {
-    window.ReactDOM.render(window.React.createElement(FormComponent, {
-      schema: schemaPayload.schema,
-      uiSchema: schemaPayload.uiSchema || {},
-      formData: currentFormData,
-      noHtml5Validate: true,
-      liveValidate: false,
-      onChange: function(event) {
-        currentFormData = event.formData || {};
-        syncGeneratedSource();
-      },
-      onSubmit: function(event) {
-        currentFormData = event.formData || {};
-        syncGeneratedSource();
-      }
-    }), formMount);
+    window.ReactDOM.render(window.React.createElement(FormComponent, formProps), formMount);
     return;
   }
 
@@ -266,10 +265,7 @@ function saveTemplate() {
   $.ajax({
     url: '/api/template/create',
     type: 'POST',
-    data: JSON.stringify({
-      name: baseName,
-      content: source
-    }),
+    data: JSON.stringify({ name: baseName, content: source }),
     contentType: 'application/json; charset=utf-8',
     dataType: 'json',
     success: function(data) {
@@ -292,6 +288,32 @@ function saveTemplate() {
       } catch (e) {
       }
       setDesignerStatus(escapeHtml(msg), 'alert-danger');
+    }
+  });
+}
+
+function fetchSchemaAndRender() {
+  $.ajax({
+    url: '/api/template/designer/schema',
+    type: 'GET',
+    dataType: 'json',
+    success: function(data) {
+      if (!data || !data.success || !data.schema) {
+        setDesignerStatus('Template schema endpoint returned an invalid payload.', 'alert-danger');
+        return;
+      }
+      schemaPayload = data;
+      currentFormData = {
+        name: 'New Label',
+        elements: []
+      };
+      renderDesignerForm();
+      syncGeneratedSource();
+      refreshTemplateList();
+      setDesignerStatus('Template Designer ready.', 'alert-success');
+    },
+    error: function() {
+      setDesignerStatus('Could not load template schema from server.', 'alert-danger');
     }
   });
 }
@@ -319,29 +341,17 @@ $(document).ready(function() {
     }
   });
 
-  $.ajax({
-    url: '/api/template/designer/schema',
-    type: 'GET',
-    dataType: 'json',
-    success: function(data) {
-      if (!data || !data.success || !data.schema) {
-        setDesignerStatus('Template schema endpoint returned an invalid payload.', 'alert-danger');
-        return;
-      }
-      schemaPayload = data;
-      currentFormData = {
-        name: 'New Label',
-        elements: []
-      };
-      renderDesignerForm();
-      syncGeneratedSource();
-      refreshTemplateList();
-      setDesignerStatus('Template Designer ready.', 'alert-success');
-    },
-    error: function() {
-      setDesignerStatus('Could not load template schema from server.', 'alert-danger');
-    }
-  });
+  // Load plugin widget definitions first, then fetch schema and render.
+  var widgetScript = document.createElement('script');
+  widgetScript.src = '/api/template/designer/widgets.js';
+  widgetScript.onload = function() {
+    fetchSchemaAndRender();
+  };
+  widgetScript.onerror = function() {
+    console.warn('Widget script failed to load - continuing without custom widgets.');
+    fetchSchemaAndRender();
+  };
+  document.head.appendChild(widgetScript);
 });
 {% endblock %}
 

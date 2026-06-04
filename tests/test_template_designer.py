@@ -92,3 +92,47 @@ def test_schema_has_no_phantom_definition_refs():
 
     phantom = find_phantom_refs(schema)
     assert phantom == [], f"Schema contains $refs to missing definitions: {phantom}"
+
+
+def test_plugin_widgets_js_endpoint_exists_in_app():
+    content = APP_FILE.read_text(encoding="utf-8")
+    assert "@route('/api/template/designer/widgets.js'" in content
+    assert 'get_plugin_widgets_js' in content
+
+
+def test_image_file_element_contributes_widget_and_ui_schema():
+    """ImageFileElement must define both get_widget_js() and get_ui_schema()."""
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+
+    from elements.ImageFile import ImageFileElement
+
+    ui = ImageFileElement.get_ui_schema()
+    assert 'file' in ui, "ImageFileElement.get_ui_schema() must define 'file'"
+    assert 'ui:widget' in ui['file'], "'file' must specify a ui:widget"
+
+    js = ImageFileElement.get_widget_js()
+    assert js and js.strip(), "ImageFileElement.get_widget_js() must return non-empty JS"
+    widget_name = ui['file']['ui:widget']
+    assert widget_name in js, f"Widget JS must register '{widget_name}'"
+
+
+def test_element_base_get_plugin_widgets_js_wraps_iife():
+    """get_plugin_widgets_js() output must be a safe IIFE — no bare eval."""
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+
+    from elements import ElementBase
+    js = ElementBase.get_plugin_widgets_js()
+    assert 'registerWidget' in js
+    assert '(function' in js
+    assert 'eval' not in js
+
+
+def test_element_base_get_plugin_ui_schema_includes_image_file_widget():
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+
+    from elements import ElementBase
+    merged = ElementBase.get_plugin_ui_schema()
+    assert 'file' in merged, "Merged uiSchema must include 'file' from ImageFileElement"

@@ -400,6 +400,85 @@ def create_template():
         logger.error(f"Error creating template: {e}")
         return json.dumps({'success': False, 'error': str(e)})
 
+_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.tif', '.webp'}
+_IMAGE_UPLOAD_DIR = '/appconfig/images'
+
+
+@route('/api/images', method=['GET', 'OPTIONS'])
+@enable_cors
+def list_images():
+    """List all image files available on the server.
+
+    Scans /appconfig/images/ (preferred) and /appconfig/ root for known image
+    extensions.  Returns a list of objects with ``path`` (absolute filesystem
+    path used by ImageFileElement) and ``display`` (friendly label for the UI).
+    """
+    try:
+        seen = set()
+        images = []
+
+        search_dirs = [_IMAGE_UPLOAD_DIR, '/appconfig']
+        for search_dir in search_dirs:
+            if not os.path.isdir(search_dir):
+                continue
+            for fname in sorted(os.listdir(search_dir)):
+                if os.path.splitext(fname)[1].lower() not in _IMAGE_EXTENSIONS:
+                    continue
+                full_path = os.path.join(search_dir, fname)
+                if not os.path.isfile(full_path):
+                    continue
+                if full_path in seen:
+                    continue
+                seen.add(full_path)
+                display = ('images/' + fname) if search_dir == _IMAGE_UPLOAD_DIR else fname
+                images.append({'path': full_path, 'display': display})
+
+        response.content_type = 'application/json'
+        return json.dumps({'success': True, 'images': images})
+    except Exception as e:
+        response.status = 500
+        response.content_type = 'application/json'
+        logger.error(f"Error listing images: {e}")
+        return json.dumps({'success': False, 'error': str(e)})
+
+
+@route('/api/images/upload', method=['POST', 'OPTIONS'])
+@enable_cors
+def upload_image():
+    """Upload an image file and store it under /appconfig/images/.
+
+    Expects a multipart/form-data upload with a ``file`` field.
+    Returns the filesystem path so the caller can immediately set it as the
+    ``file`` property of an image_file element.
+    """
+    try:
+        upload = request.files.get('file')
+        if not upload:
+            response.status = 400
+            response.content_type = 'application/json'
+            return json.dumps({'success': False, 'error': 'No file provided'})
+
+        fname = os.path.basename(upload.filename)
+        ext = os.path.splitext(fname)[1].lower()
+        if ext not in _IMAGE_EXTENSIONS:
+            response.status = 400
+            response.content_type = 'application/json'
+            return json.dumps({'success': False, 'error': f'Unsupported image type: {ext}'})
+
+        os.makedirs(_IMAGE_UPLOAD_DIR, exist_ok=True)
+        save_path = os.path.join(_IMAGE_UPLOAD_DIR, fname)
+        upload.save(save_path, overwrite=True)
+
+        response.content_type = 'application/json'
+        return json.dumps({'success': True, 'filename': fname, 'path': save_path,
+                           'display': 'images/' + fname})
+    except Exception as e:
+        response.status = 500
+        response.content_type = 'application/json'
+        logger.error(f"Error uploading image: {e}")
+        return json.dumps({'success': False, 'error': str(e)})
+
+
 @route('/api/list/templates', method=['GET', 'OPTIONS'])
 @enable_cors
 def list_templates():
@@ -546,7 +625,8 @@ def build_template_designer_schema():
             'elements': {
                 'ui:options': {
                     'orderable': True
-                }
+                },
+                'items': ElementBase.get_plugin_ui_schema()
             }
         },
         'meta': {
@@ -560,6 +640,14 @@ def build_template_designer_schema():
 def get_template_designer_schema():
     """Return the JSON schema/UI schema payload for the template designer form."""
     return build_template_designer_schema()
+
+
+@route('/api/template/designer/widgets.js', method=['GET', 'OPTIONS'])
+@enable_cors
+def get_template_designer_widgets_js():
+    """Serve all custom RJSF widget definitions contributed by element plugins."""
+    response.content_type = 'application/javascript; charset=utf-8'
+    return ElementBase.get_plugin_widgets_js()
 
 def create_label_from_template(template, payload, **kwargs):
     width, height = instance.get_label_width_height(ElementBase.get_value(template, kwargs, 'font_path'), **kwargs)

@@ -27,6 +27,73 @@ class ElementBase:
         return {}
 
     @staticmethod
+    def get_ui_schema():
+        """Return a uiSchema fragment for this element's own properties.
+
+        Keys are property names; values are RJSF uiSchema objects, e.g.::
+
+            {'file': {'ui:widget': 'imageFileSelector'}}
+
+        The template designer merges all plugin uiSchemas into the top-level
+        ``elements.items`` uiSchema entry automatically.
+        """
+        return {}
+
+    @staticmethod
+    def get_widget_js():
+        """Return a JavaScript string that registers custom RJSF widgets.
+
+        The string is concatenated with all other plugin widget JS and wrapped
+        in an IIFE that receives a ``registerWidget(name, component)`` function
+        as its sole argument.  Call that function for each custom widget::
+
+            registerWidget('myWidget', function MyWidget(props) { ... });
+
+        Return an empty string (the default) if the element needs no custom
+        widgets.
+        """
+        return ''
+
+    @staticmethod
+    def get_plugin_ui_schema():
+        """Merge uiSchema fragments from all registered plugins."""
+        merged = {}
+        for handler in ElementBase.plugins:
+            try:
+                fragment = handler.get_ui_schema()
+                if fragment:
+                    merged.update(fragment)
+            except Exception:
+                traceback.print_exc()
+        return merged
+
+    @staticmethod
+    def get_plugin_widgets_js():
+        """Collect and wrap all plugin widget JS into a single script.
+
+        The returned string is an IIFE that calls ``registerWidget`` for every
+        custom widget defined by any loaded plugin.  It is safe to serve
+        directly as ``application/javascript``.
+        """
+        parts = []
+        for handler in ElementBase.plugins:
+            try:
+                js = handler.get_widget_js()
+                if js and js.strip():
+                    parts.append(js.strip())
+            except Exception:
+                traceback.print_exc()
+
+        body = '\n\n'.join(parts) if parts else '// No custom widgets defined by element plugins.'
+        return (
+            '// Auto-generated widget registrations from element plugins.\n'
+            '// Each snippet may call registerWidget(name, ReactComponent).\n'
+            '(function (registerWidget) {\n\n'
+            + body + '\n\n'
+            '}(window.__rjsfWidgetRegistry || function () {}));\n'
+        )
+
+    @staticmethod
     def process_with_plugins(element, im: Image, margins, dimensions, payload, **kwargs):
         element_type = element['type']
         # print('Attempting to process element with type {}'.format(element_type))
