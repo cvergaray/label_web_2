@@ -40,8 +40,13 @@
         <h4 class="panel-title"><span class="glyphicon glyphicon-file"></span> Generated Source</h4>
       </div>
       <div class="panel-body">
+        <label for="templateFormat">Generated Format:</label>
+        <select id="templateFormat" class="form-control" style="margin-bottom: 8px;">
+          <option value="json" selected>JSON</option>
+          <option value="yaml">YAML</option>
+        </select>
         <textarea id="generatedTemplateSource" rows="16" class="form-control" style="font-family: monospace;" readonly></textarea>
-        <small class="text-muted">Saved as JSON in <code>.lbl</code>. Existing YAML templates can still be loaded.</small>
+        <small class="text-muted">Choose JSON or YAML for generated source. Both formats can be loaded and saved as <code>.lbl</code>.</small>
       </div>
     </div>
   </div>
@@ -78,6 +83,7 @@ var schemaPayload = null;
 var currentFormData = {};
 var renderRoot = null;
 var knownTemplates = [];
+var outputFormat = 'json';
 
 /*
  * Plugin-contributed RJSF widgets are loaded at runtime from
@@ -108,6 +114,13 @@ function isValidTemplateBaseName(baseName) {
 }
 
 function getGeneratedTemplateSource() {
+  if (outputFormat === 'yaml') {
+    return window.jsyaml.dump(currentFormData || {}, {
+      noRefs: true,
+      lineWidth: -1,
+      sortKeys: false
+    });
+  }
   return JSON.stringify(currentFormData || {}, null, 2);
 }
 
@@ -205,8 +218,12 @@ function loadTemplateSource(templateName) {
         var parsed;
         try {
           parsed = JSON.parse(rawContent);
+          outputFormat = 'json';
+          $('#templateFormat').val('json');
         } catch (jsonErr) {
           parsed = window.jsyaml.load(rawContent);
+          outputFormat = 'yaml';
+          $('#templateFormat').val('yaml');
         }
         if (!parsed || typeof parsed !== 'object') {
           throw new Error('Template did not parse to an object.');
@@ -339,6 +356,11 @@ $(document).ready(function() {
     if (selected) {
       $('#templateFilename').val(selected.replace(/\.lbl$/i, ''));
     }
+  });
+
+  $('#templateFormat').on('change', function() {
+    outputFormat = $(this).val() || 'json';
+    syncGeneratedSource();
   });
 
   // Load plugin widget definitions first, then fetch schema and render.

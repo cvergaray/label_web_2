@@ -21,6 +21,8 @@ def test_template_designer_view_loads_rjsf_dependencies():
 
     assert '@rjsf/core@4.2.2/dist/react-jsonschema-form.js' in content
     assert 'id="designerFormMount"' in content
+    assert 'id="templateFormat"' in content
+    assert "window.jsyaml.dump" in content
 
 
 def test_backend_exposes_template_designer_schema_api_and_page_route():
@@ -136,3 +138,4 @@ def test_element_base_get_plugin_ui_schema_includes_image_file_widget():
     from elements import ElementBase
     merged = ElementBase.get_plugin_ui_schema()
     assert 'file' in merged, "Merged uiSchema must include 'file' from ImageFileElement"
+
