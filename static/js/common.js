@@ -22,6 +22,39 @@ function escapeHtml(text) {
 }
 
 /**
+ * Resolve effective preview DPI from the preview response headers.
+ * Falls back to the legacy 300 DPI if the header is unavailable.
+ * @param {jqXHR} jqXHR - jQuery XHR object from the preview request
+ * @param {number} fallbackDpi - Optional fallback DPI
+ * @returns {number} Effective DPI to use for display calculations
+ */
+function getEffectivePreviewDpi(jqXHR, fallbackDpi) {
+  var parsedFallback = parseInt(fallbackDpi, 10);
+  var effectiveFallback = parsedFallback > 0 ? parsedFallback : 300;
+
+  if (!jqXHR || typeof jqXHR.getResponseHeader !== 'function') {
+    return effectiveFallback;
+  }
+
+  var dpi = parseInt(jqXHR.getResponseHeader('X-Label-DPI'), 10);
+  return dpi > 0 ? dpi : effectiveFallback;
+}
+
+/**
+ * Update the printed size display in centimeters for a preview image.
+ * @param {HTMLImageElement} img - The loaded preview image
+ * @param {number} dpi - Effective DPI used to render the preview
+ */
+function updatePrintedSizeDisplay(img, dpi) {
+  if (!img || !dpi || dpi <= 0) {
+    return;
+  }
+
+  $('#labelWidth').html((img.naturalWidth / dpi * 2.54).toFixed(1));
+  $('#labelHeight').html((img.naturalHeight / dpi * 2.54).toFixed(1));
+}
+
+/**
  * Load printer media sizes from the API and update the label size dropdown
  * @param {string} printerName - The name of the printer
  * @param {function} onSuccess - Optional callback function to run after successful load
