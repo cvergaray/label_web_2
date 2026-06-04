@@ -245,6 +245,19 @@ def templatePrint():
     }
 
 
+@route("/templatedesigner")
+@view('templatedesigner.jinja2')
+def templateDesigner():
+    templateFiles = [os.path.basename(file) for file in glob.glob('/appconfig/*.lbl')]
+    templateFiles.sort()
+
+    return {
+        'files': templateFiles,
+        'website': CONFIG['WEBSITE'],
+        'has_errors': len(CONFIG_ERRORS) > 0
+    }
+
+
 #@get('/api/print/template/<templatefile>')
 #@post('/api/print/template/<templatefile>')
 @route('/api/print/template/<templatefile>', method=['GET', 'POST', 'OPTIONS'])
@@ -431,6 +444,122 @@ def get_template_data(templatefile):
     except Exception as e:
         print(f"An error occurred: {e}")
         return None
+
+
+def sanitize_schema_for_rjsf(fragment, known_definitions=None):
+    """Normalize legacy element schema definitions for react-jsonschema-form.
+
+    If `known_definitions` is provided, any $ref value that points to a key not
+    present in that set is replaced with {"type": "string"} to avoid RJSF
+    throwing "Could not find a definition" errors at runtime.
+    """
+    if isinstance(fragment, dict):
+        sanitized = {}
+        for key, value in fragment.items():
+            # Legacy JSON-Editor hints are ignored by RJSF and can be dropped.
+            if key in ('id', 'defaultProperties', 'options'):
+                continue
+            if key == 'format' and value == 'checkbox':
+                continue
+            # Drop $ref entries that point to non-existent definitions.
+            if key == '$ref' and known_definitions is not None:
+                ref_name = value.lstrip('#/definitions/')
+                # Only keep if the ref maps to a known definition key.
+                if ref_name not in known_definitions:
+                    # Replace the entire dict (not just this key) with a plain string type.
+                    return {'type': 'string'}
+            sanitized[key] = sanitize_schema_for_rjsf(value, known_definitions)
+        return sanitized
+    if isinstance(fragment, list):
+        return [sanitize_schema_for_rjsf(item, known_definitions) for item in fragment]
+    return fragment
+
+
+def build_template_designer_schema():
+    """Build a JSON Schema payload used by the Template Designer page."""
+    plugin_definitions = ElementBase.get_plugin_editor_definitions() or {}
+    # First pass: collect the raw definition keys so we can validate $refs.
+    known_keys = set(plugin_definitions.keys())
+    definitions = sanitize_schema_for_rjsf(plugin_definitions, known_keys)
+    definition_keys = sorted(definitions.keys())
+
+    element_items = {'type': 'object'}
+    if definition_keys:
+        element_items = {
+            'oneOf': [{'$ref': f"#/definitions/{key}"} for key in definition_keys]
+        }
+
+    return {
+        'success': True,
+        'schema': {
+            'title': 'Label Template',
+            'type': 'object',
+            'required': ['name', 'elements'],
+            'properties': {
+                'name': {
+                    'type': 'string',
+                    'title': 'Template Name',
+                    'minLength': 1
+                },
+                'width': {
+                    'type': 'integer',
+                    'title': 'Width (px)',
+                    'minimum': 1
+                },
+                'height': {
+                    'type': 'integer',
+                    'title': 'Height (px)',
+                    'minimum': 1
+                },
+                'margin_left': {
+                    'type': 'integer',
+                    'title': 'Left Margin (px)',
+                    'minimum': 0,
+                    'default': 15
+                },
+                'margin_top': {
+                    'type': 'integer',
+                    'title': 'Top Margin (px)',
+                    'minimum': 0,
+                    'default': 22
+                },
+                'margin_right': {
+                    'type': 'integer',
+                    'title': 'Right Margin (px)',
+                    'minimum': 0
+                },
+                'margin_bottom': {
+                    'type': 'integer',
+                    'title': 'Bottom Margin (px)',
+                    'minimum': 0
+                },
+                'elements': {
+                    'type': 'array',
+                    'title': 'Elements',
+                    'items': element_items,
+                    'default': []
+                }
+            },
+            'definitions': definitions
+        },
+        'uiSchema': {
+            'elements': {
+                'ui:options': {
+                    'orderable': True
+                }
+            }
+        },
+        'meta': {
+            'element_types': definition_keys
+        }
+    }
+
+
+@route('/api/template/designer/schema', method=['GET', 'OPTIONS'])
+@enable_cors
+def get_template_designer_schema():
+    """Return the JSON schema/UI schema payload for the template designer form."""
+    return build_template_designer_schema()
 
 def create_label_from_template(template, payload, **kwargs):
     width, height = instance.get_label_width_height(ElementBase.get_value(template, kwargs, 'font_path'), **kwargs)

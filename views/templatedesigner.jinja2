@@ -1,0 +1,347 @@
+{% extends "base.jinja2" %}
+
+{% block jumbotron %}
+  <h1>Template Designer</h1>
+  <p>Build label templates with a form powered by element plugin definitions.</p>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-md-4">
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h4 class="panel-title"><span class="glyphicon glyphicon-folder-open"></span> Templates</h4>
+      </div>
+      <div class="panel-body">
+        <label for="existingTemplate">Existing Template:</label>
+        <select id="existingTemplate" class="form-control">
+          <option value="">-- New Template --</option>
+          {% for template in files %}
+          <option value="{{ template }}">{{ template }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="templateFilename" style="margin-top: 10px;">Template Name:</label>
+        <div class="input-group">
+          <input id="templateFilename" type="text" class="form-control" placeholder="example_label">
+          <span class="input-group-addon">.lbl</span>
+        </div>
+        <small class="text-muted">Allowed: letters, numbers, hyphen, underscore.</small>
+
+        <div style="margin-top: 12px;" class="btn-group btn-group-justified" role="group">
+          <a class="btn btn-default" id="loadTemplateBtn" role="button">Load</a>
+          <a class="btn btn-primary" id="saveTemplateBtn" role="button">Save</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h4 class="panel-title"><span class="glyphicon glyphicon-file"></span> Generated Source</h4>
+      </div>
+      <div class="panel-body">
+        <textarea id="generatedTemplateSource" rows="16" class="form-control" style="font-family: monospace;" readonly></textarea>
+        <small class="text-muted">Saved as JSON in <code>.lbl</code>. Existing YAML templates can still be loaded.</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-8">
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h4 class="panel-title"><span class="glyphicon glyphicon-list-alt"></span> Template Form</h4>
+      </div>
+      <div class="panel-body">
+        <div id="designerFormMount">Loading template schema...</div>
+      </div>
+    </div>
+
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h4 class="panel-title"><span class="glyphicon glyphicon-console"></span> Status</h4>
+      </div>
+      <div class="panel-body" id="designerStatus">- ready -</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@rjsf/core@4.2.2/dist/react-jsonschema-form.js"></script>
+<script src="https://unpkg.com/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+{% endblock %}
+
+{% block javascript %}
+var schemaPayload = null;
+var currentFormData = {};
+var renderRoot = null;
+var knownTemplates = [];
+
+function setDesignerStatus(html, cssClass) {
+  var klass = cssClass || 'alert-info';
+  $('#designerStatus').html('<div class="alert ' + klass + '" role="alert">' + html + '</div>');
+}
+
+function normalizeTemplateBaseName(rawName) {
+  var name = (rawName || '').trim();
+  if (name.toLowerCase().endsWith('.lbl')) {
+    name = name.substring(0, name.length - 4);
+  }
+  return name;
+}
+
+function isValidTemplateBaseName(baseName) {
+  return /^[a-zA-Z0-9_-]+$/.test(baseName);
+}
+
+function getGeneratedTemplateSource() {
+  return JSON.stringify(currentFormData || {}, null, 2);
+}
+
+function syncGeneratedSource() {
+  $('#generatedTemplateSource').val(getGeneratedTemplateSource());
+}
+
+function renderDesignerForm() {
+  var formMount = document.getElementById('designerFormMount');
+  var FormComponent = window.JSONSchemaForm && (window.JSONSchemaForm.default || window.JSONSchemaForm);
+
+  if (!formMount || !schemaPayload || !FormComponent || !window.React || !window.ReactDOM) {
+    setDesignerStatus('Failed to initialize form dependencies.', 'alert-danger');
+    return;
+  }
+
+  if (window.ReactDOM.createRoot) {
+    if (!renderRoot) {
+      renderRoot = window.ReactDOM.createRoot(formMount);
+    }
+
+    renderRoot.render(window.React.createElement(FormComponent, {
+      schema: schemaPayload.schema,
+      uiSchema: schemaPayload.uiSchema || {},
+      formData: currentFormData,
+      noHtml5Validate: true,
+      liveValidate: false,
+      onChange: function(event) {
+        currentFormData = event.formData || {};
+        syncGeneratedSource();
+      },
+      onSubmit: function(event) {
+        currentFormData = event.formData || {};
+        syncGeneratedSource();
+      }
+    }));
+    return;
+  }
+
+  if (window.ReactDOM.render) {
+    window.ReactDOM.render(window.React.createElement(FormComponent, {
+      schema: schemaPayload.schema,
+      uiSchema: schemaPayload.uiSchema || {},
+      formData: currentFormData,
+      noHtml5Validate: true,
+      liveValidate: false,
+      onChange: function(event) {
+        currentFormData = event.formData || {};
+        syncGeneratedSource();
+      },
+      onSubmit: function(event) {
+        currentFormData = event.formData || {};
+        syncGeneratedSource();
+      }
+    }), formMount);
+    return;
+  }
+
+  setDesignerStatus('React runtime is not compatible with the template designer page.', 'alert-danger');
+}
+
+function refreshTemplateList(done) {
+  $.ajax({
+    url: '/api/list/templates',
+    type: 'GET',
+    dataType: 'json',
+    success: function(response) {
+      knownTemplates = (response.templates || []).slice();
+      var selector = $('#existingTemplate');
+      var selected = selector.val();
+      selector.find('option:gt(0)').remove();
+      knownTemplates.forEach(function(name) {
+        selector.append($('<option>', { value: name, text: name }));
+      });
+      if (selected && knownTemplates.indexOf(selected) >= 0) {
+        selector.val(selected);
+      }
+      if (typeof done === 'function') {
+        done();
+      }
+    },
+    error: function() {
+      setDesignerStatus('Could not refresh template list from server.', 'alert-warning');
+      if (typeof done === 'function') {
+        done();
+      }
+    }
+  });
+}
+
+function loadTemplateSource(templateName) {
+  if (!templateName) {
+    currentFormData = {};
+    renderDesignerForm();
+    syncGeneratedSource();
+    return;
+  }
+
+  setDesignerStatus('Loading template <code>' + escapeHtml(templateName) + '</code>...', 'alert-info');
+
+  $.ajax({
+    url: '/api/template/' + encodeURIComponent(templateName) + '/raw',
+    type: 'GET',
+    dataType: 'text',
+    success: function(rawContent) {
+      try {
+        var parsed;
+        try {
+          parsed = JSON.parse(rawContent);
+        } catch (jsonErr) {
+          parsed = window.jsyaml.load(rawContent);
+        }
+        if (!parsed || typeof parsed !== 'object') {
+          throw new Error('Template did not parse to an object.');
+        }
+
+        currentFormData = parsed;
+        renderDesignerForm();
+        syncGeneratedSource();
+        setDesignerStatus('Loaded <code>' + escapeHtml(templateName) + '</code>.', 'alert-success');
+      } catch (parseErr) {
+        setDesignerStatus('Template parsing failed: ' + escapeHtml(String(parseErr)), 'alert-danger');
+      }
+    },
+    error: function() {
+      setDesignerStatus('Could not load template source.', 'alert-danger');
+    }
+  });
+}
+
+function saveTemplate() {
+  var baseName = normalizeTemplateBaseName($('#templateFilename').val());
+  if (!baseName) {
+    setDesignerStatus('Please enter a template name.', 'alert-warning');
+    return;
+  }
+  if (!isValidTemplateBaseName(baseName)) {
+    setDesignerStatus('Template name can only contain letters, numbers, hyphens, and underscores.', 'alert-warning');
+    return;
+  }
+
+  var filename = baseName + '.lbl';
+  var source = getGeneratedTemplateSource();
+  var exists = knownTemplates.indexOf(filename) >= 0;
+
+  setDesignerStatus('Saving <code>' + escapeHtml(filename) + '</code>...', 'alert-info');
+
+  if (exists) {
+    $.ajax({
+      url: '/api/template/' + encodeURIComponent(filename) + '/raw',
+      type: 'POST',
+      data: source,
+      contentType: 'text/plain; charset=utf-8',
+      success: function() {
+        refreshTemplateList(function() {
+          $('#existingTemplate').val(filename);
+          setDesignerStatus('Updated <code>' + escapeHtml(filename) + '</code>.', 'alert-success');
+        });
+      },
+      error: function() {
+        setDesignerStatus('Failed to update existing template.', 'alert-danger');
+      }
+    });
+    return;
+  }
+
+  $.ajax({
+    url: '/api/template/create',
+    type: 'POST',
+    data: JSON.stringify({
+      name: baseName,
+      content: source
+    }),
+    contentType: 'application/json; charset=utf-8',
+    dataType: 'json',
+    success: function(data) {
+      if (!data || !data.success) {
+        setDesignerStatus('Failed to create template: ' + escapeHtml((data && data.error) || 'Unknown error'), 'alert-danger');
+        return;
+      }
+      refreshTemplateList(function() {
+        $('#existingTemplate').val(filename);
+        setDesignerStatus('Created <code>' + escapeHtml(filename) + '</code>.', 'alert-success');
+      });
+    },
+    error: function(xhr) {
+      var msg = 'Failed to create template.';
+      try {
+        var payload = JSON.parse(xhr.responseText);
+        if (payload.error) {
+          msg = payload.error;
+        }
+      } catch (e) {
+      }
+      setDesignerStatus(escapeHtml(msg), 'alert-danger');
+    }
+  });
+}
+
+$(document).ready(function() {
+  $('#loadTemplateBtn').on('click', function() {
+    var selected = $('#existingTemplate').val();
+    if (!selected) {
+      currentFormData = {};
+      renderDesignerForm();
+      syncGeneratedSource();
+      setDesignerStatus('Starting a new template.', 'alert-info');
+      return;
+    }
+    $('#templateFilename').val(selected.replace(/\.lbl$/i, ''));
+    loadTemplateSource(selected);
+  });
+
+  $('#saveTemplateBtn').on('click', saveTemplate);
+
+  $('#existingTemplate').on('change', function() {
+    var selected = $(this).val();
+    if (selected) {
+      $('#templateFilename').val(selected.replace(/\.lbl$/i, ''));
+    }
+  });
+
+  $.ajax({
+    url: '/api/template/designer/schema',
+    type: 'GET',
+    dataType: 'json',
+    success: function(data) {
+      if (!data || !data.success || !data.schema) {
+        setDesignerStatus('Template schema endpoint returned an invalid payload.', 'alert-danger');
+        return;
+      }
+      schemaPayload = data;
+      currentFormData = {
+        name: 'New Label',
+        elements: []
+      };
+      renderDesignerForm();
+      syncGeneratedSource();
+      refreshTemplateList();
+      setDesignerStatus('Template Designer ready.', 'alert-success');
+    },
+    error: function() {
+      setDesignerStatus('Could not load template schema from server.', 'alert-danger');
+    }
+  });
+});
+{% endblock %}
+

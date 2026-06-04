@@ -42,8 +42,9 @@ class ImageFileElement(elements.ElementBase):
         definition['required'].append("file")
         definition['properties']['type']["enum"] = [ImageFileElement.element_key()]
         definition['properties']['file'] = {
-                    "description": "Name of the image file to include",
-                    "$ref": "#/definitions/select_image_file"
+                    "type": "string",
+                    "title": "File Path",
+                    "description": "Absolute path (or path relative to /appconfig) of the image file to include."
                 }
 
         return {

@@ -17,6 +17,11 @@ class ElementBase:
         cls.plugins.append(cls)
 
     @staticmethod
+    def element_key():
+        """Default element key — subclasses should override this."""
+        return None
+
+    @staticmethod
     def get_definition():
         """Default empty schema definition for plugins that do not define one."""
         return {}
@@ -50,12 +55,16 @@ class ElementBase:
             "type": "null"
         }]
         for handler in ElementBase.plugins:
-            instance = handler()
-            key = instance.element_key()
-            keys.append({
-                "title": key,
-                "$ref": "#/definitions/" + key
-            })
+            try:
+                instance = handler()
+                key = instance.element_key()
+                if key:
+                    keys.append({
+                        "title": key,
+                        "$ref": "#/definitions/" + key
+                    })
+            except Exception:
+                traceback.print_exc()
         return keys
 
     @staticmethod

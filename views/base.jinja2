@@ -9,6 +9,7 @@
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="/static/css/bootstrap.min.css">
     <link rel="stylesheet" href="/static/css/custom.css">
+    {% block extra_head %}{% endblock %}
 
     <title>{{ website['HTML_TITLE'] }} | Brother QL</title>
   </head>
@@ -27,6 +28,7 @@
         <div id="navbar" class="navbar-collapse collapse">
           <ul class="nav navbar-nav">
             <li><a href="/templateprint">Print From Template</a></li>
+            <li><a href="/templatedesigner">Template Designer</a></li>
             <li><a href="/settings">Settings</a></li>
             <li id="configErrorsNavItem" style="{% if not has_errors %}display: none;{% endif %}">
               <a href="/settings" style="background-color: #d9534f; color: white;">
@@ -49,6 +51,7 @@
     <script src="/static/js/jquery.min.js"></script>
     <script src="/static/js/bootstrap.min.js"></script>
     <script src="/static/js/common.js?v=20260603-preview-dpi"></script>
+    {% block extra_scripts %}{% endblock %}
     <script type="text/javascript">
       {% block javascript %}{% endblock %}
     </script>
