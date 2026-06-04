@@ -331,7 +331,7 @@ def save_template_raw(templatefile):
         return json.dumps({'success': False, 'error': str(e)})
 
 
-@post('/api/template/create')
+@route('/api/template/create', method=['POST', 'OPTIONS'])
 @enable_cors
 def create_template():
     """Create a new template file with the provided name and content.
@@ -350,15 +350,18 @@ def create_template():
         
         label_name = payload.get('name', '').strip()
         content = payload.get('content', '')
-        
+        if not isinstance(content, str):
+            response.status = 400
+            response.content_type = 'application/json'
+            return json.dumps({'success': False, 'error': 'Template content must be a string'})
         # Validate label name is provided
         if not label_name:
             response.status = 400
             response.content_type = 'application/json'
             return json.dumps({'success': False, 'error': 'Label name is required'})
         
-        # Validate label name format (alphanumeric, hyphen, underscore only)
-        if not all(c.isalnum() or c in '-_' for c in label_name):
+        # Validate label name format (ASCII alphanumeric, hyphen, underscore only)
+        if (not label_name.isascii()) or (not all(c.isalnum() or c in '-_' for c in label_name)):
             response.status = 400
             response.content_type = 'application/json'
             return json.dumps({'success': False, 'error': 'Label name can only contain letters, numbers, hyphens, and underscores'})
@@ -367,15 +370,14 @@ def create_template():
         filename = label_name + '.lbl'
         path = os.path.join('/appconfig', filename)
         
-        # Check if file already exists
-        if os.path.exists(path):
+        # Write the template file (atomic create)
+        try:
+            with open(path, 'x', encoding='utf-8', newline='\n') as f:
+                f.write(content)
+        except FileExistsError:
             response.status = 409
             response.content_type = 'application/json'
             return json.dumps({'success': False, 'error': f'A label with the name "{label_name}" already exists'})
-        
-        # Write the template file
-        with open(path, 'w', encoding='utf-8', newline='\n') as f:
-            f.write(content)
         
         response.content_type = 'application/json'
         return json.dumps({'success': True, 'filename': filename})

@@ -497,8 +497,8 @@ function saveTemplateSource() {
         if (data.success) {
           // Display status in the status panel
           $('#statusPanel').html('<div id="statusBox" class="alert alert-success" role="alert"><i class="glyphicon glyphicon-check"></i><span>Template Saved</span></div>');
+          $('#templateSourceStatus').text('');
           // Reload template options from server
-          $.ajax({
             url: '/api/list/templates',
             type: 'GET',
             dataType: 'json',
@@ -542,7 +542,9 @@ function saveTemplateSource() {
             }
           });
         } else {
-          $('#statusPanel').html('<div id="statusBox" class="alert alert-warning" role="alert"><i class="glyphicon glyphicon-alert"></i><span>Error: ' + escapeHtml(data.error || 'Failed to save template') + '</span></div>');
+          var errText = data.error || 'Failed to save template';
+          $('#templateSourceStatus').text(errText);
+          $('#statusPanel').html('<div id="statusBox" class="alert alert-warning" role="alert"><i class="glyphicon glyphicon-alert"></i><span>Error: ' + escapeHtml(errText) + '</span></div>');
         }
       },
       error: function(xhr, status, error) {
