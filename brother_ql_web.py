@@ -330,6 +330,81 @@ def save_template_raw(templatefile):
         response.content_type = 'application/json'
         return json.dumps({'success': False, 'error': str(e)})
 
+
+@post('/api/template/create')
+@enable_cors
+def create_template():
+    """Create a new template file with the provided name and content.
+    
+    Expects JSON body with:
+    - name: The name of the label (without .lbl extension)
+    - content: The template content
+    """
+    try:
+        payload = request.json
+        
+        if not payload:
+            response.status = 400
+            response.content_type = 'application/json'
+            return json.dumps({'success': False, 'error': 'No data provided'})
+        
+        label_name = payload.get('name', '').strip()
+        content = payload.get('content', '')
+        
+        # Validate label name is provided
+        if not label_name:
+            response.status = 400
+            response.content_type = 'application/json'
+            return json.dumps({'success': False, 'error': 'Label name is required'})
+        
+        # Validate label name format (alphanumeric, hyphen, underscore only)
+        if not all(c.isalnum() or c in '-_' for c in label_name):
+            response.status = 400
+            response.content_type = 'application/json'
+            return json.dumps({'success': False, 'error': 'Label name can only contain letters, numbers, hyphens, and underscores'})
+        
+        # Create the file path
+        filename = label_name + '.lbl'
+        path = os.path.join('/appconfig', filename)
+        
+        # Check if file already exists
+        if os.path.exists(path):
+            response.status = 409
+            response.content_type = 'application/json'
+            return json.dumps({'success': False, 'error': f'A label with the name "{label_name}" already exists'})
+        
+        # Write the template file
+        with open(path, 'w', encoding='utf-8', newline='\n') as f:
+            f.write(content)
+        
+        response.content_type = 'application/json'
+        return json.dumps({'success': True, 'filename': filename})
+    except Exception as e:
+        response.status = 500
+        response.content_type = 'application/json'
+        logger.error(f"Error creating template: {e}")
+        return json.dumps({'success': False, 'error': str(e)})
+
+@route('/api/list/templates', method=['GET', 'OPTIONS'])
+@enable_cors
+def list_templates():
+    """Get list of available template files.
+    
+    Returns JSON with:
+    - templates: List of template filenames
+    """
+    try:
+        templateFiles = [os.path.basename(file) for file in glob.glob('/appconfig/*.lbl')]
+        templateFiles.sort()  # Sort alphabetically for consistency
+        
+        response.content_type = 'application/json'
+        return json.dumps({'success': True, 'templates': templateFiles})
+    except Exception as e:
+        response.status = 500
+        response.content_type = 'application/json'
+        logger.error(f"Error listing templates: {e}")
+        return json.dumps({'success': False, 'error': str(e)})
+
 def get_template_data(templatefile):
     """
     Deserialize data from a template file that may contain either JSON or YAML content.

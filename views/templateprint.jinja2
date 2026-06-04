@@ -27,9 +27,17 @@
                             <label for="template"> Template:</label>
                             <select class="form-control" id="template" onChange="onTemplateChange()">
                                 <option value="">Select a template...</option>
+                                <option value="__NEW_LABEL__">&lt;New Label&gt;</option>
                                 {% for template in files %}
                                     <option value="{{ template }}">{{ template }}</option>{% endfor %}
                             </select>
+                            <div id="newLabelNameDiv" style="display: none; margin-top: 10px;">
+                                <div class="form-group" id="newLabelNameGroup">
+                                    <label for="newLabelName">Label Name:</label>
+                                    <input type="text" class="form-control" id="newLabelName" placeholder="Enter label name" onChange="onNewLabelNameChange()" inputmode="text">
+                                    <small class="form-text text-muted">The label will be saved as a .lbl file. Use only letters, numbers, hyphens, and underscores.</small>
+                                </div>
+                            </div>
                             <label for="printer"> Printer:</label>
                             <select class="form-control" id="printer" onChange="onPrinterChange()">
                                 {% for printer in printers %}
@@ -125,13 +133,14 @@
 {% block javascript %}
 
 var currentTemplateFields = [];
+var isNewLabel = false;
 
 /**
  * Callback function to update preview after media is loaded
  */
 function onMediaLoaded(data) {
   // Update preview with new media if a template is selected
-  if ($('#template').val()) {
+  if ($('#template').val() && $('#template').val() !== '__NEW_LABEL__') {
     preview();
   }
 }
@@ -171,6 +180,14 @@ function formData() {
 function updatePrintButtonState() {
   var allRequiredFieldsFilled = true;
 
+  // If new label is selected, require a name
+  if (isNewLabel) {
+    var labelName = $('#newLabelName').val().trim();
+    if (!labelName) {
+      allRequiredFieldsFilled = false;
+    }
+  }
+
   currentTemplateFields.forEach(function(field) {
     if (field.required) {
       var value = $('#field_' + field.name).val();
@@ -180,7 +197,34 @@ function updatePrintButtonState() {
     }
   });
 
+  // Disable print button (only for existing templates with required fields)
   $('#printButton').prop('disabled', !allRequiredFieldsFilled);
+}
+
+function updateSaveButtonState() {
+  // Disable save button if creating a new label without a name
+  if (isNewLabel) {
+    var labelName = $('#newLabelName').val().trim();
+    $('#saveTemplateSourceButton').prop('disabled', !labelName);
+  } else {
+    // Enable save button for existing templates
+    $('#saveTemplateSourceButton').prop('disabled', false);
+  }
+}
+
+function onNewLabelNameChange() {
+  var labelName = $('#newLabelName').val().trim();
+
+  // Validate name format in real-time
+  if (labelName && !/^[a-zA-Z0-9_-]+$/.test(labelName)) {
+    // Invalid characters detected
+    $('#newLabelNameGroup').addClass('has-error');
+  } else {
+    $('#newLabelNameGroup').removeClass('has-error');
+  }
+
+  updatePrintButtonState();
+  updateSaveButtonState();
 }
 
 // Consolidate all manual printButton state updates to use updatePrintButtonState
@@ -193,9 +237,41 @@ function onTemplateChange() {
     $('#previewStatus').text('');
     $('#templateSource').val('');
     $('#templateSourceStatus').text('');
+    $('#newLabelNameDiv').hide();
+    isNewLabel = false;
+    currentTemplateFields = [];
     updatePrintButtonState();
+    updateSaveButtonState();
     return;
   }
+
+  if (templateName === '__NEW_LABEL__') {
+    // New label selected: show name input
+    isNewLabel = true;
+    $('#newLabelNameDiv').show();
+    var yamlTemplate = 'name: New Label\nelements:\n  - type: text\n    key: sample_text\n    horizontal_offset: 0\n    vertical_offset: 0\n    placeholder: Enter text here';
+    $('#templateSource').val(yamlTemplate);
+    $('#templateSourceStatus').text('');
+    currentTemplateFields = [];
+
+    // Clear preview
+    $('#previewImg').hide().attr('src', '');
+    $('#previewPlaceholder').text('Enter label name and edit template as needed').show();
+    $('#previewStatus').text('');
+
+    // Clear dynamic fields
+    var fieldsContainer = $('#dynamicFields');
+    fieldsContainer.empty();
+
+    updatePrintButtonState();
+    updateSaveButtonState();
+    return;
+  }
+
+  // Existing template selected
+  isNewLabel = false;
+  $('#newLabelNameDiv').hide();
+  $('#newLabelName').val('');
 
   loadTemplateFields(templateName);
   loadTemplateSource(templateName);
@@ -211,6 +287,7 @@ function loadTemplateFields(templateName) {
       currentTemplateFields = response.fields || [];
       generateDynamicFields(currentTemplateFields);
       updatePrintButtonState();
+      updateSaveButtonState();
       // Call preview() after fields are successfully loaded
       preview();
     },
@@ -218,6 +295,7 @@ function loadTemplateFields(templateName) {
       console.error('Error loading template fields:', error);
       currentTemplateFields = [];
       updatePrintButtonState();
+      updateSaveButtonState();
       // Still try to load preview even if fields loading fails
       preview();
     }
@@ -386,36 +464,131 @@ function buildUrlWithParams(baseUrl, params) {
 }
 
 function saveTemplateSource() {
-  var templateName = $('#template').val();
-  if (!templateName) {
-    $('#templateSourceStatus').text('Please select a template first.');
-    return;
-  }
-
-  var content = $('#templateSource').val();
-  $('#templateSourceStatus').text('Saving template...');
-
-  $.ajax({
-    url: '/api/template/' + templateName + '/raw',
-    type: 'POST',
-    data: content,
-    contentType: 'text/plain; charset=utf-8',
-    success: function(data) {
-      $('#templateSourceStatus').text('Template saved. Regenerating preview...');
-      // After saving, reload fields (in case structure changed) and preview
-      loadTemplateFields(templateName);
-      // loadTemplateFields will call preview() once fields are loaded
-    },
-    error: function(xhr, status, error) {
-      console.error('Error saving template source:', error);
-      $('#templateSourceStatus').text('Error saving template source');
+  if (isNewLabel) {
+    // Creating a new label
+    var labelName = $('#newLabelName').val().trim();
+    if (!labelName) {
+      $('#templateSourceStatus').text('Please enter a label name.');
+      return;
     }
-  });
+
+    // Validate label name (alphanumeric, hyphens, underscores, no spaces)
+    if (!/^[a-zA-Z0-9_-]+$/.test(labelName)) {
+      $('#templateSourceStatus').text('Label name can only contain letters, numbers, hyphens, and underscores.');
+      return;
+    }
+
+    var content = $('#templateSource').val();
+    $('#templateSourceStatus').text('Creating new label...');
+
+    $.ajax({
+      url: '/api/template/create',
+      type: 'POST',
+      data: JSON.stringify({
+        name: labelName,
+        content: content
+      }),
+      contentType: 'application/json; charset=utf-8',
+      success: function(data) {
+        if (data.success) {
+          // Display status in the status panel
+          $('#statusPanel').html('<div id="statusBox" class="alert alert-success" role="alert"><i class="glyphicon glyphicon-check"></i><span>Template Saved</span></div>');
+          // Reload template options from server
+          $.ajax({
+            url: '/api/list/templates',
+            type: 'GET',
+            dataType: 'json',
+            success: function(templatesData) {
+              // Clear existing options (except the default one)
+              $('#template').find('option:gt(1)').remove();
+
+              // Add templates from server
+              if (templatesData.templates && templatesData.templates.length > 0) {
+                templatesData.templates.forEach(function(template) {
+                  $('#template').append($('<option>', {
+                    value: template,
+                    text: template
+                  }));
+                });
+              }
+
+              // Select the newly created label
+              var newTemplateFile = labelName + '.lbl';
+              $('#template').val(newTemplateFile);
+              isNewLabel = false;
+              $('#newLabelNameDiv').hide();
+              $('#newLabelName').val('');
+              // Reload template fields and preview
+              loadTemplateFields(newTemplateFile);
+            },
+            error: function() {
+              // Fallback: just select the new label without reloading full list
+              var newTemplateFile = labelName + '.lbl';
+              if ($('#template').find('option[value="' + newTemplateFile + '"]').length === 0) {
+                $('#template').append($('<option>', {
+                  value: newTemplateFile,
+                  text: newTemplateFile
+                }));
+              }
+              $('#template').val(newTemplateFile);
+              isNewLabel = false;
+              $('#newLabelNameDiv').hide();
+              $('#newLabelName').val('');
+              loadTemplateFields(newTemplateFile);
+            }
+          });
+        } else {
+          $('#statusPanel').html('<div id="statusBox" class="alert alert-warning" role="alert"><i class="glyphicon glyphicon-alert"></i><span>Error: ' + escapeHtml(data.error || 'Failed to save template') + '</span></div>');
+        }
+      },
+      error: function(xhr, status, error) {
+        console.error('Error creating label:', error);
+        var errorMsg = 'Error creating label';
+        try {
+          var response = JSON.parse(xhr.responseText);
+          if (response.error) {
+            errorMsg = response.error;
+          }
+        } catch(e) {}
+        $('#templateSourceStatus').text(errorMsg);
+      }
+    });
+  } else {
+    // Editing existing label
+    var templateName = $('#template').val();
+    if (!templateName) {
+      $('#templateSourceStatus').text('Please select a template first.');
+      return;
+    }
+
+    var content = $('#templateSource').val();
+    $('#templateSourceStatus').text('Saving template...');
+
+    $.ajax({
+      url: '/api/template/' + templateName + '/raw',
+      type: 'POST',
+      data: content,
+      contentType: 'text/plain; charset=utf-8',
+      success: function(data) {
+        $('#templateSourceStatus').text('Template saved. Regenerating preview...');
+        // After saving, reload fields (in case structure changed) and preview
+        loadTemplateFields(templateName);
+        // loadTemplateFields will call preview() once fields are loaded
+      },
+      error: function(xhr, status, error) {
+        console.error('Error saving template source:', error);
+        $('#templateSourceStatus').text('Error saving template source');
+      }
+    });
+  }
 }
 
 function preview() {
   var templateName = $('#template').val();
-  if (!templateName) return;
+  if (!templateName || isNewLabel) {
+    // Don't preview if no template selected or if creating new label
+    return;
+  }
 
   var formDataObj = formData();
   var baseUrl = '/api/preview/template/' + templateName;
@@ -482,6 +655,12 @@ function setStatus(data) {
 }
 
 function print() {
+  // Don't allow printing if creating a new label (must save first)
+  if (isNewLabel) {
+    $('#statusPanel').html('<div id="statusBox" class="alert alert-warning" role="alert"><i class="glyphicon glyphicon-alert"></i><span>Please save the label first before printing.</span></div>');
+    return;
+  }
+
   $('#printButton').prop('disabled', true);
   $('#statusPanel').html('<div id="statusBox" class="alert alert-info" role="alert"><i class="glyphicon glyphicon-hourglass"></i><span>Processing print request...</span></div>');
 
