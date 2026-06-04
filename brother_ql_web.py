@@ -556,12 +556,37 @@ def create_label_im(text, **kwargs):
     draw.multiline_text(offset, text, kwargs['fill_color'], font=im_font, align=kwargs['align'])
     return im
 
+
+def get_effective_printer_dpi(printer_name=None):
+    """Resolve the effective DPI used for preview/print size calculations."""
+    try:
+        dpi_getter = getattr(instance, '_get_printer_dpi', None)
+        if callable(dpi_getter):
+            dpi = dpi_getter(printer_name)
+            if isinstance(dpi, (int, float)) and dpi > 0:
+                return int(dpi)
+    except Exception as e:
+        logger.debug(f"Could not determine effective printer DPI for '{printer_name}': {e}")
+
+    default_dpi = CONFIG.get('PRINTER', {}).get('DEFAULT_DPI')
+    if isinstance(default_dpi, (int, float)) and default_dpi > 0:
+        return int(default_dpi)
+
+    return 203
+
+
+def set_preview_metadata_headers(context):
+    """Attach preview metadata headers consumed by the UI."""
+    response.set_header('X-Label-DPI', str(get_effective_printer_dpi(context.get('printer'))))
+    response.set_header('Access-Control-Expose-Headers', 'X-Label-DPI')
+
 @get('/api/preview/text')
 @post('/api/preview/text')
 @enable_cors
 def get_preview_image():
     context = get_label_context(request)
     im = create_label_im(**context)
+    set_preview_metadata_headers(context)
     return_format = request.query.get('return_format', 'png')
     if return_format == 'base64':
         import base64
@@ -584,6 +609,7 @@ def get_preview_template_image(templatefile):
         payload = {}
 
     im = create_label_from_template(template_data, payload, **context)
+    set_preview_metadata_headers(context)
     return_format = request.query.get('return_format', 'png')
     if return_format == 'base64':
         import base64

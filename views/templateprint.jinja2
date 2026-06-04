@@ -439,6 +439,10 @@ function buildRequestData(includeFields) {
   // Always include label size
   regularData['label_size'] = $('#labelSize').val();
 
+  // Always include the selected printer so preview and print use the same
+  // printer-specific media defaults and DPI calculations.
+  regularData['printer'] = $('#printer').val();
+
   return {
     regularData: regularData,
     jsonPayload: jsonPayload
@@ -616,19 +620,26 @@ function preview() {
     xhrFields: {
       responseType: 'blob'
     },
-    success: function(imageData) {
+    success: function(imageData, textStatus, jqXHR) {
       var imageUrl = URL.createObjectURL(imageData);
-      $('#previewImg').attr('src', imageUrl);
+      var effectiveDpi = (typeof getEffectivePreviewDpi === 'function')
+        ? getEffectivePreviewDpi(jqXHR, 300)
+        : 300;
       var img = $('#previewImg')[0];
       img.onload = function() {
-        $('#labelWidth').html((img.naturalWidth / 300 * 2.54).toFixed(1));
-        $('#labelHeight').html((img.naturalHeight / 300 * 2.54).toFixed(1));
+        if (typeof updatePrintedSizeDisplay === 'function') {
+          updatePrintedSizeDisplay(img, effectiveDpi);
+        } else {
+          $('#labelWidth').html((img.naturalWidth / effectiveDpi * 2.54).toFixed(1));
+          $('#labelHeight').html((img.naturalHeight / effectiveDpi * 2.54).toFixed(1));
+        }
         URL.revokeObjectURL(imageUrl);
         // Hide placeholder and show the loaded image
         $('#previewPlaceholder').hide();
         $('#previewImg').show();
         $('#previewStatus').text('');
       };
+      $('#previewImg').attr('src', imageUrl);
     },
     error: function(xhr, status, error) {
       console.error('Error loading preview:', error);
