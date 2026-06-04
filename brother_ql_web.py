@@ -251,8 +251,17 @@ def templateDesigner():
     templateFiles = [os.path.basename(file) for file in glob.glob('/appconfig/*.lbl')]
     templateFiles.sort()
 
+    filtered_printers, default_printer, label_sizes = compute_printer_selection(instance, PRINTERS, CONFIG, logger)
+
+    label_config = copy.deepcopy(CONFIG['LABEL'])
+    label_config['DEFAULT_FONTS'] = normalize_default_fonts(label_config.get('DEFAULT_FONTS', {}))
+
     return {
         'files': templateFiles,
+        'printers': filtered_printers,
+        'default_printer': default_printer,
+        'label_sizes': label_sizes,
+        'label': label_config,
         'website': CONFIG['WEBSITE'],
         'has_errors': len(CONFIG_ERRORS) > 0
     }
@@ -534,15 +543,35 @@ def sanitize_schema_for_rjsf(fragment, known_definitions=None):
     """
     if isinstance(fragment, dict):
         sanitized = {}
+        # Determine whether this schema fragment describes an array type so we
+        # can decide whether to keep array-only keywords like `items`.
+        schema_type = fragment.get('type')
+        is_array_schema = schema_type == 'array' or (
+            isinstance(schema_type, list) and 'array' in schema_type
+        )
         for key, value in fragment.items():
             # Legacy JSON-Editor hints are ignored by RJSF and can be dropped.
             if key in ('id', 'defaultProperties', 'options'):
                 continue
             if key == 'format' and value == 'checkbox':
                 continue
+            # `items` is only meaningful on array schemas.  When it appears
+            # inside a non-array schema (e.g. inside additionalProperties for
+            # an object) AJV will reject the schema as invalid because it
+            # validates `items` array entries against the meta-schema and
+            # plain strings are not valid JSON Schemas.
+            if key == 'items' and not is_array_schema:
+                continue
+            # `required` must be an array of strings per JSON Schema Draft 7.
+            # A legacy string value like "true" will make AJV throw
+            # "Invalid schema" during meta-schema validation, so drop it.
+            if key == 'required' and not isinstance(value, list):
+                continue
             # Drop $ref entries that point to non-existent definitions.
             if key == '$ref' and known_definitions is not None:
-                ref_name = value.lstrip('#/definitions/')
+                ref_name = value
+                if isinstance(value, str) and value.startswith('#/definitions/'):
+                    ref_name = value[len('#/definitions/'):]
                 # Only keep if the ref maps to a known definition key.
                 if ref_name not in known_definitions:
                     # Replace the entire dict (not just this key) with a plain string type.
@@ -554,18 +583,89 @@ def sanitize_schema_for_rjsf(fragment, known_definitions=None):
     return fragment
 
 
+def _build_type_selector_options(definitions, definition_keys):
+    """Build oneOf selector branches keyed only by each element's explicit type."""
+    options = []
+    for key in definition_keys:
+        definition = definitions.get(key, {}) if isinstance(definitions, dict) else {}
+        definition_properties = definition.get('properties', {}) if isinstance(definition, dict) else {}
+        option_properties = copy.deepcopy(definition_properties) if isinstance(definition_properties, dict) else {}
+        option_properties['type'] = {
+            'type': 'string',
+            'enum': [key],
+            'const': key,
+            'default': key
+        }
+        options.append({
+            'title': key.replace('_', ' ').title(),
+            'type': 'object',
+            # Match branches using type only; keep field-level validation in the definition itself.
+            'required': ['type'],
+            'properties': option_properties
+        })
+    return options
+
+
 def build_template_designer_schema():
     """Build a JSON Schema payload used by the Template Designer page."""
     plugin_definitions = ElementBase.get_plugin_editor_definitions() or {}
     # First pass: collect the raw definition keys so we can validate $refs.
     known_keys = set(plugin_definitions.keys())
     definitions = sanitize_schema_for_rjsf(plugin_definitions, known_keys)
-    definition_keys = sorted(definitions.keys())
+
+    # Normalize each element definition for a cleaner RJSF experience.
+    for key, definition in definitions.items():
+        if isinstance(definition, dict):
+            if not definition.get('title'):
+                definition['title'] = key.replace('_', ' ').title()
+
+            props = definition.get('properties', {})
+            if isinstance(props, dict):
+                type_prop = props.get('type')
+                if isinstance(type_prop, dict):
+                    enum_values = type_prop.get('enum')
+                    if isinstance(enum_values, list) and len(enum_values) == 1:
+                        fixed_type = enum_values[0]
+                        # Keep type in schema as an internal discriminator, but hide in UI.
+                        # This allows RJSF to match loaded nested elements to the right definition.
+                        props['type'] = {
+                            'type': 'string',
+                            'enum': [fixed_type],
+                            'const': fixed_type,
+                            'default': fixed_type,
+                            'title': 'Type'
+                        }
+                        for req_key in ('required', 'requiredProperties'):
+                            required_list = definition.get(req_key)
+                            if isinstance(required_list, list) and 'type' not in required_list:
+                                required_list.append('type')
+
+    definition_keys = sorted(definitions.keys(), key=lambda key: (key == 'basic', key))
+    selector_options = _build_type_selector_options(definitions, definition_keys)
+
+    # Ensure nested element pickers use the same type-driven selector options.
+    for definition in definitions.values():
+        if not isinstance(definition, dict):
+            continue
+        props = definition.get('properties', {})
+        if not isinstance(props, dict):
+            continue
+        elements_prop = props.get('elements')
+        if not isinstance(elements_prop, dict):
+            continue
+        items = elements_prop.get('items')
+        if not isinstance(items, dict):
+            continue
+        if 'oneOf' in items or 'anyOf' in items:
+            replacement_items = copy.deepcopy(items)
+            replacement_items.pop('anyOf', None)
+            replacement_items['oneOf'] = copy.deepcopy(selector_options)
+            elements_prop['items'] = replacement_items
 
     element_items = {'type': 'object'}
-    if definition_keys:
+    if selector_options:
         element_items = {
-            'oneOf': [{'$ref': f"#/definitions/{key}"} for key in definition_keys]
+            'oneOf': copy.deepcopy(selector_options)
         }
 
     return {
@@ -573,7 +673,7 @@ def build_template_designer_schema():
         'schema': {
             'title': 'Label Template',
             'type': 'object',
-            'required': ['name', 'elements'],
+            'required': ['elements'],
             'properties': {
                 'name': {
                     'type': 'string',
@@ -622,17 +722,70 @@ def build_template_designer_schema():
             'definitions': definitions
         },
         'uiSchema': {
+            'ui:submitButtonOptions': {
+                'norender': True
+            },
             'elements': {
                 'ui:options': {
                     'orderable': True
                 },
-                'items': ElementBase.get_plugin_ui_schema()
+                'items': {
+                    'type': {'ui:widget': 'hidden'},
+                    **ElementBase.get_plugin_ui_schema()
+                }
             }
         },
         'meta': {
             'element_types': definition_keys
         }
     }
+
+
+def infer_template_element_type(element, definitions):
+    """Return the declared element type when it maps to a known definition."""
+    if not isinstance(element, dict):
+        return None
+
+    existing_type = element.get('type')
+    if isinstance(existing_type, str) and existing_type in definitions:
+        return existing_type
+    return None
+
+
+def normalize_template_element_types(template, definitions=None):
+    """Recursively normalize nested template elements while preserving explicit type fields."""
+    if definitions is None:
+        definitions = build_template_designer_schema()['schema']['definitions']
+
+    if isinstance(template, list):
+        return [normalize_template_element_types(item, definitions) for item in template]
+
+    if not isinstance(template, dict):
+        return template
+
+    normalized = copy.deepcopy(template)
+
+    declared_type = infer_template_element_type(normalized, definitions)
+    if declared_type:
+        normalized['type'] = declared_type
+
+    if isinstance(normalized.get('elements'), list):
+        normalized['elements'] = [normalize_template_element_types(item, definitions) for item in normalized['elements']]
+
+    return normalized
+
+
+def normalize_template_data(template_data):
+    """Normalize a loaded template using the current schema definitions."""
+    definitions = build_template_designer_schema()['schema']['definitions']
+
+    if not isinstance(template_data, dict):
+        return template_data
+
+    normalized = copy.deepcopy(template_data)
+    if isinstance(normalized.get('elements'), list):
+        normalized['elements'] = [normalize_template_element_types(item, definitions) for item in normalized['elements']]
+    return normalized
 
 
 @route('/api/template/designer/schema', method=['GET', 'OPTIONS'])
@@ -648,6 +801,20 @@ def get_template_designer_widgets_js():
     """Serve all custom RJSF widget definitions contributed by element plugins."""
     response.content_type = 'application/javascript; charset=utf-8'
     return ElementBase.get_plugin_widgets_js()
+
+
+@route('/api/template/<templatefile>/normalized', method=['GET', 'OPTIONS'])
+@enable_cors
+def get_template_normalized(templatefile):
+    """Return a normalized JSON version of a template file for form loading."""
+    try:
+        data = get_template_data(templatefile)
+        response.content_type = 'application/json'
+        return json.dumps({'success': True, 'template': normalize_template_data(data)})
+    except Exception as e:
+        response.status = 500
+        response.content_type = 'application/json'
+        return json.dumps({'success': False, 'error': str(e)})
 
 def create_label_from_template(template, payload, **kwargs):
     width, height = instance.get_label_width_height(ElementBase.get_value(template, kwargs, 'font_path'), **kwargs)
@@ -837,6 +1004,55 @@ def get_preview_template_image(templatefile):
     else:
         response.set_header('Content-type', 'image/png')
         return image_to_png_bytes(im)
+
+
+@route('/api/preview/template/raw', method=['POST', 'OPTIONS'])
+@enable_cors
+def get_preview_template_raw_image():
+    """Preview endpoint for unsaved template objects posted from the template designer."""
+    context = get_label_context(request)
+
+    try:
+        body = request.json or {}
+    except Exception:
+        body = {}
+
+    template_data = body.get('template') if isinstance(body, dict) else None
+    if not isinstance(template_data, dict):
+        response.status = 400
+        response.content_type = 'application/json'
+        return json.dumps({'success': False, 'error': 'Missing template object in request body.'})
+
+    template_data_values = body.get('template_data', {}) if isinstance(body, dict) else {}
+    if not isinstance(template_data_values, dict):
+        template_data_values = {}
+
+    payload = body.get('payload', {}) if isinstance(body, dict) else {}
+    if not isinstance(payload, dict):
+        payload = {}
+
+    if not payload and template_data_values:
+        payload = copy.deepcopy(template_data_values)
+
+    simulated_context = copy.deepcopy(context)
+    simulated_context.update(template_data_values)
+
+    try:
+        im = create_label_from_template(template_data, payload, **simulated_context)
+    except Exception as e:
+        response.status = 500
+        response.content_type = 'application/json'
+        return json.dumps({'success': False, 'error': str(e)})
+
+    set_preview_metadata_headers(context)
+    return_format = request.query.get('return_format', 'png')
+    if return_format == 'base64':
+        import base64
+        response.set_header('Content-type', 'text/plain')
+        return base64.b64encode(image_to_png_bytes(im))
+
+    response.set_header('Content-type', 'image/png')
+    return image_to_png_bytes(im)
 
 @route('/api/template/<templatefile>/fields', method=['GET', 'OPTIONS'])
 @enable_cors

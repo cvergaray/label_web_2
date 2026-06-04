@@ -96,7 +96,7 @@ class JsonAPIElement(elements.ElementBase):
                         "title": "JSON API Sub Elements",
                         "items": {
                             "title": "Sub-Element",
-                            "anyOf": JsonAPIElement.get_plugin_editor_keys()
+                            "oneOf": JsonAPIElement.get_plugin_editor_keys()
                         }
                     },
                     "data": {

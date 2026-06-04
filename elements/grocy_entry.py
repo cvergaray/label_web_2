@@ -84,7 +84,7 @@ class GrocyEntryElement(elements.ElementBase):
                         "title": "Grocy Entry Sub Elements",
                         "items": {
                             "title": "Sub-Element",
-                            "anyOf": GrocyEntryElement.get_plugin_editor_keys()
+                            "oneOf": GrocyEntryElement.get_plugin_editor_keys()
                         }
                     },
                     "datakeyname": {

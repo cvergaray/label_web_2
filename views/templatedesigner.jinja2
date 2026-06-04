@@ -6,12 +6,18 @@
 {% endblock %}
 
 {% block content %}
-<div class="row">
+<div id="designerLayoutWide">
+<div class="row" id="designerLayoutRow">
   <div class="col-md-4">
-    <div class="panel panel-default">
+    <div class="panel panel-default" id="designerTemplateFilePanel">
       <div class="panel-heading">
-        <h4 class="panel-title"><span class="glyphicon glyphicon-folder-open"></span> Templates</h4>
+        <h4 class="panel-title">
+          <a data-toggle="collapse" href="#collapseDesignerTemplateFile" aria-expanded="true" aria-controls="collapseDesignerTemplateFile">
+            <span class="glyphicon glyphicon-print"></span> Template File
+          </a>
+        </h4>
       </div>
+      <div id="collapseDesignerTemplateFile" class="panel-collapse collapse in">
       <div class="panel-body">
         <label for="existingTemplate">Existing Template:</label>
         <select id="existingTemplate" class="form-control">
@@ -33,25 +39,49 @@
           <a class="btn btn-primary" id="saveTemplateBtn" role="button">Save</a>
         </div>
       </div>
+      </div>
     </div>
 
-    <div class="panel panel-default">
+    <div class="panel panel-default" id="designerTemplateSourcePanel">
       <div class="panel-heading">
-        <h4 class="panel-title"><span class="glyphicon glyphicon-file"></span> Generated Source</h4>
+        <h4 class="panel-title">
+          <a data-toggle="collapse" href="#collapseDesignerTemplateSource" aria-expanded="true" aria-controls="collapseDesignerTemplateSource">
+            <span class="glyphicon glyphicon-file"></span> Template Source (.lbl)
+          </a>
+        </h4>
       </div>
+      <div id="collapseDesignerTemplateSource" class="panel-collapse collapse">
       <div class="panel-body">
         <label for="templateFormat">Generated Format:</label>
         <select id="templateFormat" class="form-control" style="margin-bottom: 8px;">
-          <option value="json" selected>JSON</option>
-          <option value="yaml">YAML</option>
+          <option value="json">JSON</option>
+          <option value="yaml" selected>YAML</option>
         </select>
         <textarea id="generatedTemplateSource" rows="16" class="form-control" style="font-family: monospace;" readonly></textarea>
         <small class="text-muted">Choose JSON or YAML for generated source. Both formats can be loaded and saved as <code>.lbl</code>.</small>
       </div>
+      </div>
+    </div>
+
+    <div class="panel panel-default" id="designerTemplateDataPanel">
+      <div class="panel-heading">
+        <h4 class="panel-title">
+          <a data-toggle="collapse" href="#collapseDesignerTemplateData" aria-expanded="true" aria-controls="collapseDesignerTemplateData">
+            <span class="glyphicon glyphicon-edit"></span> Template Data
+          </a>
+        </h4>
+      </div>
+      <div id="collapseDesignerTemplateData" class="panel-collapse collapse in">
+      <div class="panel-body">
+        <div id="designerDynamicFields">
+          <div class="text-muted small">Template data fields will appear when elements define keys.</div>
+        </div>
+      </div>
+      </div>
     </div>
   </div>
 
-  <div class="col-md-8">
+  <div class="col-md-6">
     <div class="panel panel-default">
       <div class="panel-heading">
         <h4 class="panel-title"><span class="glyphicon glyphicon-list-alt"></span> Template Form</h4>
@@ -61,14 +91,161 @@
       </div>
     </div>
 
-    <div class="panel panel-default">
+  </div>
+
+  <div class="col-md-4">
+    <div class="panel panel-default" id="designerPreviewPanel">
       <div class="panel-heading">
-        <h4 class="panel-title"><span class="glyphicon glyphicon-console"></span> Status</h4>
+        <h4 class="panel-title">
+          <a data-toggle="collapse" href="#collapseDesignerPreview" aria-expanded="true" aria-controls="collapseDesignerPreview">
+            <span class="glyphicon glyphicon-eye-open"></span> Preview
+          </a>
+        </h4>
       </div>
+      <div id="collapseDesignerPreview" class="panel-collapse collapse in">
+      <div class="panel-body">
+        <label for="previewPrinter">Printer:</label>
+        <select id="previewPrinter" class="form-control" style="margin-bottom: 8px;">
+          {% for printer in printers %}
+          <option value="{{ printer }}" {% if default_printer == printer %}selected{% endif %}>{{ printer }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="previewLabelSize">Label Size:</label>
+        <select id="previewLabelSize" class="form-control" style="margin-bottom: 8px;">
+          {% for label_size in label_sizes.keys() %}
+          <option value="{{ label_size }}" {% if label['DEFAULT_SIZE'] == label_size %}selected{% endif %}>{{ label_sizes[label_size] }}</option>
+          {% endfor %}
+        </select>
+
+        <div id="designerPreviewWrapper" style="border: 1px solid #444; max-height: 350px; width: 100%; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; background-color: #f8f8f8;">
+          <div id="designerPreviewPlaceholder" class="text-muted small">Preview will appear after adding elements</div>
+          <img id="designerPreviewImg" alt="Template preview" style="display: none; max-height: 350px; width: auto; max-width: 100%;"/>
+        </div>
+        <div id="designerPreviewStatus" class="text-muted small" style="min-height: 1.2em;"></div>
+      </div>
+      </div>
+    </div>
+
+    <div class="panel panel-default" id="designerStatusPanelWrap">
+      <div class="panel-heading">
+        <h4 class="panel-title">
+          <a data-toggle="collapse" href="#collapseDesignerStatus" aria-expanded="true" aria-controls="collapseDesignerStatus">
+            <span class="glyphicon glyphicon-console"></span> Status
+          </a>
+        </h4>
+      </div>
+      <div id="collapseDesignerStatus" class="panel-collapse collapse in">
       <div class="panel-body" id="designerStatus">- ready -</div>
+      </div>
     </div>
   </div>
 </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  @media (min-width: 992px) {
+    #designerLayoutWide {
+      width: 96vw;
+      max-width: 1900px;
+      position: relative;
+      left: 50%;
+      transform: translateX(-50%);
+      box-sizing: border-box;
+    }
+
+    #designerLayoutRow {
+      display: flex;
+      flex-wrap: nowrap;
+    }
+
+    #designerLayoutRow > .col-md-4,
+    #designerLayoutRow > .col-md-6 {
+      float: none;
+    }
+
+    #designerLayoutRow > .col-md-4 {
+      width: 24%;
+    }
+
+    #designerLayoutRow > .col-md-6 {
+      width: 52%;
+    }
+  }
+
+  #designerFormMount .array-item-toolbox {
+    max-width: 140px;
+    padding-left: 4px;
+  }
+
+  #designerFormMount .array-item-toolbox .btn-group-vertical {
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+  }
+
+  #designerFormMount .array-item-toolbox .btn {
+    min-width: 34px;
+    padding: 4px 8px;
+  }
+
+  #designerFormMount .rjsf-array-item-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  #designerFormMount .rjsf-array-item-content {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  #designerFormMount .rjsf-array-item-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  #designerFormMount .rjsf-collapsible-object {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    background: #fff;
+  }
+
+  #designerFormMount .rjsf-collapsible-summary {
+    cursor: pointer;
+    padding: 8px 12px;
+    background: #f7f7f7;
+    border-bottom: 1px solid #eee;
+    font-weight: 600;
+  }
+
+  #designerFormMount .rjsf-collapsible-body {
+    padding: 10px 12px 2px 12px;
+  }
+
+  #designerFormMount details.rjsf-collapsible-object:not([open]) .rjsf-collapsible-summary {
+    border-bottom: none;
+  }
+
+  #designerFormMount .rjsf-collapsible-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  #designerFormMount .rjsf-collapsible-arrow {
+    display: inline-block;
+    margin-right: 8px;
+    transition: transform 0.15s ease-in-out;
+  }
+
+  #designerFormMount details.rjsf-collapsible-object[open] .rjsf-collapsible-arrow {
+    transform: rotate(90deg);
+  }
+</style>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -83,7 +260,9 @@ var schemaPayload = null;
 var currentFormData = {};
 var renderRoot = null;
 var knownTemplates = [];
-var outputFormat = 'json';
+var outputFormat = 'yaml';
+var previewTimer = null;
+var currentTemplateFields = [];
 
 /*
  * Plugin-contributed RJSF widgets are loaded at runtime from
@@ -128,6 +307,509 @@ function syncGeneratedSource() {
   $('#generatedTemplateSource').val(getGeneratedTemplateSource());
 }
 
+function setPreviewStatus(text, cssClass) {
+  var klass = cssClass || 'text-muted';
+  $('#designerPreviewStatus').attr('class', klass + ' small').text(text || '');
+}
+
+function resetTemplatePreview(placeholderText) {
+  $('#designerPreviewImg').hide().attr('src', '');
+  $('#designerPreviewPlaceholder').text(placeholderText || 'Preview unavailable').show();
+  setPreviewStatus('');
+}
+
+function normalizeFieldName(raw) {
+  return String(raw || '').trim();
+}
+
+function getTemplateFieldInputId(name) {
+  return 'designerField_' + name.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function collectTemplateFieldsFromElements(elements, byName) {
+  if (!Array.isArray(elements)) {
+    return;
+  }
+
+  elements.forEach(function(element) {
+    if (!element || typeof element !== 'object') {
+      return;
+    }
+
+    var fieldName = normalizeFieldName(element.key || element.datakey || '');
+    if (fieldName) {
+      var existing = byName[fieldName];
+      var displayLabel = String((element.name || fieldName)).trim();
+      var desc = String(element.description || '').trim();
+      var required = !!element.required;
+      if (!existing) {
+        byName[fieldName] = {
+          name: fieldName,
+          label: displayLabel,
+          description: desc,
+          required: required
+        };
+      } else {
+        existing.required = existing.required || required;
+        if (!existing.description && desc) {
+          existing.description = desc;
+        }
+      }
+    }
+
+    if (Array.isArray(element.elements)) {
+      collectTemplateFieldsFromElements(element.elements, byName);
+    }
+  });
+}
+
+function extractTemplateFields(templateData) {
+  var byName = {};
+  if (templateData && Array.isArray(templateData.elements)) {
+    collectTemplateFieldsFromElements(templateData.elements, byName);
+  }
+  return Object.keys(byName).sort().map(function(name) {
+    return byName[name];
+  });
+}
+
+function getTemplatePayloadFromFields() {
+  var payload = {};
+  currentTemplateFields.forEach(function(field) {
+    var value = $('#' + getTemplateFieldInputId(field.name)).val();
+    if (field.required) {
+      payload[field.name] = value !== undefined && value !== null ? value : '';
+    } else if (value !== undefined && value !== null && String(value).trim() !== '') {
+      payload[field.name] = value;
+    }
+  });
+  return payload;
+}
+
+function renderTemplateDataFields() {
+  var container = $('#designerDynamicFields');
+  if (!container.length) {
+    return;
+  }
+
+  var existingValues = {};
+  currentTemplateFields.forEach(function(field) {
+    existingValues[field.name] = $('#' + getTemplateFieldInputId(field.name)).val();
+  });
+
+  currentTemplateFields = extractTemplateFields(currentFormData || {});
+  container.empty();
+
+  if (currentTemplateFields.length === 0) {
+    container.html('<div class="text-muted small">Template data fields will appear when elements define keys.</div>');
+    return;
+  }
+
+  currentTemplateFields.forEach(function(field) {
+    var group = $('<div>', { class: 'form-group' });
+    group.append($('<label>', { for: getTemplateFieldInputId(field.name), text: field.label + (field.required ? ' *' : '') }));
+    var input = $('<input>', {
+      id: getTemplateFieldInputId(field.name),
+      type: 'text',
+      class: 'form-control',
+      placeholder: field.description || ('Enter ' + field.label)
+    });
+
+    if (existingValues[field.name] !== undefined) {
+      input.val(existingValues[field.name]);
+    }
+
+    input.on('input change', function() {
+      scheduleTemplatePreview();
+    });
+
+    group.append(input);
+    if (field.description) {
+      group.append($('<small>', { class: 'text-muted', text: field.description }));
+    }
+    container.append(group);
+  });
+}
+
+function scheduleTemplatePreview() {
+  if (previewTimer) {
+    clearTimeout(previewTimer);
+  }
+  previewTimer = setTimeout(renderTemplatePreview, 250);
+}
+
+function renderTemplatePreview() {
+  var hasElements = currentFormData && Array.isArray(currentFormData.elements) && currentFormData.elements.length > 0;
+  if (!hasElements) {
+    resetTemplatePreview('Preview will appear after adding elements');
+    return;
+  }
+
+  var printer = $('#previewPrinter').val() || '';
+  var labelSize = $('#previewLabelSize').val() || '';
+  var previewUrl = '/api/preview/template/raw?return_format=base64';
+  if (printer || labelSize) {
+    previewUrl += '&' + $.param({
+      printer: printer,
+      label_size: labelSize
+    });
+  }
+
+  setPreviewStatus('Rendering preview...', 'text-info');
+  var templateDataPayload = getTemplatePayloadFromFields();
+  $.ajax({
+    url: previewUrl,
+    type: 'POST',
+    data: JSON.stringify({
+      template: currentFormData || {},
+      template_data: templateDataPayload,
+      payload: templateDataPayload
+    }),
+    contentType: 'application/json; charset=utf-8',
+    success: function(base64Data) {
+      if (!base64Data) {
+        resetTemplatePreview('Preview unavailable');
+        setPreviewStatus('Preview endpoint returned empty data.', 'text-warning');
+        return;
+      }
+
+      var src = 'data:image/png;base64,' + String(base64Data).trim();
+      $('#designerPreviewImg').attr('src', src).show();
+      $('#designerPreviewPlaceholder').hide();
+      setPreviewStatus('Preview updated.', 'text-success');
+    },
+    error: function(xhr) {
+      resetTemplatePreview('Preview failed');
+      var message = 'Could not render preview.';
+      try {
+        var payload = JSON.parse(xhr.responseText);
+        if (payload && payload.error) {
+          message = payload.error;
+        }
+      } catch (e) {
+      }
+      setPreviewStatus(message, 'text-danger');
+    }
+  });
+}
+
+function updatePreviewLabelSizes(printerName, onDone) {
+  if (!printerName) {
+    if (typeof onDone === 'function') {
+      onDone();
+    }
+    return;
+  }
+
+  $.ajax({
+    type: 'GET',
+    url: '/api/printer/' + encodeURIComponent(printerName) + '/media',
+    dataType: 'json',
+    success: function(data) {
+      if (data && data.success && data.label_sizes) {
+        var selector = $('#previewLabelSize');
+        selector.empty();
+        Object.keys(data.label_sizes).forEach(function(key) {
+          selector.append($('<option>', {
+            value: key,
+            text: data.label_sizes[key]
+          }));
+        });
+        if (data.default_size && data.label_sizes[data.default_size]) {
+          selector.val(data.default_size);
+        }
+      }
+      if (typeof onDone === 'function') {
+        onDone();
+      }
+    },
+    error: function() {
+      if (typeof onDone === 'function') {
+        onDone();
+      }
+    }
+  });
+}
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function getFixedOptionType(option) {
+  if (!option || typeof option !== 'object') {
+    return null;
+  }
+  var typeProp = option.properties && option.properties.type;
+  if (!typeProp || typeof typeProp !== 'object') {
+    return null;
+  }
+  if (typeof typeProp.const === 'string' && typeProp.const) {
+    return typeProp.const;
+  }
+  if (Array.isArray(typeProp.enum) && typeProp.enum.length === 1 && typeof typeProp.enum[0] === 'string') {
+    return typeProp.enum[0];
+  }
+  return null;
+}
+
+function prioritizeTypeDiscriminatedOptions(schemaNode, dataNode) {
+  if (!schemaNode || typeof schemaNode !== 'object') {
+    return;
+  }
+
+  var options = Array.isArray(schemaNode.oneOf) ? schemaNode.oneOf : (Array.isArray(schemaNode.anyOf) ? schemaNode.anyOf : null);
+  if (options && dataNode && typeof dataNode === 'object' && !Array.isArray(dataNode)) {
+    var nodeType = dataNode.type;
+    if (typeof nodeType === 'string' && nodeType) {
+      options.sort(function(a, b) {
+        var aMatch = getFixedOptionType(a) === nodeType ? 0 : 1;
+        var bMatch = getFixedOptionType(b) === nodeType ? 0 : 1;
+        return aMatch - bMatch;
+      });
+    }
+    options.forEach(function(option) {
+      prioritizeTypeDiscriminatedOptions(option, dataNode);
+    });
+  }
+
+  if (schemaNode.properties && typeof schemaNode.properties === 'object' && dataNode && typeof dataNode === 'object' && !Array.isArray(dataNode)) {
+    Object.keys(schemaNode.properties).forEach(function(key) {
+      prioritizeTypeDiscriminatedOptions(schemaNode.properties[key], dataNode[key]);
+    });
+  }
+
+  if (schemaNode.items) {
+    if (Array.isArray(dataNode) && !Array.isArray(schemaNode.items) && schemaNode.items && typeof schemaNode.items === 'object') {
+      // Build per-index item schemas so each row can resolve oneOf/anyOf from its own type.
+      var baseItemSchema = cloneJson(schemaNode.items);
+      schemaNode.items = dataNode.map(function(item) {
+        var perItemSchema = cloneJson(baseItemSchema);
+        prioritizeTypeDiscriminatedOptions(perItemSchema, item);
+        return perItemSchema;
+      });
+      schemaNode.additionalItems = cloneJson(baseItemSchema);
+      return;
+    }
+
+    if (Array.isArray(schemaNode.items) && Array.isArray(dataNode)) {
+      schemaNode.items.forEach(function(itemSchema, index) {
+        prioritizeTypeDiscriminatedOptions(itemSchema, dataNode[index]);
+      });
+      if (schemaNode.additionalItems && typeof schemaNode.additionalItems === 'object') {
+        prioritizeTypeDiscriminatedOptions(schemaNode.additionalItems, null);
+      }
+      return;
+    }
+
+    if (!Array.isArray(schemaNode.items)) {
+      prioritizeTypeDiscriminatedOptions(schemaNode.items, dataNode);
+    }
+  }
+}
+
+function buildRenderSchema() {
+  var baseSchema = schemaPayload && schemaPayload.schema ? schemaPayload.schema : null;
+  if (!baseSchema) {
+    return null;
+  }
+  var renderSchema = cloneJson(baseSchema);
+  prioritizeTypeDiscriminatedOptions(renderSchema, currentFormData || {});
+  return renderSchema;
+}
+
+function buildSectionSummary(props) {
+  var title = props && props.title ? String(props.title) : 'Section';
+  var data = props && props.formData && typeof props.formData === 'object' ? props.formData : null;
+  var name = data && typeof data.name === 'string' ? data.name.trim() : '';
+  if (!name && data && typeof data.key === 'string') {
+    name = data.key.trim();
+  }
+  if (!name && data && typeof data.type === 'string') {
+    name = data.type.trim();
+  }
+  return name ? (title + ': ' + name) : title;
+}
+
+function createCollapsibleSection(summaryText, bodyChildren, isOpenDefault) {
+  var ReactRef = window.React;
+  return ReactRef.createElement(
+    'details',
+    {
+      className: 'rjsf-collapsible-object',
+      open: !!isOpenDefault
+    },
+    ReactRef.createElement(
+      'summary',
+      { className: 'rjsf-collapsible-summary' },
+      ReactRef.createElement('span', { className: 'rjsf-collapsible-arrow glyphicon glyphicon-chevron-right', 'aria-hidden': true }),
+      summaryText
+    ),
+    ReactRef.createElement(
+      'div',
+      { className: 'rjsf-collapsible-body' },
+      bodyChildren
+    )
+  );
+}
+
+function syncCollapsedTypePickers() {
+  $('#designerFormMount details.rjsf-collapsible-object').each(function() {
+    var details = this;
+    var objectId = $(details).attr('data-rjsf-object-id');
+    if (!objectId) {
+      return;
+    }
+
+    var escapedId = objectId.replace(/([:.\[\],=@])/g, '\\$1');
+    var pickerSelect = $('#' + escapedId + '__oneof_select, #' + escapedId + '__anyof_select').first();
+    if (!pickerSelect.length) {
+      return;
+    }
+
+    var pickerGroup = pickerSelect.closest('.form-group');
+    if (!pickerGroup.length) {
+      return;
+    }
+
+    if (details.open) {
+      pickerGroup.show();
+    } else {
+      pickerGroup.hide();
+    }
+  });
+}
+
+function bindCollapsibleTypePickerSync() {
+  $('#designerFormMount details.rjsf-collapsible-object').each(function() {
+    if (this.__hasTypePickerSyncHandler) {
+      return;
+    }
+    this.addEventListener('toggle', syncCollapsedTypePickers);
+    this.__hasTypePickerSyncHandler = true;
+  });
+}
+
+function ObjectFieldTemplate(props) {
+  var ReactRef = window.React;
+  var properties = props.properties || [];
+  var id = props.idSchema && props.idSchema.$id ? props.idSchema.$id : '';
+  var isRoot = id === 'root';
+
+  var bodyChildren = [];
+  if (props.description) {
+    bodyChildren.push(props.description);
+  }
+  properties.forEach(function(property) {
+    bodyChildren.push(property.content);
+  });
+
+  if (isRoot) {
+    var elementsProperty = null;
+    var templateSettingsChildren = [];
+    properties.forEach(function(property) {
+      if (property && property.name === 'elements') {
+        elementsProperty = property.content;
+      } else if (property) {
+        templateSettingsChildren.push(property.content);
+      }
+    });
+
+    var rootChildren = [];
+    if (props.description) {
+      rootChildren.push(props.description);
+    }
+    if (templateSettingsChildren.length > 0) {
+      rootChildren.push(createCollapsibleSection('Template Settings', templateSettingsChildren, false));
+    }
+    if (elementsProperty) {
+      rootChildren.push(elementsProperty);
+    }
+    return ReactRef.createElement('fieldset', {}, rootChildren);
+  }
+
+  var section = createCollapsibleSection(buildSectionSummary(props), bodyChildren, true);
+  return ReactRef.cloneElement(section, { 'data-rjsf-object-id': id });
+}
+
+function ArrayFieldTemplate(props) {
+  var ReactRef = window.React;
+  var items = props.items || [];
+
+  var rows = items.map(function(item, index) {
+    var total = items.length;
+    var actions = [];
+
+    if (index > 0 && item.onReorderClick) {
+      actions.push(ReactRef.createElement(
+        'button',
+        {
+          type: 'button',
+          className: 'btn btn-default btn-xs',
+          onClick: item.onReorderClick(index, index - 1),
+          title: 'Move up'
+        },
+        ReactRef.createElement('span', { className: 'glyphicon glyphicon-chevron-up', 'aria-hidden': true })
+      ));
+    }
+
+    if (index < total - 1 && item.onReorderClick) {
+      actions.push(ReactRef.createElement(
+        'button',
+        {
+          type: 'button',
+          className: 'btn btn-default btn-xs',
+          onClick: item.onReorderClick(index, index + 1),
+          title: 'Move down'
+        },
+        ReactRef.createElement('span', { className: 'glyphicon glyphicon-chevron-down', 'aria-hidden': true })
+      ));
+    }
+
+    if (item.onDropIndexClick) {
+      actions.push(ReactRef.createElement(
+        'button',
+        {
+          type: 'button',
+          className: 'btn btn-danger btn-xs',
+          onClick: item.onDropIndexClick(index),
+          title: 'Delete'
+        },
+        ReactRef.createElement('span', { className: 'glyphicon glyphicon-trash', 'aria-hidden': true })
+      ));
+    }
+
+    return ReactRef.createElement(
+      'div',
+      { className: 'rjsf-array-item-row', key: item.key || index },
+      ReactRef.createElement('div', { className: 'rjsf-array-item-content' }, item.children),
+      ReactRef.createElement('div', { className: 'rjsf-array-item-actions' }, actions)
+    );
+  });
+
+  var addButton = null;
+  if (props.canAdd && props.onAddClick) {
+    addButton = ReactRef.createElement(
+      'button',
+      {
+        type: 'button',
+        className: 'btn btn-info btn-sm',
+        onClick: props.onAddClick
+      },
+      ReactRef.createElement('span', { className: 'glyphicon glyphicon-plus', 'aria-hidden': true }),
+      ' Add Item'
+    );
+  }
+
+  return ReactRef.createElement(
+    'fieldset',
+    { className: props.className || '' },
+    props.title ? ReactRef.createElement('legend', {}, props.title) : null,
+    props.description || null,
+    rows,
+    addButton
+  );
+}
+
 function renderDesignerForm() {
   var formMount = document.getElementById('designerFormMount');
   var FormComponent = window.JSONSchemaForm && (window.JSONSchemaForm.default || window.JSONSchemaForm);
@@ -138,8 +820,10 @@ function renderDesignerForm() {
   }
 
   var formProps = {
-    schema: schemaPayload.schema,
+    schema: buildRenderSchema(),
     uiSchema: schemaPayload.uiSchema || {},
+    ObjectFieldTemplate: ObjectFieldTemplate,
+    ArrayFieldTemplate: ArrayFieldTemplate,
     widgets: RJSF_CUSTOM_WIDGETS,
     formData: currentFormData,
     noHtml5Validate: true,
@@ -147,10 +831,14 @@ function renderDesignerForm() {
     onChange: function(event) {
       currentFormData = event.formData || {};
       syncGeneratedSource();
+      renderTemplateDataFields();
+      scheduleTemplatePreview();
     },
     onSubmit: function(event) {
       currentFormData = event.formData || {};
       syncGeneratedSource();
+      renderTemplateDataFields();
+      scheduleTemplatePreview();
     }
   };
 
@@ -159,11 +847,21 @@ function renderDesignerForm() {
       renderRoot = window.ReactDOM.createRoot(formMount);
     }
     renderRoot.render(window.React.createElement(FormComponent, formProps));
+    setTimeout(function() {
+      bindCollapsibleTypePickerSync();
+      syncCollapsedTypePickers();
+      scheduleTemplatePreview();
+    }, 0);
     return;
   }
 
   if (window.ReactDOM.render) {
     window.ReactDOM.render(window.React.createElement(FormComponent, formProps), formMount);
+    setTimeout(function() {
+      bindCollapsibleTypePickerSync();
+      syncCollapsedTypePickers();
+      scheduleTemplatePreview();
+    }, 0);
     return;
   }
 
@@ -204,34 +902,31 @@ function loadTemplateSource(templateName) {
     currentFormData = {};
     renderDesignerForm();
     syncGeneratedSource();
+    renderTemplateDataFields();
+    resetTemplatePreview('Preview will appear after adding elements');
     return;
   }
 
   setDesignerStatus('Loading template <code>' + escapeHtml(templateName) + '</code>...', 'alert-info');
 
   $.ajax({
-    url: '/api/template/' + encodeURIComponent(templateName) + '/raw',
+    url: '/api/template/' + encodeURIComponent(templateName) + '/normalized',
     type: 'GET',
-    dataType: 'text',
+    dataType: 'json',
     success: function(rawContent) {
       try {
-        var parsed;
-        try {
-          parsed = JSON.parse(rawContent);
-          outputFormat = 'json';
-          $('#templateFormat').val('json');
-        } catch (jsonErr) {
-          parsed = window.jsyaml.load(rawContent);
-          outputFormat = 'yaml';
-          $('#templateFormat').val('yaml');
-        }
+        var parsed = rawContent && rawContent.template ? rawContent.template : null;
         if (!parsed || typeof parsed !== 'object') {
           throw new Error('Template did not parse to an object.');
         }
 
+        outputFormat = 'yaml';
+        $('#templateFormat').val('yaml');
         currentFormData = parsed;
         renderDesignerForm();
         syncGeneratedSource();
+        renderTemplateDataFields();
+        scheduleTemplatePreview();
         setDesignerStatus('Loaded <code>' + escapeHtml(templateName) + '</code>.', 'alert-success');
       } catch (parseErr) {
         setDesignerStatus('Template parsing failed: ' + escapeHtml(String(parseErr)), 'alert-danger');
@@ -326,6 +1021,8 @@ function fetchSchemaAndRender() {
       };
       renderDesignerForm();
       syncGeneratedSource();
+      renderTemplateDataFields();
+      resetTemplatePreview('Preview will appear after adding elements');
       refreshTemplateList();
       setDesignerStatus('Template Designer ready.', 'alert-success');
     },
@@ -336,12 +1033,17 @@ function fetchSchemaAndRender() {
 }
 
 $(document).ready(function() {
+  resetTemplatePreview('Preview will appear after adding elements');
+  updatePreviewLabelSizes($('#previewPrinter').val());
+
   $('#loadTemplateBtn').on('click', function() {
     var selected = $('#existingTemplate').val();
     if (!selected) {
       currentFormData = {};
       renderDesignerForm();
       syncGeneratedSource();
+      renderTemplateDataFields();
+      resetTemplatePreview('Preview will appear after adding elements');
       setDesignerStatus('Starting a new template.', 'alert-info');
       return;
     }
@@ -359,8 +1061,18 @@ $(document).ready(function() {
   });
 
   $('#templateFormat').on('change', function() {
-    outputFormat = $(this).val() || 'json';
+    outputFormat = $(this).val() || 'yaml';
     syncGeneratedSource();
+  });
+
+  $('#previewPrinter').on('change', function() {
+    updatePreviewLabelSizes($(this).val(), function() {
+      scheduleTemplatePreview();
+    });
+  });
+
+  $('#previewLabelSize').on('change', function() {
+    scheduleTemplatePreview();
   });
 
   // Load plugin widget definitions first, then fetch schema and render.

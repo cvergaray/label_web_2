@@ -128,7 +128,7 @@ class InjectData(elements.ElementBase):
                         "title": "Child Elements",
                         "items": {
                             "title": "Element",
-                            "anyOf": InjectData.get_plugin_editor_keys()
+                            "oneOf": InjectData.get_plugin_editor_keys()
                         }
                     }
                 }

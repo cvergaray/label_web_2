@@ -121,17 +121,31 @@ class ElementBase:
             "title": "none",
             "type": "null"
         }]
+        ordered = []
         for handler in ElementBase.plugins:
             try:
                 instance = handler()
                 key = instance.element_key()
                 if key:
-                    keys.append({
-                        "title": key,
-                        "$ref": "#/definitions/" + key
-                    })
+                    pretty_name = key.replace('_', ' ').title()
+                    ordered.append((key, {
+                        "title": pretty_name,
+                        "type": "object",
+                        "required": ["type"],
+                        "properties": {
+                            "type": {
+                                "const": key,
+                                "default": key
+                            }
+                        },
+                        "allOf": [{"$ref": "#/definitions/" + key}]
+                    }))
             except Exception:
                 traceback.print_exc()
+        # Keep the generic/basic option last so loaded data prefers the more
+        # specific matching definition instead of falling back to basic.
+        ordered.sort(key=lambda item: (item[0] == 'basic', item[0]))
+        keys.extend([item[1] for item in ordered])
         return keys
 
     @staticmethod

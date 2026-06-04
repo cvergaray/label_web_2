@@ -79,7 +79,7 @@ class JsonPayloadElement(elements.ElementBase):
                         "title": "JSON Payload Sub Elements",
                         "items": {
                             "title": "Sub-Element",
-                            "anyOf": JsonPayloadElement.get_plugin_editor_keys()
+                            "oneOf": JsonPayloadElement.get_plugin_editor_keys()
                         }
                     },
                     "key": {

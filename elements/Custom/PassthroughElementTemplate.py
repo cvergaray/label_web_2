@@ -65,7 +65,7 @@ class PassthroughElement(elements.ElementBase):
                         "title": "Elements",
                         "items": {
                             "title": "Element",
-                            "anyOf": PassthroughElement.get_plugin_editor_keys()
+                            "oneOf": PassthroughElement.get_plugin_editor_keys()
                         }
                     }
                 }

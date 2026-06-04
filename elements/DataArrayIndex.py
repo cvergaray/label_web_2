@@ -65,7 +65,7 @@ class DataArrayIndexElement(elements.ElementBase):
                         "title": "Elements",
                         "items": {
                             "title": "Element",
-                            "anyOf": DataArrayIndexElement.get_plugin_editor_keys()
+                            "oneOf": DataArrayIndexElement.get_plugin_editor_keys()
                         }
                     },
                     "data": {

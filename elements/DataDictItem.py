@@ -64,7 +64,7 @@ class DataDictItemElement(elements.ElementBase):
                         "title": "Elements",
                         "items": {
                             "title": "Element",
-                            "anyOf": DataDictItemElement.get_plugin_editor_keys()
+                            "oneOf": DataDictItemElement.get_plugin_editor_keys()
                         }
                     },
                     "data": {
