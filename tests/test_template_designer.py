@@ -421,8 +421,8 @@ def test_client_prioritizes_schema_branch_from_explicit_type():
     assert 'function prioritizeTypeDiscriminatedOptions(schemaNode, dataNode)' in content
     assert 'getFixedOptionType(a) === nodeType' in content
     assert 'schema: buildRenderSchema()' in content
-    assert 'schemaNode.items = dataNode.map(function(item)' in content
-    assert 'schemaNode.additionalItems = cloneJson(baseItemSchema);' in content
+    assert 'var sampleItem = dataNode.length > 0 ? dataNode[0] : null;' in content
+    assert 'prioritizeTypeDiscriminatedOptions(schemaNode.items, sampleItem);' in content
 
 
 def test_designer_has_collapsible_sections_and_compact_array_toolbar():

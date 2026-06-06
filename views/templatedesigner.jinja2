@@ -580,14 +580,10 @@ function prioritizeTypeDiscriminatedOptions(schemaNode, dataNode) {
 
   if (schemaNode.items) {
     if (Array.isArray(dataNode) && !Array.isArray(schemaNode.items) && schemaNode.items && typeof schemaNode.items === 'object') {
-      // Build per-index item schemas so each row can resolve oneOf/anyOf from its own type.
-      var baseItemSchema = cloneJson(schemaNode.items);
-      schemaNode.items = dataNode.map(function(item) {
-        var perItemSchema = cloneJson(baseItemSchema);
-        prioritizeTypeDiscriminatedOptions(perItemSchema, item);
-        return perItemSchema;
-      });
-      schemaNode.additionalItems = cloneJson(baseItemSchema);
+      // Keep `items` as a schema object. Converting it to an array (`items: []` for
+      // empty data) can fail meta-schema validation on newer AJV/draft combinations.
+      var sampleItem = dataNode.length > 0 ? dataNode[0] : null;
+      prioritizeTypeDiscriminatedOptions(schemaNode.items, sampleItem);
       return;
     }
 
