@@ -10,134 +10,82 @@ and ensures the application handles it gracefully.
 import copy
 import sys
 import os
-import pytest
+import unittest
 
 # Add the current directory to the path
 sys.path.insert(0, os.path.dirname(__file__))
 
 from configuration_management import settings_format_to_config
 
-def test_settings_format_with_none_printer():
-    """Test that settings_format_to_config handles None printer section gracefully"""
-    print("Test 1: Testing settings_format_to_config with None printer section...")
+class TestFixNonePrinter(unittest.TestCase):
+    def test_settings_format_with_none_printer(self):
+        """settings_format_to_config should safely normalize missing/None printer sections."""
+        test_cases = [
+            {},
+            {'printer': None},
+            {'printer': {}},
+            None,
+        ]
 
-    # Simulate a settings payload where printer section might be missing or None
-    test_cases = [
-        {},  # Empty settings
-        {'printer': None},  # Explicit None
-        {'printer': {}},  # Empty printer dict
-        None,  # None settings
-    ]
+        for i, settings in enumerate(test_cases):
+            try:
+                result = settings_format_to_config(settings)
+                self.assertIn('PRINTER', result, f"Test case {i+1}: PRINTER section missing")
+                self.assertIsNotNone(result['PRINTER'], f"Test case {i+1}: PRINTER is None")
+                self.assertIsInstance(result['PRINTER'], dict, f"Test case {i+1}: PRINTER is not a dict")
+            except Exception as e:
+                self.fail(f"Test case {i+1} failed for settings {settings!r}: {e}")
 
-    for i, settings in enumerate(test_cases):
+    def test_config_deepcopy_with_none(self):
+        """Deep copy workflows should remain safe when PRINTER starts as None."""
+        test_configs = [
+            {'PRINTER': None, 'SERVER': {}},
+            {'PRINTER': {}, 'SERVER': {}},
+            {'SERVER': {}},
+        ]
+
+        for i, config in enumerate(test_configs):
+            try:
+                temp_config = copy.deepcopy(config)
+                if temp_config.get('PRINTER') is None:
+                    temp_config['PRINTER'] = {}
+                temp_config['PRINTER']['USE_CUPS'] = True
+                temp_config['PRINTER']['SERVER'] = 'localhost'
+            except Exception as e:
+                self.fail(f"Deepcopy test case {i+1} failed for config {config!r}: {e}")
+
+    def test_implementation_initialize_with_none(self):
+        """implementation.initialize should tolerate None/missing PRINTER sections."""
         try:
-            result = settings_format_to_config(settings)
-            assert 'PRINTER' in result, f"Test case {i+1}: PRINTER section missing"
-            assert result['PRINTER'] is not None, f"Test case {i+1}: PRINTER is None"
-            assert isinstance(result['PRINTER'], dict), f"Test case {i+1}: PRINTER is not a dict"
-            print(f"  ✓ Test case {i+1} passed: {settings}")
-        except Exception as e:
-            print(f"  ✗ Test case {i+1} failed: {settings}")
-            print(f"    Error: {e}")
-            pytest.fail(f"Test case {i+1} failed for settings {settings!r}: {e}")
+            import cups
+            cups_available = hasattr(cups, 'setServer')
+        except (ImportError, AttributeError):
+            cups_available = False
 
-    print("  All test cases passed!")
+        if not cups_available:
+            self.skipTest("cups library not properly available on this platform")
 
-
-def test_config_deepcopy_with_none():
-    """Test that deepcopy handles CONFIG with None PRINTER section"""
-    print("\nTest 2: Testing deepcopy with None PRINTER section...")
-
-    test_configs = [
-        {'PRINTER': None, 'SERVER': {}},
-        {'PRINTER': {}, 'SERVER': {}},
-        {'SERVER': {}},  # Missing PRINTER
-    ]
-
-    for i, config in enumerate(test_configs):
         try:
-            temp_config = copy.deepcopy(config)
-
-            # Ensure PRINTER section exists and is a dict (defensive check)
-            if temp_config.get('PRINTER') is None:
-                temp_config['PRINTER'] = {}
-
-            # Try to access PRINTER like the fixed code does
-            temp_config['PRINTER']['USE_CUPS'] = True
-            temp_config['PRINTER']['SERVER'] = 'localhost'
-
-            print(f"  ✓ Test case {i+1} passed")
-        except Exception as e:
-            print(f"  ✗ Test case {i+1} failed")
-            print(f"    Error: {e}")
-            pytest.fail(f"Deepcopy test case {i+1} failed for config {config!r}: {e}")
-
-    print("  All test cases passed!")
-
-
-def test_implementation_initialize_with_none():
-    """Test that implementation.initialize handles None PRINTER section"""
-    print("\nTest 3: Testing implementation.initialize with None PRINTER section...")
-
-    try:
-        # Try to import cups first to see if it's available
-        import cups
-        cups_available = hasattr(cups, 'setServer')
-    except (ImportError, AttributeError):
-        cups_available = False
-
-    if not cups_available:
-        print(f"  ⚠ Skipping test (cups library not properly available on this platform)")
-        pytest.skip("cups library not properly available on this platform")
-
-    try:
-        from implementation_cups import implementation
+            from implementation_cups import implementation
+        except ImportError as e:
+            self.skipTest(f"implementation_cups not available: {e}")
 
         test_configs = [
             {'PRINTER': None},
             {'PRINTER': {}},
-            {},  # Missing PRINTER
+            {},
         ]
 
         for i, config in enumerate(test_configs):
             try:
                 instance = implementation()
-                result = instance.initialize(config)
-
-                # Verify PRINTER section was created/fixed
-                assert 'PRINTER' in instance.CONFIG, f"Test case {i+1}: PRINTER section missing"
-                assert instance.CONFIG['PRINTER'] is not None, f"Test case {i+1}: PRINTER is None"
-                assert isinstance(instance.CONFIG['PRINTER'], dict), f"Test case {i+1}: PRINTER is not a dict"
-
-                print(f"  ✓ Test case {i+1} passed")
+                instance.initialize(config)
+                self.assertIn('PRINTER', instance.CONFIG, f"Test case {i+1}: PRINTER section missing")
+                self.assertIsNotNone(instance.CONFIG['PRINTER'], f"Test case {i+1}: PRINTER is None")
+                self.assertIsInstance(instance.CONFIG['PRINTER'], dict, f"Test case {i+1}: PRINTER is not a dict")
             except Exception as e:
-                print(f"  ✗ Test case {i+1} failed")
-                print(f"    Error: {e}")
-                pytest.fail(f"Implementation initialize test case {i+1} failed for config {config!r}: {e}")
-
-        print("  All test cases passed!")
-    except ImportError as e:
-        print(f"  ⚠ Skipping test (implementation_cups not available): {e}")
-        pytest.skip(f"implementation_cups not available: {e}")
+                self.fail(f"Implementation initialize test case {i+1} failed for config {config!r}: {e}")
 
 
 if __name__ == '__main__':
-    print("="*60)
-    print("Testing fix for NoneType error when deleting custom sizes")
-    print("="*60)
-
-    all_passed = True
-
-    all_passed = test_settings_format_with_none_printer() and all_passed
-    all_passed = test_config_deepcopy_with_none() and all_passed
-    all_passed = test_implementation_initialize_with_none() and all_passed
-
-    print("\n" + "="*60)
-    if all_passed:
-        print("✓ All tests passed!")
-        print("="*60)
-        sys.exit(0)
-    else:
-        print("✗ Some tests failed!")
-        print("="*60)
-        sys.exit(1)
+    unittest.main()

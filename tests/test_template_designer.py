@@ -2,6 +2,7 @@ from pathlib import Path
 import ast
 import sys
 import json
+import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -550,5 +551,28 @@ def test_additional_property_rows_are_relabeled_to_key_value():
     assert 'function scheduleAdditionalPropertyRelabelPass()' in content
     assert 'scheduleAdditionalPropertyRelabelPass();' in content
     assert 'function ensureAdditionalPropertyLabelObserver()' in content
+
+
+class TestTemplateDesigner(unittest.TestCase):
+    """Unittest adapter for existing module-level template designer tests."""
+
+
+def _bind_function_tests_to_unittest():
+    def make_test(func):
+        def bound(self):
+            return func()
+        bound.__name__ = func.__name__
+        return bound
+
+    for name, value in list(globals().items()):
+        if name.startswith('test_') and callable(value):
+            setattr(TestTemplateDesigner, name, make_test(value))
+
+
+_bind_function_tests_to_unittest()
+
+
+if __name__ == '__main__':
+    unittest.main()
 
 
