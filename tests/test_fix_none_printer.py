@@ -10,6 +10,7 @@ and ensures the application handles it gracefully.
 import copy
 import sys
 import os
+import pytest
 
 # Add the current directory to the path
 sys.path.insert(0, os.path.dirname(__file__))
@@ -38,10 +39,9 @@ def test_settings_format_with_none_printer():
         except Exception as e:
             print(f"  ✗ Test case {i+1} failed: {settings}")
             print(f"    Error: {e}")
-            return False
+            pytest.fail(f"Test case {i+1} failed for settings {settings!r}: {e}")
 
     print("  All test cases passed!")
-    return True
 
 
 def test_config_deepcopy_with_none():
@@ -70,10 +70,9 @@ def test_config_deepcopy_with_none():
         except Exception as e:
             print(f"  ✗ Test case {i+1} failed")
             print(f"    Error: {e}")
-            return False
+            pytest.fail(f"Deepcopy test case {i+1} failed for config {config!r}: {e}")
 
     print("  All test cases passed!")
-    return True
 
 
 def test_implementation_initialize_with_none():
@@ -89,7 +88,7 @@ def test_implementation_initialize_with_none():
 
     if not cups_available:
         print(f"  ⚠ Skipping test (cups library not properly available on this platform)")
-        return True
+        pytest.skip("cups library not properly available on this platform")
 
     try:
         from implementation_cups import implementation
@@ -114,13 +113,12 @@ def test_implementation_initialize_with_none():
             except Exception as e:
                 print(f"  ✗ Test case {i+1} failed")
                 print(f"    Error: {e}")
-                return False
+                pytest.fail(f"Implementation initialize test case {i+1} failed for config {config!r}: {e}")
 
         print("  All test cases passed!")
-        return True
     except ImportError as e:
         print(f"  ⚠ Skipping test (implementation_cups not available): {e}")
-        return True  # Don't fail if implementation is not available
+        pytest.skip(f"implementation_cups not available: {e}")
 
 
 if __name__ == '__main__':

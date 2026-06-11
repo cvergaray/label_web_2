@@ -21,14 +21,14 @@ def test_cups_format_validation():
         ("Custom.4x6in", "Custom.4x6in", "Already valid CUPS format with inches"),
         ("Custom.100x50mm", "Custom.100x50mm", "Already valid CUPS format with mm"),
         ("Custom.8x4cm", "Custom.8x4cm", "Already valid CUPS format with cm"),
-        ("Custom.288x144pt", "Custom.288x144pt", "Already valid CUPS format with explicit points"),
+        ("Custom.288x144pt", None, "Explicit points suffix is rejected"),
         ("Custom.288x144", "Custom.288x144", "Already valid CUPS format with implied points"),
         
         # Valid parseable formats - should add Custom. prefix
         ("4x6in", "Custom.4x6in", "Inches format"),
         ("100x50mm", "Custom.100x50mm", "Millimeters format"),
         ("8x4cm", "Custom.8x4cm", "Centimeters format"),
-        ("288x144pt", "Custom.288x144pt", "Explicit points format"),
+        ("288x144pt", None, "Explicit points suffix is rejected"),
         ("288x144", "Custom.288x144", "Implied points format (no unit)"),
         
         # With spaces (should still work)
@@ -74,7 +74,7 @@ def test_cups_format_validation():
     print(f"Results: {passed} passed, {failed} failed")
     print("=" * 60)
     
-    return failed == 0
+    assert failed == 0, f"{failed} CUPS format conversion cases failed"
 
 def test_unit_conversions():
     """Test that all CUPS units are properly recognized."""
@@ -86,10 +86,11 @@ def test_unit_conversions():
         ("in", "inches"),
         ("mm", "millimeters"),
         ("cm", "centimeters"),
-        ("pt", "points (explicit)"),
         (None, "points (implicit)")
     ]
     
+    failed = []
+
     for unit, description in units:
         test_size = f"4x6{unit}" if unit else "288x144"
         match = re.search(PARSEABLE_SIZE_PATTERN, test_size, re.IGNORECASE)
@@ -99,10 +100,19 @@ def test_unit_conversions():
                 print(f"✓ {description}: '{test_size}' → groups: ({w}, {h}, {matched_unit})")
             else:
                 print(f"✗ {description}: expected unit '{unit}', got '{matched_unit}'")
+                failed.append(f"{description}: expected unit {unit!r}, got {matched_unit!r}")
         else:
             print(f"✗ {description}: '{test_size}' did not match pattern")
+            failed.append(f"{description}: '{test_size}' did not match pattern")
     
     print("=" * 60)
+    assert not failed, "Unit recognition failures: " + "; ".join(failed)
+
+
+def test_explicit_pt_suffix_is_not_parseable():
+    """Explicit pt suffixes should be rejected by the shared parseable size pattern."""
+    assert re.search(PARSEABLE_SIZE_PATTERN, "288x144pt", re.IGNORECASE) is None
+    assert re.search(PARSEABLE_SIZE_PATTERN, "Custom.288x144pt", re.IGNORECASE) is None
 
 if __name__ == "__main__":
     success1 = test_cups_format_validation()

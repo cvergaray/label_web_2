@@ -31,4 +31,4 @@ particularly validation patterns that should remain synchronized.
 #   - Pattern: /^(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*(in|mm|cm)?$/i
 #   - Usage: parseablePattern.test(sizeKey)
 #
-PARSEABLE_SIZE_PATTERN = r'(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*(in|mm|cm)?'
+PARSEABLE_SIZE_PATTERN = r'^(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*(in|mm|cm)?$'

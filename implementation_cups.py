@@ -170,7 +170,6 @@ class implementation:
           Custom.WIDTHxLENGTHin    - measured in inches
           Custom.WIDTHxLENGTHcm    - measured in centimeters
           Custom.WIDTHxLENGTHmm    - measured in millimeters
-          Custom.WIDTHxLENGTHpt    - measured in points (explicit)
 
         Args:
             label_size: Size key, may be in format "4x6in", "Custom.4x6in", etc.
