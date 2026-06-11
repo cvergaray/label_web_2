@@ -118,9 +118,9 @@ class JsonAPIElement(elements.ElementBase):
                     "headers": {
                         "type": "object",
                         "title": "Headers",
+                        "default": {},
                         "additionalProperties": {
-                            "type": ["string"],
-                            "items": ["string"]
+                            "type": "string"
                         }
                     },
                     "method": {

@@ -60,6 +60,26 @@ def test_schema_hides_default_submit_button():
     assert submit_options.get('norender') is True
 
 
+def test_schema_orders_element_types_with_text_default():
+    """Designer element picker should default to text for new entries."""
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+
+    from brother_ql_web import build_template_designer_schema
+
+    payload = build_template_designer_schema()
+    element_types = payload.get('meta', {}).get('element_types', [])
+    assert element_types, 'Expected non-empty element_types metadata'
+    assert element_types[0] == 'text'
+
+    top_items = payload['schema']['properties']['elements']['items']
+    selector_options = top_items.get('oneOf', [])
+    assert selector_options, 'Expected oneOf selector options for top-level elements'
+
+    first_type = selector_options[0].get('properties', {}).get('type', {}).get('const')
+    assert first_type == 'text'
+
+
 def test_builtin_elements_define_get_definition():
     elements_dir = ROOT / "elements"
     missing = []
@@ -433,6 +453,9 @@ def test_designer_has_collapsible_sections_and_compact_array_toolbar():
     content = DESIGNER_VIEW.read_text(encoding="utf-8")
 
     assert 'function ObjectFieldTemplate(props)' in content
+    assert 'function canExpandObjectField(props)' in content
+    assert 'if (canExpandObjectField(props) && props.onAddClick)' in content
+    assert "' Add Property'" in content
     assert 'className: \'rjsf-collapsible-object\'' in content
     assert 'buildSectionSummary(props)' in content
     assert 'ObjectFieldTemplate: ObjectFieldTemplate' in content
@@ -471,4 +494,61 @@ def test_preview_printer_change_updates_label_sizes_like_print_page():
     assert "$('#previewPrinter').on('change'" in content
     assert 'updatePreviewLabelSizes($(this).val()' in content
     assert 'template_data: templateDataPayload' in content
+
+
+def test_json_api_headers_schema_remains_expandable():
+    """JSON API headers should remain an expandable object in designer schema."""
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+
+    from brother_ql_web import build_template_designer_schema
+
+    payload = build_template_designer_schema()
+    definitions = payload['schema']['definitions']
+
+    assert 'json_api' in definitions, "Expected json_api definition in designer schema"
+    json_api_props = definitions['json_api'].get('properties', {})
+    assert 'headers' in json_api_props, "Expected json_api.headers property in designer schema"
+
+    headers_schema = json_api_props['headers']
+    assert headers_schema.get('type') == 'object', "headers should be modeled as an object"
+
+    additional_props = headers_schema.get('additionalProperties')
+    assert isinstance(additional_props, dict), "headers should allow additionalProperties entries"
+
+    additional_type = additional_props.get('type')
+    assert additional_type == 'string', "headers additionalProperties should be a string field for editable key/value headers"
+
+    # Ensure the object is not capped in a way that blocks adding new header keys.
+    assert 'maxProperties' not in headers_schema
+
+
+def test_object_field_template_renders_add_property_for_expandable_objects():
+    """UI template should render Add Property only when the object can expand."""
+    content = DESIGNER_VIEW.read_text(encoding="utf-8")
+
+    assert 'function ObjectFieldTemplate(props)' in content
+    assert 'function canExpandObjectField(props)' in content
+    assert 'if (canExpandObjectField(props) && props.onAddClick)' in content
+    assert "className: 'btn btn-info btn-sm'" in content
+    assert "onClick: props.onAddClick(props.schema)" in content
+    assert "' Add Property'" in content
+
+
+def test_additional_property_rows_are_relabeled_to_key_value():
+    """Designer should normalize additional-properties labels to Key/Value."""
+    content = DESIGNER_VIEW.read_text(encoding="utf-8")
+
+    assert 'function relabelAdditionalPropertyEditors()' in content
+    assert "$.trim(keyLabel.text()) !== 'Key'" in content
+    assert "keyLabel.text('Key')" in content
+    assert "$.trim(valueLabel.text()) !== 'Value'" in content
+    assert "valueLabel.text('Value')" in content
+    assert 'function runAdditionalPropertyRelabelPass()' in content
+    assert 'additionalPropertyLabelObserver.disconnect()' in content
+    assert 'additionalPropertyLabelObserver.observe(mount, { childList: true, subtree: true })' in content
+    assert 'function scheduleAdditionalPropertyRelabelPass()' in content
+    assert 'scheduleAdditionalPropertyRelabelPass();' in content
+    assert 'function ensureAdditionalPropertyLabelObserver()' in content
+
 

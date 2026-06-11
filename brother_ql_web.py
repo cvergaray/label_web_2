@@ -606,6 +606,15 @@ def _build_type_selector_options(definitions, definition_keys):
     return options
 
 
+def _element_type_sort_key(key):
+    """Order element types for designer pickers: text first, basic last."""
+    if key == 'text':
+        return (0, key)
+    if key == 'basic':
+        return (2, key)
+    return (1, key)
+
+
 def build_template_designer_schema():
     """Build a JSON Schema payload used by the Template Designer page."""
     plugin_definitions = ElementBase.get_plugin_editor_definitions() or {}
@@ -640,7 +649,7 @@ def build_template_designer_schema():
                             if isinstance(required_list, list) and 'type' not in required_list:
                                 required_list.append('type')
 
-    definition_keys = sorted(definitions.keys(), key=lambda key: (key == 'basic', key))
+    definition_keys = sorted(definitions.keys(), key=_element_type_sort_key)
     selector_options = _build_type_selector_options(definitions, definition_keys)
 
     # Ensure nested element pickers use the same type-driven selector options.

@@ -263,6 +263,8 @@ var knownTemplates = [];
 var outputFormat = 'yaml';
 var previewTimer = null;
 var currentTemplateFields = [];
+var additionalPropertyLabelObserver = null;
+var additionalPropertyRelabelScheduled = false;
 
 /*
  * Plugin-contributed RJSF widgets are loaded at runtime from
@@ -685,11 +687,117 @@ function bindCollapsibleTypePickerSync() {
   });
 }
 
+function relabelAdditionalPropertyEditors() {
+  $('#designerFormMount .row').has('.form-additional').each(function() {
+    var row = $(this);
+    var keyLabel = row.find('.col-xs-5.form-additional .control-label').first();
+    if (keyLabel.length && $.trim(keyLabel.text()) !== 'Key') {
+      keyLabel.text('Key');
+    }
+
+    var valueLabel = row.find('.form-additional.form-group .control-label').first();
+    if (valueLabel.length && $.trim(valueLabel.text()) !== 'Value') {
+      valueLabel.text('Value');
+    }
+  });
+}
+
+function runAdditionalPropertyRelabelPass() {
+  var mount = document.getElementById('designerFormMount');
+  if (!mount) {
+    return;
+  }
+
+  if (additionalPropertyLabelObserver) {
+    additionalPropertyLabelObserver.disconnect();
+  }
+
+  relabelAdditionalPropertyEditors();
+
+  if (additionalPropertyLabelObserver) {
+    additionalPropertyLabelObserver.observe(mount, { childList: true, subtree: true });
+  }
+}
+
+function scheduleAdditionalPropertyRelabelPass() {
+  if (additionalPropertyRelabelScheduled) {
+    return;
+  }
+  additionalPropertyRelabelScheduled = true;
+  window.setTimeout(function() {
+    additionalPropertyRelabelScheduled = false;
+    runAdditionalPropertyRelabelPass();
+  }, 0);
+}
+
+function ensureAdditionalPropertyLabelObserver() {
+  var mount = document.getElementById('designerFormMount');
+  if (!mount) {
+    return;
+  }
+
+  if (typeof window.MutationObserver === 'undefined') {
+    runAdditionalPropertyRelabelPass();
+    return;
+  }
+
+  if (additionalPropertyLabelObserver && additionalPropertyLabelObserver.__mount === mount) {
+    runAdditionalPropertyRelabelPass();
+    return;
+  }
+
+  if (additionalPropertyLabelObserver) {
+    additionalPropertyLabelObserver.disconnect();
+  }
+
+  additionalPropertyLabelObserver = new window.MutationObserver(function() {
+    scheduleAdditionalPropertyRelabelPass();
+  });
+  additionalPropertyLabelObserver.observe(mount, { childList: true, subtree: true });
+  additionalPropertyLabelObserver.__mount = mount;
+  runAdditionalPropertyRelabelPass();
+}
+
+function canExpandObjectField(props) {
+  var schema = props && props.schema ? props.schema : {};
+  var uiOptions = (props && props.uiSchema && props.uiSchema['ui:options']) || {};
+  var formData = props && props.formData && typeof props.formData === 'object' ? props.formData : {};
+
+  if (uiOptions.expandable === false) {
+    return false;
+  }
+
+  if (!schema || !schema.additionalProperties) {
+    return false;
+  }
+
+  if (typeof schema.maxProperties === 'number' && Object.keys(formData).length >= schema.maxProperties) {
+    return false;
+  }
+
+  return true;
+}
+
 function ObjectFieldTemplate(props) {
   var ReactRef = window.React;
   var properties = props.properties || [];
   var id = props.idSchema && props.idSchema.$id ? props.idSchema.$id : '';
   var isRoot = id === 'root';
+
+  var addPropertyButton = null;
+  if (canExpandObjectField(props) && props.onAddClick) {
+    addPropertyButton = ReactRef.createElement(
+      'button',
+      {
+        type: 'button',
+        className: 'btn btn-info btn-sm',
+        onClick: props.onAddClick(props.schema),
+        title: 'Add property'
+      },
+      ReactRef.createElement('span', { className: 'glyphicon glyphicon-plus', 'aria-hidden': true }),
+      ' Add Property'
+    );
+  }
 
   var bodyChildren = [];
   if (props.description) {
@@ -698,6 +806,9 @@ function ObjectFieldTemplate(props) {
   properties.forEach(function(property) {
     bodyChildren.push(property.content);
   });
+  if (addPropertyButton) {
+    bodyChildren.push(addPropertyButton);
+  }
 
   if (isRoot) {
     var elementsProperty = null;
@@ -846,6 +957,7 @@ function renderDesignerForm() {
     setTimeout(function() {
       bindCollapsibleTypePickerSync();
       syncCollapsedTypePickers();
+      ensureAdditionalPropertyLabelObserver();
       scheduleTemplatePreview();
     }, 0);
     return;
@@ -856,6 +968,7 @@ function renderDesignerForm() {
     setTimeout(function() {
       bindCollapsibleTypePickerSync();
       syncCollapsedTypePickers();
+      ensureAdditionalPropertyLabelObserver();
       scheduleTemplatePreview();
     }, 0);
     return;
