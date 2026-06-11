@@ -702,3 +702,59 @@ For details about Ghostscript licensing, see:
 https://ghostscript.com/licensing/
 
 
+### Bundled Frontend JavaScript Dependencies
+
+The following third-party JavaScript assets are bundled in `static/js/vendor/`
+for offline operation of the Template Designer UI.
+
+#### React
+
+- **Bundled file**: `static/js/vendor/react.production.min.js`
+- **Project**: https://github.com/facebook/react
+- **License**: MIT License
+- **Copyright**: Facebook, Inc. and its affiliates.
+
+#### React DOM
+
+- **Bundled file**: `static/js/vendor/react-dom.production.min.js`
+- **Project**: https://github.com/facebook/react
+- **License**: MIT License
+- **Copyright**: Facebook, Inc. and its affiliates.
+
+#### react-jsonschema-form (@rjsf/core)
+
+- **Bundled file**: `static/js/vendor/react-jsonschema-form-4.2.2.js`
+- **Project**: https://github.com/rjsf-team/react-jsonschema-form
+- **License**: MIT License
+
+#### js-yaml
+
+- **Bundled file**: `static/js/vendor/js-yaml.min.js`
+- **Project**: https://github.com/nodeca/js-yaml
+- **License**: MIT License
+
+
+### Additional Notices Included in Bundled Files
+
+Some bundled assets also include third-party notices in their headers/source.
+The following licenses/notices are included in those distributed files:
+
+#### TypeScript Runtime Helper Notice
+
+- **Included in**: `static/js/vendor/react-jsonschema-form-4.2.2.js`
+- **Notice**: "Copyright (c) Microsoft Corporation"
+- **License terms**: permissive notice included inline in the file header.
+
+#### URI.js
+
+- **Included in**: `static/js/vendor/react-jsonschema-form-4.2.2.js`
+- **Project**: http://github.com/garycourt/uri-js
+- **License**: MIT License
+
+#### react-is
+
+- **Included in**: `static/js/vendor/react-jsonschema-form-4.2.2.js`
+- **Project**: https://github.com/facebook/react
+- **License**: MIT License
+
+

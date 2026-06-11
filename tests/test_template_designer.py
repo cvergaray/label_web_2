@@ -19,7 +19,10 @@ def test_base_view_exposes_template_designer_navigation():
 def test_template_designer_view_loads_rjsf_dependencies():
     content = DESIGNER_VIEW.read_text(encoding="utf-8")
 
-    assert '@rjsf/core@4.2.2/dist/react-jsonschema-form.js' in content
+    assert '/static/js/vendor/react.production.min.js' in content
+    assert '/static/js/vendor/react-dom.production.min.js' in content
+    assert '/static/js/vendor/react-jsonschema-form-4.2.2.js' in content
+    assert '/static/js/vendor/js-yaml.min.js' in content
     assert 'id="designerFormMount"' in content
     assert 'id="templateFormat"' in content
     assert '<option value="yaml" selected>YAML</option>' in content
