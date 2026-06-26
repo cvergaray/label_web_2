@@ -32,6 +32,7 @@ from configuration_management import (
     filter_label_sizes_for_printer,
     filter_printers,
     normalize_default_fonts,
+    split_server_and_port,
     validate_configuration,
     compute_printer_selection,
 )
@@ -865,8 +866,14 @@ def validate_cups_server_api():
         payload = request.json or {}
         server = payload.get('server') or 'localhost'
         old_server = cups.getServer()
+        old_port = cups.getPort() if hasattr(cups, 'getPort') else None
+        if not isinstance(old_port, int):
+            old_port = None
+        server_host, server_port = split_server_and_port(server)
         try:
-            conn = cups.Connection(server)
+            cups.setServer(server_host)
+            cups.setPort(server_port)
+            conn = cups.Connection()
             printers = list(conn.getPrinters().keys())
             return {'success': True, 'server': server, 'printers': printers}
         except Exception as e:
@@ -874,6 +881,8 @@ def validate_cups_server_api():
             return {'success': False, 'error': str(e), 'server': server}
         finally:
             cups.setServer(old_server)
+            if old_port is not None:
+                cups.setPort(old_port)
     except Exception as e:
         response.status = 500
         logger.error(f"Error validating CUPS server: {e}")
