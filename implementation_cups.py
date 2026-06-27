@@ -92,6 +92,29 @@ class implementation:
     def _get_conn(self):
         return cups.Connection()
 
+    def validate_connectivity(self, payload):
+        payload = payload or {}
+        server = payload.get('server') or 'localhost'
+
+        old_server = cups.getServer()
+        old_port = cups.getPort() if hasattr(cups, 'getPort') else None
+        if not isinstance(old_port, int):
+            old_port = None
+
+        server_host, server_port = split_server_and_port(server)
+        try:
+            cups.setServer(server_host)
+            cups.setPort(server_port)
+            conn = cups.Connection()
+            printers = list(conn.getPrinters().keys())
+            return {'success': True, 'server': server, 'printers': printers}
+        except Exception as e:
+            return {'success': False, 'error': str(e), 'server': server}
+        finally:
+            cups.setServer(old_server)
+            if old_port is not None:
+                cups.setPort(old_port)
+
     def _get_printer_name(self, printerName=None):
         if printerName:
             return printerName
