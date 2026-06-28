@@ -90,6 +90,20 @@ def split_server_and_port(server_value, default_port=DEFAULT_CUPS_PORT):
     if not server:
         return 'localhost', default_port
 
+    # Handle bracketed IPv6 like "[::1]:631"
+    if server.startswith('['):
+        end = server.find(']')
+        if end != -1:
+            host = server[1:end]
+            rest = server[end + 1:]
+            if rest.startswith(':') and rest[1:].isdigit():
+                return host, int(rest[1:])
+            return host, default_port
+
+    # Raw IPv6 addresses contain multiple ':' and should not be split as host:port.
+    if server.count(':') > 1:
+        return server, default_port
+
     host, separator, port_text = server.rpartition(':')
     if separator and host and port_text.isdigit():
         return host, int(port_text)

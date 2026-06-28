@@ -76,7 +76,7 @@ class implementation:
             _ = conn.getPrinters()
             self.cups_default = conn.getDefault() or None
         except Exception as e:
-            server_display = self.server_ip or self.server_host or 'localhost'
+            server_display = self.server_host or 'localhost'
             if self.server_port:
                 server_display = f"{server_display}:{self.server_port}"
             error_msg = f"Failed to retrieve printer data from CUPS server at '{server_display}': {str(e)}"
@@ -94,6 +94,8 @@ class implementation:
 
     def validate_connectivity(self, payload):
         payload = payload or {}
+        if not isinstance(payload, dict):
+            payload = {}
         server = payload.get('server') or 'localhost'
 
         old_server = cups.getServer()
