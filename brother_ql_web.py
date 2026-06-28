@@ -4,7 +4,6 @@
 """
 This is a web service to print labels on label printers via CUPS.
 """
-import cups
 import copy
 import textwrap
 
@@ -862,18 +861,10 @@ def save_settings_api():
 def validate_cups_server_api():
     """Validate connectivity to a CUPS server without changing current config."""
     try:
-        payload = request.json or {}
-        server = payload.get('server') or 'localhost'
-        old_server = cups.getServer()
-        try:
-            conn = cups.Connection(server)
-            printers = list(conn.getPrinters().keys())
-            return {'success': True, 'server': server, 'printers': printers}
-        except Exception as e:
+        result = instance.validate_connectivity(request.json)
+        if not result.get('success'):
             response.status = 400
-            return {'success': False, 'error': str(e), 'server': server}
-        finally:
-            cups.setServer(old_server)
+        return result
     except Exception as e:
         response.status = 500
         logger.error(f"Error validating CUPS server: {e}")

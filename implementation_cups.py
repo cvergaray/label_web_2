@@ -2,6 +2,7 @@
 import cups
 import re
 from constants import PARSEABLE_SIZE_PATTERN
+from configuration_management import split_server_and_port
 
 # Conversion constants
 POINTS_PER_INCH = 72.0  # PostScript/CUPS points per inch
@@ -40,6 +41,8 @@ class implementation:
         self.CONFIG = None
         self.logger = None
         self.server_ip = None
+        self.server_host = None
+        self.server_port = None
         self.selected_printer = None
         self.initialization_errors = []  # Track initialization and CUPS errors
         self.cups_default = None  # Track CUPS-reported default printer
@@ -49,6 +52,8 @@ class implementation:
         self.initialization_errors = []  # Clear any previous errors
         self.cups_default = None
         self.server_ip = None
+        self.server_host = None
+        self.server_port = None
 
         # Ensure PRINTER section exists and is a dict
         if 'PRINTER' not in self.CONFIG or self.CONFIG['PRINTER'] is None:
@@ -59,7 +64,9 @@ class implementation:
         if 'SERVER' in self.CONFIG['PRINTER']:
             self.server_ip = self.CONFIG['PRINTER']['SERVER']
 
-        cups.setServer(self.server_ip)
+        self.server_host, self.server_port = split_server_and_port(self.server_ip)
+        cups.setServer(self.server_host)
+        cups.setPort(self.server_port)
 
         # Test CUPS connection
         try:
@@ -69,7 +76,10 @@ class implementation:
             _ = conn.getPrinters()
             self.cups_default = conn.getDefault() or None
         except Exception as e:
-            error_msg = f"Failed to retrieve printer data from CUPS server at '{self.server_ip or 'localhost'}': {str(e)}"
+            server_display = self.server_host or 'localhost'
+            if self.server_port:
+                server_display = f"{server_display}:{self.server_port}"
+            error_msg = f"Failed to retrieve printer data from CUPS server at '{server_display}': {str(e)}"
             self.cups_default = None
             self.initialization_errors.append(error_msg)
             print(f"Error: {error_msg}")
@@ -81,6 +91,31 @@ class implementation:
 
     def _get_conn(self):
         return cups.Connection()
+
+    def validate_connectivity(self, payload):
+        payload = payload or {}
+        if not isinstance(payload, dict):
+            payload = {}
+        server = payload.get('server') or 'localhost'
+
+        old_server = cups.getServer()
+        old_port = cups.getPort() if hasattr(cups, 'getPort') else None
+        if not isinstance(old_port, int):
+            old_port = None
+
+        server_host, server_port = split_server_and_port(server)
+        try:
+            cups.setServer(server_host)
+            cups.setPort(server_port)
+            conn = cups.Connection()
+            printers = list(conn.getPrinters().keys())
+            return {'success': True, 'server': server, 'printers': printers}
+        except Exception as e:
+            return {'success': False, 'error': str(e), 'server': server}
+        finally:
+            cups.setServer(old_server)
+            if old_port is not None:
+                cups.setPort(old_port)
 
     def _get_printer_name(self, printerName=None):
         if printerName:
