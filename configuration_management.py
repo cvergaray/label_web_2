@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration file path
 CONFIG_FILE = '/appconfig/config.json'
+DEFAULT_CUPS_PORT = 631
 
 # Default configuration structure
 DEFAULT_CONFIG = {
@@ -73,6 +74,41 @@ def label_sizes_list_to_dict(label_sizes_list, logger=None, warn_prefix=""):
             if logger:
                 logger.warning(f"{warn_prefix}Skipping invalid label size entry: {item}")
     return label_sizes_dict
+
+
+def split_server_and_port(server_value, default_port=DEFAULT_CUPS_PORT):
+    """
+    Split a CUPS server string into host and port.
+
+    Accepts values like "cups.local" or "cups.local:631". If no port is
+    included, the default CUPS port is returned.
+    """
+    if server_value is None:
+        return 'localhost', default_port
+
+    server = str(server_value).strip()
+    if not server:
+        return 'localhost', default_port
+
+    # Handle bracketed IPv6 like "[::1]:631"
+    if server.startswith('['):
+        end = server.find(']')
+        if end != -1:
+            host = server[1:end]
+            rest = server[end + 1:]
+            if rest.startswith(':') and rest[1:].isdigit():
+                return host, int(rest[1:])
+            return host, default_port
+
+    # Raw IPv6 addresses contain multiple ':' and should not be split as host:port.
+    if server.count(':') > 1:
+        return server, default_port
+
+    host, separator, port_text = server.rpartition(':')
+    if separator and host and port_text.isdigit():
+        return host, int(port_text)
+
+    return server, default_port
 
 
 def reload_config(config):
@@ -158,6 +194,8 @@ def config_to_settings_format(config):
             'useCups': config.get('PRINTER', {}).get('USE_CUPS', True),
             'server': config.get('PRINTER', {}).get('SERVER', 'localhost'),
             'printer': config.get('PRINTER', {}).get('PRINTER', ''),
+            'defaultDpi': config.get('PRINTER', {}).get('DEFAULT_DPI', 203),
+            'dpi': config.get('PRINTER', {}).get('DPI', {}),
             'enabledSizes': config.get('PRINTER', {}).get('ENABLED_SIZES', {}),
             'labelSizes': label_sizes_map,
             'labelPrintableArea': config.get('PRINTER', {}).get('LABEL_PRINTABLE_AREA', {}),
@@ -205,6 +243,8 @@ def settings_format_to_config(settings):
             'USE_CUPS': printer_settings.get('useCups', True),
             'SERVER': printer_settings.get('server', 'localhost') or 'localhost',
             'PRINTER': printer_settings.get('printer', '') or '',
+            'DEFAULT_DPI': printer_settings.get('defaultDpi', 203) or 203,
+            'DPI': printer_settings.get('dpi', {}) or {},
             'ENABLED_SIZES': printer_settings.get('enabledSizes', {}) or {},
             'LABEL_SIZES': label_sizes_map,
             'PRINTERS_INCLUDE': printer_settings.get('printersInclude', []) or [],

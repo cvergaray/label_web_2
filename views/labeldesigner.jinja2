@@ -182,13 +182,20 @@ function preview() {
     url:         '/api/preview/text?return_format=base64',
     contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
     data:        formData(),
-    success: function( data ) {
-      $('#previewImg').attr('src', 'data:image/png;base64,' + data);
+    success: function(data, textStatus, jqXHR) {
+      var effectiveDpi = (typeof getEffectivePreviewDpi === 'function')
+        ? getEffectivePreviewDpi(jqXHR, 300)
+        : 300;
       var img = $('#previewImg')[0];
       img.onload = function() {
-        $('#labelWidth').html( (img.naturalWidth /300*2.54).toFixed(1));
-        $('#labelHeight').html((img.naturalHeight/300*2.54).toFixed(1));
+        if (typeof updatePrintedSizeDisplay === 'function') {
+          updatePrintedSizeDisplay(img, effectiveDpi);
+        } else {
+          $('#labelWidth').html((img.naturalWidth / effectiveDpi * 2.54).toFixed(1));
+          $('#labelHeight').html((img.naturalHeight / effectiveDpi * 2.54).toFixed(1));
+        }
       };
+      $('#previewImg').attr('src', 'data:image/png;base64,' + data);
     }
   });
 }

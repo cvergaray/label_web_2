@@ -44,6 +44,18 @@ class TestLabelSizesListToDict(unittest.TestCase):
         self.assertEqual(result, {'62': '62mm', '29': '29mm x 90mm'})
 
 
+class TestSplitServerAndPort(unittest.TestCase):
+    def test_returns_host_and_default_port_without_explicit_port(self):
+        host, port = cm.split_server_and_port('cups.local')
+        self.assertEqual(host, 'cups.local')
+        self.assertEqual(port, 631)
+
+    def test_parses_host_and_port(self):
+        host, port = cm.split_server_and_port('cups.local:8631')
+        self.assertEqual(host, 'cups.local')
+        self.assertEqual(port, 8631)
+
+
 class TestConfigToSettingsFormat(unittest.TestCase):
     """Test cases for config_to_settings_format function"""
 

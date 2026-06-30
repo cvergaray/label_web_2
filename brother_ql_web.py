@@ -4,7 +4,6 @@
 """
 This is a web service to print labels on label printers via CUPS.
 """
-import cups
 import copy
 import textwrap
 
@@ -330,6 +329,83 @@ def save_template_raw(templatefile):
         response.content_type = 'application/json'
         return json.dumps({'success': False, 'error': str(e)})
 
+
+@route('/api/template/create', method=['POST', 'OPTIONS'])
+@enable_cors
+def create_template():
+    """Create a new template file with the provided name and content.
+    
+    Expects JSON body with:
+    - name: The name of the label (without .lbl extension)
+    - content: The template content
+    """
+    try:
+        payload = request.json
+        
+        if not payload:
+            response.status = 400
+            response.content_type = 'application/json'
+            return json.dumps({'success': False, 'error': 'No data provided'})
+        
+        label_name = payload.get('name', '').strip()
+        content = payload.get('content', '')
+        if not isinstance(content, str):
+            response.status = 400
+            response.content_type = 'application/json'
+            return json.dumps({'success': False, 'error': 'Template content must be a string'})
+        # Validate label name is provided
+        if not label_name:
+            response.status = 400
+            response.content_type = 'application/json'
+            return json.dumps({'success': False, 'error': 'Label name is required'})
+        
+        # Validate label name format (ASCII alphanumeric, hyphen, underscore only)
+        if (not label_name.isascii()) or (not all(c.isalnum() or c in '-_' for c in label_name)):
+            response.status = 400
+            response.content_type = 'application/json'
+            return json.dumps({'success': False, 'error': 'Label name can only contain letters, numbers, hyphens, and underscores'})
+        
+        # Create the file path
+        filename = label_name + '.lbl'
+        path = os.path.join('/appconfig', filename)
+        
+        # Write the template file (atomic create)
+        try:
+            with open(path, 'x', encoding='utf-8', newline='\n') as f:
+                f.write(content)
+        except FileExistsError:
+            response.status = 409
+            response.content_type = 'application/json'
+            return json.dumps({'success': False, 'error': f'A label with the name "{label_name}" already exists'})
+        
+        response.content_type = 'application/json'
+        return json.dumps({'success': True, 'filename': filename})
+    except Exception as e:
+        response.status = 500
+        response.content_type = 'application/json'
+        logger.error(f"Error creating template: {e}")
+        return json.dumps({'success': False, 'error': str(e)})
+
+@route('/api/list/templates', method=['GET', 'OPTIONS'])
+@enable_cors
+def list_templates():
+    """Get list of available template files.
+    
+    Returns JSON with:
+    - templates: List of template filenames
+    """
+    try:
+        templateFiles = [os.path.basename(file) for file in glob.glob('/appconfig/*.lbl')]
+        templateFiles.sort()  # Sort alphabetically for consistency
+        
+        response.content_type = 'application/json'
+        return json.dumps({'success': True, 'templates': templateFiles})
+    except Exception as e:
+        response.status = 500
+        response.content_type = 'application/json'
+        logger.error(f"Error listing templates: {e}")
+        return json.dumps({'success': False, 'error': str(e)})
+
 def get_template_data(templatefile):
     """
     Deserialize data from a template file that may contain either JSON or YAML content.
@@ -481,12 +557,37 @@ def create_label_im(text, **kwargs):
     draw.multiline_text(offset, text, kwargs['fill_color'], font=im_font, align=kwargs['align'])
     return im
 
+
+def get_effective_printer_dpi(printer_name=None):
+    """Resolve the effective DPI used for preview/print size calculations."""
+    try:
+        dpi_getter = getattr(instance, '_get_printer_dpi', None)
+        if callable(dpi_getter):
+            dpi = dpi_getter(printer_name)
+            if isinstance(dpi, (int, float)) and dpi > 0:
+                return int(dpi)
+    except Exception as e:
+        logger.debug(f"Could not determine effective printer DPI for '{printer_name}': {e}")
+
+    default_dpi = CONFIG.get('PRINTER', {}).get('DEFAULT_DPI')
+    if isinstance(default_dpi, (int, float)) and default_dpi > 0:
+        return int(default_dpi)
+
+    return 203
+
+
+def set_preview_metadata_headers(context):
+    """Attach preview metadata headers consumed by the UI."""
+    response.set_header('X-Label-DPI', str(get_effective_printer_dpi(context.get('printer'))))
+    response.set_header('Access-Control-Expose-Headers', 'X-Label-DPI')
+
 @get('/api/preview/text')
 @post('/api/preview/text')
 @enable_cors
 def get_preview_image():
     context = get_label_context(request)
     im = create_label_im(**context)
+    set_preview_metadata_headers(context)
     return_format = request.query.get('return_format', 'png')
     if return_format == 'base64':
         import base64
@@ -509,6 +610,7 @@ def get_preview_template_image(templatefile):
         payload = {}
 
     im = create_label_from_template(template_data, payload, **context)
+    set_preview_metadata_headers(context)
     return_format = request.query.get('return_format', 'png')
     if return_format == 'base64':
         import base64
@@ -759,18 +861,10 @@ def save_settings_api():
 def validate_cups_server_api():
     """Validate connectivity to a CUPS server without changing current config."""
     try:
-        payload = request.json or {}
-        server = payload.get('server') or 'localhost'
-        old_server = cups.getServer()
-        try:
-            conn = cups.Connection(server)
-            printers = list(conn.getPrinters().keys())
-            return {'success': True, 'server': server, 'printers': printers}
-        except Exception as e:
+        result = instance.validate_connectivity(request.json)
+        if not result.get('success'):
             response.status = 400
-            return {'success': False, 'error': str(e), 'server': server}
-        finally:
-            cups.setServer(old_server)
+        return result
     except Exception as e:
         response.status = 500
         logger.error(f"Error validating CUPS server: {e}")
