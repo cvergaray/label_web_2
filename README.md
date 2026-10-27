@@ -6,7 +6,7 @@ This is a web service to print labels on (label) printers exposed via CUPS. Base
 Primarily, I use this in conjunction with [Grocy](https://grocy.info/) for label printing, so there are some features 
 that are built with that tool in mind, but the intent is to make this flexible and useful in other scenarios.
 
-If not using the docker container, you need Python 3 for this software to work.
+If not using the docker container, you need Python 3.11 or later for this software to work.
 
 ![Screenshot](./static/images/screenshots/Label-Designer_Desktop.png)
 
