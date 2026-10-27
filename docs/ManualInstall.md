@@ -12,7 +12,7 @@ Get the code:
 
 or download [the ZIP file](https://github.com/cvergaray/label_web/archive/master.zip) and unpack it.
 
-Install the requirements:
+Use Python 3.11 or later and install the requirements:
 
     pip install -r requirements.txt
 
